@@ -4,17 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/data_source_provider.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/sync/connectivity_provider.dart';
 import 'package:vikunja_app/core/sync/sync_service.dart';
 import 'package:vikunja_app/core/sync/sync_state_provider.dart';
 
 part 'sync_provider.g.dart';
 
-/// Stellt den [SyncService] bereit und verkabelt den automatischen Pull bei
-/// Wiederherstellung der Verbindung (offline -> online).
+/// Stellt den [SyncService] bereit und verkabelt den automatischen Push+Pull
+/// bei Wiederherstellung der Verbindung (offline -> online).
 @Riverpod(keepAlive: true)
 SyncService syncService(Ref ref) {
   final service = SyncService(
+    pushBeforePull: () => ref.read(pushProcessorProvider).pushAll(),
     serverDataSource: ref.watch(serverDataSourceProvider),
     userDataSource: ref.watch(userDataSourceProvider),
     labelDataSource: ref.watch(labelDataSourceProvider),
@@ -34,11 +36,12 @@ SyncService syncService(Ref ref) {
     syncState: ref.watch(syncStateNotifierProvider.notifier),
   );
 
-  // Trigger: sobald die Verbindung von offline auf online wechselt, einen
-  // Voll-Pull anstoßen (Single-Flight verhindert Doppelläufe).
+  // Trigger: sobald die Verbindung von offline auf online wechselt, erst die
+  // Outbox pushen, dann einen Voll-Pull anstoßen (Single-Flight verhindert
+  // Doppelläufe).
   ref.listen<bool>(connectivityStatusProvider, (previous, next) {
     if (previous == false && next == true) {
-      unawaited(service.pullAll());
+      unawaited(service.syncNow());
     }
   });
 

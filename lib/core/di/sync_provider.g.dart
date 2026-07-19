@@ -6,10 +6,10 @@ part of 'sync_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$syncServiceHash() => r'3b40cb6a6e3472b734a248a8b948c98bb86fb742';
+String _$syncServiceHash() => r'c6097564daa19f233070dd76b2542b588c16baed';
 
-/// Stellt den [SyncService] bereit und verkabelt den automatischen Pull bei
-/// Wiederherstellung der Verbindung (offline -> online).
+/// Stellt den [SyncService] bereit und verkabelt den automatischen Push+Pull
+/// bei Wiederherstellung der Verbindung (offline -> online).
 ///
 /// Copied from [syncService].
 @ProviderFor(syncService)

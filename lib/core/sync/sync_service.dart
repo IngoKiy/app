@@ -102,7 +102,9 @@ class SyncService {
     required KeyValueDao keyValueDao,
     required SyncStateNotifier syncState,
     DtoCompanionMapper mapper = const DtoCompanionMapper(),
+    Future<void> Function()? pushBeforePull,
   }) : _serverDataSource = serverDataSource,
+       _pushBeforePull = pushBeforePull,
        _userDataSource = userDataSource,
        _labelDataSource = labelDataSource,
        _projectDataSource = projectDataSource,
@@ -142,12 +144,23 @@ class SyncService {
   final SyncStateNotifier _syncState;
   final DtoCompanionMapper _mapper;
 
+  /// Optionaler Push-Schritt vor dem Pull (Outbox abarbeiten). Wird über den
+  /// Provider mit [PushProcessor.pushAll] verkabelt; in Tests, die nur den Pull
+  /// prüfen, bleibt er null.
+  final Future<void> Function()? _pushBeforePull;
+
   /// Laufender Pull; Single-Flight — ein zweiter Aufruf wartet auf denselben
   /// Future statt einen weiteren Durchlauf zu starten.
   Future<SyncResult>? _pullInFlight;
 
-  /// Manueller Auslöser (Pull-to-Refresh / "jetzt synchronisieren").
-  Future<SyncResult> syncNow() => pullAll();
+  /// Manueller Auslöser (Pull-to-Refresh / "jetzt synchronisieren"): erst
+  /// Push (Outbox), dann voller Pull.
+  Future<SyncResult> syncNow() async {
+    if (_pushBeforePull != null) {
+      await _pushBeforePull();
+    }
+    return pullAll();
+  }
 
   Future<SyncResult> pullAll() {
     return _pullInFlight ??= _pullAll().whenComplete(() {
