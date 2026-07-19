@@ -106,12 +106,13 @@ class TaskPageController extends _$TaskPageController {
         ref.read(currentUserProvider)?.settings?.defaultProjectId ?? 0;
 
     // Seiteneffekte (Home-Widget/Notifications) nur beim ersten Aufbau, damit
-    // Stream-Updates keine Netzwerk-Aufrufe spammen. Bleibt bis M3 online.
+    // Stream-Updates nicht bei jedem DB-Tick neu aufgebaut werden.
+    // Datenquelle ist ab M3 die lokale DB (siehe widget_controller.dart /
+    // notifications.dart), kein Netzwerk-Aufruf mehr nötig.
     if (isInitial) {
-      unawaited(updateWidget().catchError((_) {}));
-      ref
-          .read(notificationProvider)
-          ?.scheduleDueNotifications(ref.read(taskRepositoryProvider));
+      final dao = ref.read(tasksDaoProvider);
+      unawaited(updateWidget(tasksDao: dao).catchError((_) {}));
+      ref.read(notificationProvider)?.scheduleDueNotifications(dao);
     }
 
     return TaskPageModel(tasks, onlyDue, defaultProjectId, false);

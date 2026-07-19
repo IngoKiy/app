@@ -99,4 +99,15 @@ class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
   }
 
   Future<int> wipeAll() => delete(tasks).go();
+
+  /// Offene, nicht gelöschte Tasks für Home-Widget und Notification-Planung
+  /// (Meilenstein M3/F2, siehe docs/offline.md). Einmaliger Read statt
+  /// `watch*()`, da beide Aufrufer (widget_controller.dart,
+  /// notifications.dart) außerhalb des UI-Lebenszyklus laufen können
+  /// (Headless-Isolate). Fälligkeits-/Reminder-Filterung erfolgt in den
+  /// Aufrufern, da Reminder-Termine nur im [TaskRow.rawJson] stecken und
+  /// hier nicht per SQL filterbar sind.
+  Future<List<TaskRow>> getOpenTasks() => (select(
+    tasks,
+  )..where((t) => t.isDeleted.equals(false) & t.done.equals(false))).get();
 }

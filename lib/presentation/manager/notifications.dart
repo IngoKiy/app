@@ -8,11 +8,19 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:vikunja_app/core/network/client.dart';
+import 'package:vikunja_app/core/sync/dto_companion_mapper.dart';
 import 'package:vikunja_app/data/data_sources/settings_data_source.dart';
 import 'package:vikunja_app/data/data_sources/task_data_source.dart';
+import 'package:vikunja_app/data/local/dao/tasks_dao.dart';
+import 'package:vikunja_app/data/local/database.dart';
+import 'package:vikunja_app/data/local/row_mappers.dart';
+import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/data/repositories/task_repository_impl.dart';
+import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/repositories/task_repository.dart';
 import 'package:vikunja_app/presentation/manager/widget_controller.dart';
+
+const _dtoMapper = DtoCompanionMapper();
 
 const _actionDonePortName = 'action_done_port_name';
 const _notificationActionDone = 'action_done';
@@ -51,6 +59,9 @@ Future<void> markAsDone(int id) async {
     var task = response.toSuccess().body;
     task.done = true;
     await taskService.update(task);
+    // Server hat den neuen Stand bestätigt -> lokale DB spiegeln, damit
+    // updateWidget() (liest jetzt aus der DB) sofort konsistent ist.
+    await _mirrorTaskToLocalDb(task);
 
     await updateWidget();
 
@@ -62,6 +73,26 @@ Future<void> markAsDone(int id) async {
     if (sendPort != null) {
       sendPort.send(task.id);
     }
+  }
+}
+
+/// Spiegelt einen per Direkt-Request (nicht über die Outbox) aktualisierten
+/// Task in die lokale DB. Kein Pending-Op nötig — der Server hat den Stand
+/// bereits bestätigt. Öffnet eine eigene kurzlebige DB-Verbindung, da
+/// [markAsDone] im Headless-Isolate (Notification-Tap) ohne DI-Container
+/// läuft.
+Future<void> _mirrorTaskToLocalDb(Task task) async {
+  final db = AppDatabase();
+  try {
+    await db.tasksDao.upsertFromServer(
+      _dtoMapper.task(
+        TaskDto.fromDomain(task),
+        DateTime.now(),
+        projectId: task.projectId,
+      ),
+    );
+  } finally {
+    await db.close();
   }
 }
 
@@ -226,43 +257,51 @@ class NotificationHandler {
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
-  Future<void> scheduleDueNotifications(TaskRepository taskService) async {
-    var taskResponse = await taskService.getByFilterString(
-      "done=false && (due_date > now || reminders > now)",
-      {
-        "filter_include_nulls": ["false"],
-      },
-    );
+  /// Plant Fälligkeits-/Reminder-Benachrichtigungen aus der lokalen DB
+  /// (Meilenstein M3/F2, siehe docs/offline.md) statt der bisherigen
+  /// Live-Anfrage an den Server. Vorauswahl entspricht dem bisherigen
+  /// Server-Filter `done=false && (due_date > now || reminders > now)`:
+  /// nur Tasks mit einer noch anstehenden Fälligkeit oder einem noch
+  /// anstehenden Reminder werden berücksichtigt (Reminder-Termine stecken
+  /// nur im rawJson und sind daher nicht per SQL filterbar).
+  Future<void> scheduleDueNotifications(TasksDao tasksDao) async {
+    final now = DateTime.now();
+    final rows = await tasksDao.getOpenTasks();
+    final tasks = rows.map(taskFromRow).where((task) {
+      final hasFutureDueDate = task.hasDueDate && task.dueDate!.isAfter(now);
+      final hasFutureReminder = task.reminderDates.any(
+        (reminder) => reminder.reminder.isAfter(now),
+      );
+      return hasFutureDueDate || hasFutureReminder;
+    });
 
-    if (taskResponse.isSuccessful) {
-      await notificationsPlugin.cancelAll();
-      for (final task in taskResponse.toSuccess().body) {
-        if (task.done) continue;
-        for (final reminder in task.reminderDates) {
-          await scheduleNotification(
-            (reminder.reminder.millisecondsSinceEpoch / 1000).floor(),
-            "Reminder",
-            "This is your reminder for '${task.title}'",
-            notificationsPlugin,
-            reminder.reminder,
-            await FlutterTimezone.getLocalTimezone(),
-            platformChannelSpecificsReminders,
-          );
-        }
-        if (task.hasDueDate) {
-          await scheduleNotification(
-            task.id,
-            "Due Reminder",
-            "The task '${task.title}' is due.",
-            notificationsPlugin,
-            task.dueDate!,
-            await FlutterTimezone.getLocalTimezone(),
-            platformChannelSpecificsDueDate,
-          );
-        }
+    await notificationsPlugin.cancelAll();
+    final currentTimeZone = await FlutterTimezone.getLocalTimezone();
+    for (final task in tasks) {
+      for (final reminder in task.reminderDates) {
+        await scheduleNotification(
+          (reminder.reminder.millisecondsSinceEpoch / 1000).floor(),
+          "Reminder",
+          "This is your reminder for '${task.title}'",
+          notificationsPlugin,
+          reminder.reminder,
+          currentTimeZone,
+          platformChannelSpecificsReminders,
+        );
       }
-      developer.log("notifications scheduled successfully");
+      if (task.hasDueDate) {
+        await scheduleNotification(
+          task.id,
+          "Due Reminder",
+          "The task '${task.title}' is due.",
+          notificationsPlugin,
+          task.dueDate!,
+          currentTimeZone,
+          platformChannelSpecificsDueDate,
+        );
+      }
     }
+    developer.log("notifications scheduled successfully");
   }
 
   void addListener(Function() listener) {
