@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/domain/entities/bucket.dart';
+import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 
 class BucketLimitDialog extends StatefulWidget {
   final Bucket bucket;
@@ -62,19 +63,21 @@ class _BucketLimitDialogState extends State<BucketLimitDialog> {
           ),
         ],
       ),
-      actions: <TextButton>[
-        TextButton(
+      actions: <Widget>[
+        AppButton(
+          label: l10n.cancel,
+          variant: AppButtonVariant.text,
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.cancel),
         ),
-        TextButton(
+        AppButton(
+          label: l10n.removeLimit,
+          variant: AppButtonVariant.text,
           onPressed: () => Navigator.of(context).pop(0),
-          child: Text(l10n.removeLimit),
         ),
-        TextButton(
+        AppButton(
+          label: l10n.done,
           onPressed: () =>
               Navigator.of(context).pop(int.parse(_controller.text)),
-          child: Text(l10n.done),
         ),
       ],
     );

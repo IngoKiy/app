@@ -14,6 +14,7 @@ import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/domain/entities/version.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 import 'package:vikunja_app/presentation/manager/settings_controller.dart';
 import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
@@ -159,7 +160,9 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                         ),
                       ),
                     ),
-                    TextButton(
+                    AppButton(
+                      label: l10n.save,
+                      variant: AppButtonVariant.tonal,
                       onPressed: () {
                         ref
                             .read(settingsControllerProvider.notifier)
@@ -168,7 +171,6 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                                   0,
                             );
                       },
-                      child: Text(l10n.save),
                     ),
                   ],
                 ),
@@ -183,7 +185,9 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                       .setVersionNotifications(value ?? false);
                 },
               ),
-              TextButton(
+              AppButton(
+                label: l10n.sendTestNotification,
+                variant: AppButtonVariant.tonal,
                 onPressed: () async {
                   var notifGranted = await Permission.notification.isGranted;
                   if (notifGranted) {
@@ -199,9 +203,10 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                     }
                   }
                 },
-                child: Text(l10n.sendTestNotification),
               ),
-              TextButton(
+              AppButton(
+                label: l10n.checkForLatestVersion,
+                variant: AppButtonVariant.tonal,
                 onPressed: () async {
                   var newestVersion = await ref
                       .read(versionRepositoryProvider)
@@ -216,7 +221,6 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                     });
                   }
                 },
-                child: Text(l10n.checkForLatestVersion),
               ),
               Text(
                 settings.currentVersion != null
@@ -231,7 +235,9 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                     : "",
               ),
               Divider(),
-              TextButton(
+              AppButton(
+                label: l10n.logout,
+                variant: AppButtonVariant.danger,
                 onPressed: () {
                   ref.read(settingsRepositoryProvider).saveServer(null);
                   ref.read(settingsRepositoryProvider).saveUserToken(null);
@@ -243,7 +249,6 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                     MaterialPageRoute(builder: (buildContext) => LoginPage()),
                   );
                 },
-                child: Text(l10n.logout),
               ),
             ],
           );

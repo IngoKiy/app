@@ -10,7 +10,7 @@ import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/project/project_detail_page.dart';
 import 'package:vikunja_app/presentation/pages/task/task_edit_page.dart';
-import 'package:vikunja_app/presentation/widgets/empty_view.dart';
+import 'package:vikunja_app/presentation/widgets/ui/empty_state.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_task_list_item.dart';
 import 'package:vikunja_app/presentation/widgets/task_bottom_sheet.dart';
 
@@ -72,9 +72,9 @@ class ProjectTaskList extends ConsumerWidget {
         if (children.isNotEmpty) {
           return CustomScrollView(slivers: children);
         } else {
-          return EmptyView(
-            Icons.list,
-            AppLocalizations.of(context).noTasksOrSubproject,
+          return EmptyState(
+            icon: Icons.list,
+            title: AppLocalizations.of(context).noTasksOrSubproject,
           );
         }
       },

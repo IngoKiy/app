@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 
 class TaskSaveDialog extends StatelessWidget {
   final Function onConfirm;
@@ -23,14 +24,15 @@ class TaskSaveDialog extends StatelessWidget {
         ),
       ),
       actions: <Widget>[
-        TextButton(
-          child: Text(AppLocalizations.of(context).dismiss),
+        AppButton(
+          label: AppLocalizations.of(context).dismiss,
+          variant: AppButtonVariant.text,
           onPressed: () {
             onConfirm();
           },
         ),
-        TextButton(
-          child: Text(AppLocalizations.of(context).keepEditing),
+        AppButton(
+          label: AppLocalizations.of(context).keepEditing,
           onPressed: () {
             onCancel();
           },

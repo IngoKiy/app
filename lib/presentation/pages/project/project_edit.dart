@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/presentation/manager/project_controller.dart';
-import 'package:vikunja_app/presentation/widgets/button.dart';
+import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 
 class ProjectEditPage extends ConsumerStatefulWidget {
   final Project project;
@@ -109,14 +109,15 @@ class ProjectEditPageState extends ConsumerState<ProjectEditPage> {
               Builder(
                 builder: (context) => Padding(
                   padding: EdgeInsets.symmetric(vertical: 10.0),
-                  child: FancyButton(
+                  child: AppButton(
+                    label: l10n.save,
+                    expand: true,
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
                         _formKey.currentState?.save();
                         _saveProject(ref, widget.project);
                       }
                     },
-                    child: Text(l10n.save),
                   ),
                 ),
               ),
