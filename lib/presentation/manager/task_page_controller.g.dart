@@ -7,7 +7,7 @@ part of 'task_page_controller.dart';
 // **************************************************************************
 
 String _$taskPageControllerHash() =>
-    r'db5c45cb81bc8bf3602de6f1ffcb33dee2b2db28';
+    r'3babc0619c8f4b504ad3e59bb8f2ac2661a9cea5';
 
 /// Übersicht (Landing-Page). Standardfälle (offene Tasks, optional nur mit
 /// Fälligkeit) kommen reaktiv aus der DB. Ein benutzerdefinierter Übersichts-

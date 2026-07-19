@@ -1,27 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
-import 'package:vikunja_app/core/di/repository_provider.dart';
-import 'package:vikunja_app/core/network/response.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
+import 'package:vikunja_app/core/sync/connectivity_provider.dart';
 import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
-import 'package:vikunja_app/domain/repositories/project_repository.dart';
 import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 
+import '../../core/offline/offline_test_fakes.dart';
 import 'controller_test_helpers.dart';
 
-class _MockProjectRepository implements ProjectRepository {
-  Future<Response<Project>> Function(Project)? createStub;
-
+class _StubConnectivity extends ConnectivityStatus {
   @override
-  Future<Response<Project>> create(Project p) => createStub!(p);
-
-  @override
-  Future<Response<List<Project>>> getAll({int page = 1}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<Project>> update(Project p) => throw UnimplementedError();
+  bool build() => true;
 }
 
 void main() {
@@ -32,7 +23,12 @@ void main() {
 
   ProviderContainer createContainer({List<Override> overrides = const []}) {
     final container = ProviderContainer(
-      overrides: [appDatabaseProvider.overrideWithValue(db), ...overrides],
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        connectivityStatusProvider.overrideWith(() => _StubConnectivity()),
+        opExecutorProvider.overrideWithValue(buildExecutor(db)),
+        ...overrides,
+      ],
     );
     addTearDown(container.dispose);
     return container;
@@ -69,26 +65,19 @@ void main() {
     expect(model.projects.length, 2);
   });
 
-  test('create upsertet die Server-Antwort in die DB', () async {
-    final repo = _MockProjectRepository()
-      ..createStub = (p) async => SuccessResponse(
-        Project(id: 99, title: p.title, created: testTime, updated: testTime),
-        201,
-        {},
-      );
-
-    final container = createContainer(
-      overrides: [projectRepositoryProvider.overrideWithValue(repo)],
-    );
+  test('create (offline) legt optimistisch ein Temp-Projekt an + Outbox', () async {
+    final container = createContainer();
     await container.read(projectsControllerProvider.future);
 
     container
         .read(projectsControllerProvider.notifier)
         .create(Project(title: 'Neu'));
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await Future<void>.delayed(const Duration(milliseconds: 200));
 
-    final row = await db.projectsDao.getById(99);
+    final row = await db.projectsDao.getById(-1);
     expect(row, isNotNull);
     expect(row!.title, 'Neu');
+    expect(row.isDirty, isTrue);
+    expect(await db.pendingOpsDao.nextBatch(), hasLength(1));
   });
 }

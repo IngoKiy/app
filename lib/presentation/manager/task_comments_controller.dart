@@ -1,6 +1,9 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
+import 'package:vikunja_app/core/offline/offline_writer.dart';
+import 'package:vikunja_app/data/models/task_comment_dto.dart';
 import 'package:vikunja_app/domain/entities/task_comment.dart';
 
 part 'task_comments_controller.g.dart';
@@ -33,54 +36,57 @@ class TaskCommentsController extends _$TaskCommentsController {
     }
   }
 
+  /// Schreibpfade laufen über den [OfflineWriter] (lokal + Outbox). Die Liste
+  /// wird optimistisch gepatcht statt online neu geladen, damit sie auch offline
+  /// aktuell bleibt.
   Future<bool> addComment(String text) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return false;
 
-    final comment = TaskComment(comment: text, author: currentUser);
+    final result = await ref
+        .read(offlineWriterProvider)
+        .addComment(taskId, text, currentUser);
+    if (!result.ok) return false;
 
-    final response = await ref
-        .read(taskCommentRepositoryProvider)
-        .create(taskId, comment);
-
-    if (response.isSuccessful) {
-      await reload();
-      return true;
-    }
-
-    return false;
+    final added = result.status == OfflineWriteStatus.synced
+        ? (result.body as TaskCommentDto).toDomain()
+        : TaskComment(comment: text, author: currentUser);
+    state = AsyncData([...(state.value ?? const []), added]);
+    return true;
   }
 
   Future<bool> updateComment(TaskComment comment, String text) async {
-    final updatedComment = TaskComment(
-      id: comment.id,
-      comment: text,
-      author: comment.author,
-      created: comment.created,
-    );
+    final result = await ref
+        .read(offlineWriterProvider)
+        .updateComment(taskId, comment, text);
+    if (!result.ok) return false;
 
-    final response = await ref
-        .read(taskCommentRepositoryProvider)
-        .update(taskId, updatedComment);
-
-    if (response.isSuccessful) {
-      await reload();
-      return true;
-    }
-
-    return false;
+    state = AsyncData([
+      for (final c in state.value ?? const <TaskComment>[])
+        if (c.id == comment.id)
+          TaskComment(
+            id: comment.id,
+            comment: text,
+            author: comment.author,
+            created: comment.created,
+          )
+        else
+          c,
+    ]);
+    return true;
   }
 
   Future<bool> deleteComment(int commentId) async {
-    final response = await ref
-        .read(taskCommentRepositoryProvider)
-        .delete(taskId, commentId);
+    final result = await ref
+        .read(offlineWriterProvider)
+        .deleteComment(taskId, commentId);
+    if (!result.ok) return false;
 
-    if (response.isSuccessful) {
-      await reload();
-      return true;
-    }
-
-    return false;
+    state = AsyncData(
+      (state.value ?? const <TaskComment>[])
+          .where((c) => c.id != commentId)
+          .toList(),
+    );
+    return true;
   }
 }

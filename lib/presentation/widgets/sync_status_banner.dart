@@ -4,6 +4,7 @@ import 'package:vikunja_app/core/sync/sync_state.dart';
 import 'package:vikunja_app/core/sync/sync_state_provider.dart';
 import 'package:vikunja_app/core/theming/dimensions.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/widgets/sync_status_sheet.dart';
 
 /// Global, narrow banner surfacing the app's sync/offline status.
 ///
@@ -95,16 +96,19 @@ class _SyncBannerContent extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       container: true,
+      button: true,
       child: Material(
         color: background,
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.md,
-              vertical: AppDimensions.xs,
-            ),
-            child: Column(
+        child: InkWell(
+          onTap: () => SyncStatusSheet.show(context),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.md,
+                vertical: AppDimensions.xs,
+              ),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -128,6 +132,7 @@ class _SyncBannerContent extends StatelessWidget {
                   ),
                 ],
               ],
+              ),
             ),
           ),
         ),

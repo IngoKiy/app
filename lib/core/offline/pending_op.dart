@@ -5,12 +5,46 @@ import 'package:vikunja_app/data/local/database.dart';
 
 /// Alle Operationstypen, die der Push-Sync (Outbox) kennt. Der Name (`.name`)
 /// wird in der `pending_ops`-Tabelle als `opType` gespeichert.
+///
+/// ## Enqueue-Konventionen (payload + tempIdRefs je OpType)
+///
+/// [payload] ist das DTO-JSON der Operation; [tempIdRefs] bildet logische
+/// FK-Namen auf noch nicht aufgelöste Temp-IDs ab (nur nötig, wenn die
+/// referenzierte Entität selbst offline erzeugt wurde). Der [PushProcessor]
+/// löst die Refs beim Senden über das Temp-ID-Mapping auf; für Update/Delete
+/// wird die primäre Entität über [PendingOp.localId] (ggf. Temp-ID) aufgelöst.
+///
+/// | OpType            | localId        | payload (relevante Schlüssel)                 | tempIdRefs        |
+/// |-------------------|----------------|-----------------------------------------------|-------------------|
+/// | taskCreate        | Task-Temp-ID   | `TaskDto.toJSON()` inkl. `project_id`         | `projectId?`      |
+/// | taskUpdate        | Task-ID        | `TaskDto.toJSON()` (`id` wird überschrieben)  | –                 |
+/// | taskDelete        | Task-ID        | `{}`                                          | –                 |
+/// | taskSetAssignees  | Task-ID        | `{assignees: [UserDto.toJSON()...]}`          | `taskId?`         |
+/// | taskLabelBulk     | Task-ID        | `{labels: [LabelDto.toJSON()...]}`            | `taskId?`         |
+/// | labelCreate       | Label-Temp-ID  | `LabelDto.toJSON()`                           | –                 |
+/// | commentCreate     | Comment-Temp   | `TaskCommentDto.toJSON()` + `task_id`         | `taskId?`         |
+/// | commentUpdate     | Comment-ID     | `TaskCommentDto.toJSON()` + `task_id`         | `taskId?`         |
+/// | commentDelete     | Comment-ID     | `{task_id}`                                   | `taskId?`         |
+/// | projectCreate     | Project-Temp   | `ProjectDto.toJSON()`                         | –                 |
+/// | projectUpdate     | Project-ID     | `ProjectDto.toJSON()`                         | –                 |
+/// | bucketCreate      | Bucket-Temp    | `BucketDto.toJSON()` + `project_id`,`view_id` | `projectId?,viewId?` |
+/// | bucketUpdate      | Bucket-ID      | `BucketDto.toJSON()` + `project_id`,`view_id` | `projectId?,viewId?` |
+/// | bucketDelete      | Bucket-ID      | `{project_id, view_id}`                        | `projectId?,viewId?` |
+/// | taskMoveBucket    | Task-ID        | `{bucket_id, project_id, view_id}`            | `taskId?,bucketId?,projectId?` |
+/// | taskPosition      | Task-ID        | `{position, view_id}`                          | `taskId?`         |
+/// | projectViewUpdate | View-ID        | `ProjectViewDto.toJSON()`                     | –                 |
+/// | userSettings      | 0              | `UserSettingsDto.toJson()`                    | –                 |
+/// | attachment*       | Task-ID        | (M4, siehe push_processor)                    | `taskId?`         |
+///
+/// Die FIFO-Reihenfolge kodiert Abhängigkeiten: eine liefernde Create-Op wird
+/// immer vor ihren Nutzern enqueued.
 enum PendingOpType {
   taskCreate,
   taskUpdate,
   taskDelete,
   taskSetAssignees,
   taskLabelBulk,
+  labelCreate,
   commentCreate,
   commentUpdate,
   commentDelete,
@@ -34,7 +68,8 @@ extension PendingOpTypeX on PendingOpType {
       this == PendingOpType.taskCreate ||
       this == PendingOpType.commentCreate ||
       this == PendingOpType.projectCreate ||
-      this == PendingOpType.bucketCreate;
+      this == PendingOpType.bucketCreate ||
+      this == PendingOpType.labelCreate;
 
   /// Grobe Entitätskategorie (für die `entityType`-Spalte / Debugging).
   String get entityType {
@@ -47,6 +82,8 @@ extension PendingOpTypeX on PendingOpType {
       case PendingOpType.taskMoveBucket:
       case PendingOpType.taskPosition:
         return 'task';
+      case PendingOpType.labelCreate:
+        return 'label';
       case PendingOpType.commentCreate:
       case PendingOpType.commentUpdate:
       case PendingOpType.commentDelete:

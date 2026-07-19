@@ -25,6 +25,15 @@ umgestellt. Bitte bis zum Abschluss:
 - **Push-Sync:** Outbox (`pending_ops`-Tabelle), FIFO mit Abhängigkeitssortierung,
   Temp-IDs (negativ) für offline Erzeugtes, Mapping bei Create-Erfolg transaktional
   auf alle FKs + restliche Outbox; Konflikte = Last-Write-Wins
+- **Schreibpfade (M2/E2):** alle Writes laufen über `OfflineWriter`
+  (`lib/core/offline/offline_writer.dart`): (1) lokal anwenden (Create =
+  Temp-ID + dirty, Update = Zeile patchen + dirty, Delete = Temp-Zeile löschen
+  bzw. Tombstone), (2) online versuchen über den geteilten `OpExecutor`
+  (`op_executor.dart`, identische Sende-/Migrations-Logik wie der
+  `PushProcessor`), (3) Netzwerkfehler → Outbox (optimistisch), (4) 4xx →
+  lokale Änderung zurückrollen. Sync-Status-Sheet
+  (`sync_status_sheet.dart`) zeigt pending/failed Ops mit „Jetzt
+  synchronisieren" und „Verwerfen".
 - **Offline-Start:** `init_controller` startet aus der DB, Sync läuft im Hintergrund
 - **UI:** globaler Sync-/Offline-Banner (`MaterialApp.builder`), Sync-Status-Sheet
 - Vollständiger Plan: siehe Meilensteine M1–M4 im Projektplan der Haupt-Session

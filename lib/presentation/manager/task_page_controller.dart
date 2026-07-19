@@ -4,11 +4,10 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/notification_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
-import 'package:vikunja_app/core/sync/dto_companion_mapper.dart';
 import 'package:vikunja_app/data/local/row_mappers.dart';
-import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_page_model.dart';
 import 'package:vikunja_app/presentation/manager/widget_controller.dart';
@@ -21,8 +20,6 @@ part 'task_page_controller.g.dart';
 /// er auf den DB-Standard zurück (lokaler Filter-Evaluator kommt in M3).
 @riverpod
 class TaskPageController extends _$TaskPageController {
-  static const _mapper = DtoCompanionMapper();
-
   @override
   Future<TaskPageModel> build() async {
     final filterId = _overviewFilterId();
@@ -135,52 +132,29 @@ class TaskPageController extends _$TaskPageController {
     ref.invalidateSelf();
   }
 
+  /// Schreibpfade laufen über den [OfflineWriter]: lokal anwenden + online
+  /// versuchen; bei Netzwerkfehler landet die Op in der Outbox (optimistisch).
+  /// Rückgabe `true`, sofern der Server die Änderung nicht abgelehnt hat.
   Future<bool> addTask(int projectId, Task task) async {
-    final response = await ref.read(taskRepositoryProvider).add(projectId, task);
-    if (response.isSuccessful) {
-      await _upsertTask(response.toSuccess().body, projectId: projectId);
-      return true;
-    }
-    return false;
+    final result = await ref
+        .read(offlineWriterProvider)
+        .addTask(projectId, task);
+    return result.ok;
   }
 
   Future<bool> deleteTask(int id) async {
-    final response = await ref.read(taskRepositoryProvider).delete(id);
-    if (response.isSuccessful) {
-      await ref.read(tasksDaoProvider).deleteById(id);
-      return true;
-    }
-    return false;
+    final result = await ref.read(offlineWriterProvider).deleteTask(id);
+    return result.ok;
   }
 
   Future<bool> updateTask(Task task) async {
-    final response = await ref.read(taskRepositoryProvider).update(task);
-    if (response.isSuccessful) {
-      await _upsertTask(response.toSuccess().body, projectId: task.projectId);
-      return true;
-    }
-    return false;
+    final result = await ref.read(offlineWriterProvider).updateTask(task);
+    return result.ok;
   }
 
   Future<bool> markAsDone(Task task) async {
     task.done = true;
-    final response = await ref.read(taskRepositoryProvider).update(task);
-    if (response.isSuccessful) {
-      await _upsertTask(response.toSuccess().body, projectId: task.projectId);
-      return true;
-    }
-    return false;
-  }
-
-  Future<void> _upsertTask(Task task, {int? projectId}) {
-    return ref
-        .read(tasksDaoProvider)
-        .upsertFromServer(
-          _mapper.task(
-            TaskDto.fromDomain(task),
-            DateTime.now(),
-            projectId: projectId ?? task.projectId,
-          ),
-        );
+    final result = await ref.read(offlineWriterProvider).updateTask(task);
+    return result.ok;
   }
 }

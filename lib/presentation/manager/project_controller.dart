@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
 import 'package:vikunja_app/core/sync/dto_companion_mapper.dart';
 import 'package:vikunja_app/data/local/row_mappers.dart';
-import 'package:vikunja_app/data/models/bucket_dto.dart';
 import 'package:vikunja_app/data/models/project_dto.dart';
-import 'package:vikunja_app/data/models/task_dto.dart';
+import 'package:vikunja_app/data/models/project_view_dto.dart';
 import 'package:vikunja_app/domain/entities/bucket.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/project_page_model.dart';
@@ -127,14 +127,10 @@ class ProjectController extends _$ProjectController {
   }
 
   Future<bool> addTask(Project project, Task newTask) async {
-    final response = await ref
-        .read(taskRepositoryProvider)
-        .add(project.id, newTask);
-    if (response.isSuccessful) {
-      await _upsertTask(response.toSuccess().body, projectId: project.id);
-      return true;
-    }
-    return false;
+    final result = await ref
+        .read(offlineWriterProvider)
+        .addTask(project.id, newTask);
+    return result.ok;
   }
 
   Future<bool> addBucket({
@@ -142,54 +138,32 @@ class ProjectController extends _$ProjectController {
     required Project project,
     required int viewId,
   }) async {
-    final response = await ref
-        .read(bucketRepositoryProvider)
-        .add(project.id, viewId, newBucket);
-    if (response.isSuccessful) {
-      await _upsertBucket(
-        response.toSuccess().body,
-        projectId: project.id,
-        viewId: viewId,
-      );
-      return true;
-    }
-    return false;
+    final result = await ref
+        .read(offlineWriterProvider)
+        .addBucket(project.id, viewId, newBucket);
+    return result.ok;
   }
 
   Future<bool> deleteBucket({
     required Bucket bucket,
     required Project project,
   }) async {
-    final response = await ref
-        .read(bucketRepositoryProvider)
-        .delete(
-          project.id,
-          project.views[state.value!.viewIndex].id,
-          bucket.id,
-        );
-    if (response.isSuccessful) {
-      await ref.read(bucketsDaoProvider).deleteById(bucket.id);
-      return true;
-    }
-    return false;
+    final viewId = project.views[state.value!.viewIndex].id;
+    final result = await ref
+        .read(offlineWriterProvider)
+        .deleteBucket(project.id, viewId, bucket.id);
+    return result.ok;
   }
 
   Future<bool> updateBucket({
     required Bucket bucket,
     required Project project,
   }) async {
-    final response = await ref
-        .read(bucketRepositoryProvider)
-        .update(project.id, project.views[state.value!.viewIndex].id, bucket);
-    if (response.isSuccessful) {
-      await _upsertBucket(
-        bucket,
-        projectId: project.id,
-        viewId: project.views[state.value!.viewIndex].id,
-      );
-      return true;
-    }
-    return false;
+    final viewId = project.views[state.value!.viewIndex].id;
+    final result = await ref
+        .read(offlineWriterProvider)
+        .updateBucket(project.id, viewId, bucket);
+    return result.ok;
   }
 
   Future<bool> reorderTasks({
@@ -201,7 +175,7 @@ class ProjectController extends _$ProjectController {
     final value = state.value;
     if (value == null) return false;
 
-    // Optimistisch anzeigen; der DB-Upsert unten liefert den finalen Stand.
+    // Optimistisch anzeigen; der Writer patcht die DB (liefert den Endstand).
     state = AsyncData(value.copyWith(tasks: newOrderedTasks));
 
     int? viewId = _getFirstListViewIdFromProject(value.project);
@@ -209,17 +183,13 @@ class ProjectController extends _$ProjectController {
       return true;
     }
 
-    final res = await ref
-        .read(bucketRepositoryProvider)
-        .updateTaskPosition(movedTaskId, viewId, newPosition);
-    if (!res.isSuccessful) {
+    final result = await ref
+        .read(offlineWriterProvider)
+        .reorderTask(taskId: movedTaskId, viewId: viewId, position: newPosition);
+    if (!result.ok) {
       reload();
       return false;
     }
-
-    final moved = newOrderedTasks.firstWhere((t) => t.id == movedTaskId);
-    moved.position = newPosition;
-    await _upsertTask(moved, projectId: project.id);
     return true;
   }
 
@@ -230,22 +200,16 @@ class ProjectController extends _$ProjectController {
     double position,
   ) async {
     final viewId = project.views[state.value!.viewIndex].id;
-
-    final updateBucketResponse = await ref
-        .read(bucketRepositoryProvider)
-        .updateTaskBucket(task.id, bucket.id, project.id, viewId);
-
-    final updateTaskResponse = await ref
-        .read(bucketRepositoryProvider)
-        .updateTaskPosition(task.id, viewId, position);
-
-    if (updateBucketResponse.isSuccessful && updateTaskResponse.isSuccessful) {
-      task.position = position;
-      task.bucketId = bucket.id;
-      await _upsertTask(task, projectId: project.id, bucketId: bucket.id);
-      return true;
-    }
-    return false;
+    final result = await ref
+        .read(offlineWriterProvider)
+        .moveTask(
+          task: task,
+          bucketId: bucket.id,
+          projectId: project.id,
+          viewId: viewId,
+          position: position,
+        );
+    return result.ok;
   }
 
   Future<bool> updateDoneBucket(
@@ -256,11 +220,13 @@ class ProjectController extends _$ProjectController {
     final projectView = project.views[state.value!.viewIndex];
     projectView.doneBucketId = isDoneColumn ? 0 : bucketId;
 
-    final response = await ref
-        .read(projectViewRepositoryProvider)
-        .update(projectView);
-    if (response.isSuccessful) {
-      await _persistProjectViews(project);
+    final result = await ref
+        .read(offlineWriterProvider)
+        .updateProjectView(
+          ProjectViewDto.fromDomain(projectView),
+          persistLocal: () => _persistProjectViews(project),
+        );
+    if (result.ok) {
       final value = state.value;
       if (value != null) {
         state = AsyncData(value.copyWith(project: project));
@@ -278,11 +244,13 @@ class ProjectController extends _$ProjectController {
     final projectView = project.views[state.value!.viewIndex];
     projectView.defaultBucketId = isDefaultColumn ? 0 : bucketId;
 
-    final response = await ref
-        .read(projectViewRepositoryProvider)
-        .update(projectView);
-    if (response.isSuccessful) {
-      await _persistProjectViews(project);
+    final result = await ref
+        .read(offlineWriterProvider)
+        .updateProjectView(
+          ProjectViewDto.fromDomain(projectView),
+          persistLocal: () => _persistProjectViews(project),
+        );
+    if (result.ok) {
       final value = state.value;
       if (value != null) {
         state = AsyncData(value.copyWith(project: project));
@@ -306,35 +274,22 @@ class ProjectController extends _$ProjectController {
   }
 
   Future<bool> updateProject(Project project) async {
-    final updateResponse = await ref
-        .read(projectRepositoryProvider)
-        .update(project);
-
-    if (updateResponse.isSuccessful) {
-      await ref
-          .read(projectsDaoProvider)
-          .upsertFromServer(
-            _mapper.project(ProjectDto.fromDomain(project), DateTime.now()),
-          );
+    final result = await ref.read(offlineWriterProvider).updateProject(project);
+    if (result.ok) {
       ref.read(projectsControllerProvider.notifier).reload();
-
       final value = state.value;
       if (value != null) {
         state = AsyncData(value.copyWith(project: project));
-        return true;
       }
+      return true;
     }
     return false;
   }
 
   Future<bool> markAsDone(Task task) async {
     task.done = true;
-    final response = await ref.read(taskRepositoryProvider).update(task);
-    if (response.isSuccessful) {
-      await _upsertTask(response.toSuccess().body, projectId: task.projectId);
-      return true;
-    }
-    return false;
+    final result = await ref.read(offlineWriterProvider).updateTask(task);
+    return result.ok;
   }
 
   // --- Helfer ---------------------------------------------------------------
@@ -344,36 +299,6 @@ class ProjectController extends _$ProjectController {
             project.views.first.viewKind == ViewKind.list
         ? project.views.first.id
         : null;
-  }
-
-  Future<void> _upsertTask(Task task, {int? projectId, int? bucketId}) {
-    return ref
-        .read(tasksDaoProvider)
-        .upsertFromServer(
-          _mapper.task(
-            TaskDto.fromDomain(task),
-            DateTime.now(),
-            projectId: projectId ?? task.projectId,
-            bucketId: bucketId,
-          ),
-        );
-  }
-
-  Future<void> _upsertBucket(
-    Bucket bucket, {
-    required int projectId,
-    int? viewId,
-  }) {
-    return ref
-        .read(bucketsDaoProvider)
-        .upsertFromServer(
-          _mapper.bucket(
-            BucketDto.fromDomain(bucket),
-            DateTime.now(),
-            projectId: projectId,
-            viewId: viewId,
-          ),
-        );
   }
 
   /// Persistiert geänderte View-Metadaten (done-/default-Bucket) im Projekt.

@@ -6,6 +6,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/utils/priority.dart';
@@ -624,14 +625,17 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     if (currentUser != null) {
       final newLabel = Label(title: labelTitle, createdBy: currentUser);
 
-      ref.read(labelRepositoryProvider).create(newLabel).then((createdLabel) {
-        if (createdLabel.isSuccessful) {
-          setState(() {
-            _labels?.add(createdLabel.toSuccess().body);
-            _labelTypeAheadController.clear();
-          });
-        }
-      });
+      // Optimistisch über den OfflineWriter: online anlegen oder (offline) eine
+      // Temp-ID vergeben; das gelieferte Label landet direkt in der Auswahl.
+      final created = await ref
+          .read(offlineWriterProvider)
+          .createLabel(newLabel);
+      if (created != null && mounted) {
+        setState(() {
+          _labels?.add(created);
+          _labelTypeAheadController.clear();
+        });
+      }
 
       _checkChanged();
     }
@@ -766,13 +770,13 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
             ..endDate = _endDate
             ..color = _color;
 
-      // update the labels
+      // update the labels (lokal + Outbox über den OfflineWriter)
       if (_labels != null) {
-        var updateLabelSuccess = await ref
-            .read(taskLabelBulkRepositoryProvider)
-            .update(updatedTask, _labels!);
+        final labelResult = await ref
+            .read(offlineWriterProvider)
+            .setLabels(updatedTask.id, _labels!);
 
-        if (!updateLabelSuccess.isSuccessful && context.mounted) {
+        if (!labelResult.ok && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(AppLocalizations.of(context).taskSaveError)),
           );
