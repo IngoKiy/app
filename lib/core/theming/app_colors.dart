@@ -31,7 +31,7 @@ class AppColors extends ThemeExtension<AppColors> {
     onSuccess: onSuccess ?? this.onSuccess,
     warning: warning ?? this.warning,
     onWarning: onWarning ?? this.onWarning,
-    danger: warning ?? this.danger,
+    danger: danger ?? this.danger,
     onDanger: onDanger ?? this.onDanger,
   );
 
