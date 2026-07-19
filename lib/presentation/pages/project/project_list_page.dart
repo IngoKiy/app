@@ -12,7 +12,12 @@ import 'package:vikunja_app/presentation/pages/project/project_detail_page.dart'
 import 'package:vikunja_app/presentation/widgets/project/add_project_dialog.dart';
 
 class ProjectListPage extends ConsumerWidget {
-  const ProjectListPage({super.key});
+  /// When set, tapping a project reports it to the parent (master-detail
+  /// layout) instead of pushing a detail route.
+  final ValueChanged<Project>? onProjectTap;
+  final int? selectedProjectId;
+
+  const ProjectListPage({super.key, this.onProjectTap, this.selectedProjectId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -80,6 +85,7 @@ class ProjectListPage extends ConsumerWidget {
       return ListTile(
         leading: Icon(Icons.list),
         title: Text(project.title),
+        selected: project.id == selectedProjectId,
         onTap: () {
           _navigateToProject(ref, project);
         },
@@ -113,6 +119,10 @@ class ProjectListPage extends ConsumerWidget {
   }
 
   void _navigateToProject(WidgetRef ref, Project project) async {
+    if (onProjectTap != null) {
+      onProjectTap!(project);
+      return;
+    }
     Navigator.push(
       ref.context,
       MaterialPageRoute(

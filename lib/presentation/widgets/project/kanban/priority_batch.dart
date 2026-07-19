@@ -15,40 +15,37 @@ class PriorityBatch extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       label: Text(priorityToString(loc, priority)),
       backgroundColor: getBackgroundColor(context, priority),
+      textColor: getTextColor(context, priority),
     );
   }
 
   Color? getBackgroundColor(BuildContext context, int priority) {
-    final appColors = Theme.of(context).extension<AppColors>();
+    final appColors = context.appColors;
     switch (priority) {
-      case 0:
-        return null;
       case 1:
-        return appColors?.success ?? Colors.green;
+        return appColors.success;
       case 2:
-        return appColors?.warning ?? Colors.yellow;
+        return appColors.warning;
       case 3:
       case 4:
       case 5:
-        return appColors?.danger ?? Colors.red;
+        return appColors.danger;
       default:
         return null;
     }
   }
 
   Color? getTextColor(BuildContext context, int priority) {
-    final appColors = Theme.of(context).extension<AppColors>();
+    final appColors = context.appColors;
     switch (priority) {
-      case 0:
-        return null;
       case 1:
-        return appColors?.onSuccess ?? Colors.green;
+        return appColors.onSuccess;
       case 2:
-        return appColors?.onWarning ?? Colors.yellow;
+        return appColors.onWarning;
       case 3:
       case 4:
       case 5:
-        return appColors?.onDanger ?? Colors.red;
+        return appColors.onDanger;
       default:
         return null;
     }

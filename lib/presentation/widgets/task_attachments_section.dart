@@ -8,6 +8,7 @@ import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_attachment.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/widgets/ui/confirmation_dialog.dart';
 
 /// Zeigt die Anhänge einer Aufgabe (Bild-Thumbnails + Dateiliste) und
 /// erlaubt Hochladen (Kamera/Fotomediathek/Dateien), Herunterladen und Löschen.
@@ -272,24 +273,15 @@ class _TaskAttachmentsSectionState
 
   Future<bool> _confirmDelete(TaskAttachment attachment) async {
     final localizations = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(localizations.attachmentDeleteTitle),
-        content: Text(localizations.attachmentDeleteMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(localizations.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(localizations.delete),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: localizations.attachmentDeleteTitle,
+      message: localizations.attachmentDeleteMessage,
+      confirmLabel: localizations.delete,
+      cancelLabel: localizations.cancel,
+      isDestructive: true,
     );
-    if (confirmed != true) return false;
+    if (!confirmed) return false;
 
     final response = await ref
         .read(taskRepositoryProvider)
@@ -348,10 +340,7 @@ class _AttachmentImageViewer extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(
-          attachment.file.name,
-          style: const TextStyle(fontSize: 16),
-        ),
+        title: Text(attachment.file.name, style: const TextStyle(fontSize: 16)),
         actions: [
           IconButton(icon: const Icon(Icons.download), onPressed: onDownload),
           if (onDelete != null)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/domain/entities/label.dart';
 
 class LabelWidget extends StatelessWidget {
@@ -21,13 +22,8 @@ class LabelWidget extends StatelessWidget {
 
   Color? getTextColor() {
     if (label.color != null) {
-      if (label.color!.computeLuminance() <= 0.5) {
-        return Colors.white;
-      } else {
-        return Colors.black;
-      }
+      return contrastingTextColor(label.color!);
     }
-
     return null;
   }
 }

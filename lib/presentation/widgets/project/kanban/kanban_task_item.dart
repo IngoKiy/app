@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/theming/app_colors.dart';
+import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/presentation/widgets/due_date_card.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
@@ -12,12 +14,12 @@ class TaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var textColor = _getTextColor(context);
-    var bgColor = _getBackgroundColor(context);
+    final textColor = task.hasCustomColor
+        ? contrastingTextColor(task.color!)
+        : Theme.of(context).colorScheme.onSurface;
 
     return Card(
-      color: bgColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.0)),
+      color: task.hasCustomColor ? task.color : null,
       child: Padding(
         padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 12),
         child: Column(
@@ -36,7 +38,8 @@ class TaskTile extends StatelessWidget {
                 if (task.done)
                   Badge(
                     label: Text(AppLocalizations.of(context).badgeDone),
-                    backgroundColor: Colors.green,
+                    backgroundColor: context.appColors.success,
+                    textColor: context.appColors.onSuccess,
                   ),
               ],
             ),
@@ -71,14 +74,11 @@ class TaskTile extends StatelessWidget {
                     .toList(),
               ),
             if (task.description.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
+              const Padding(
+                padding: EdgeInsets.only(top: 8.0),
                 child: Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4.0),
-                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(4.0),
+                    padding: EdgeInsets.all(4.0),
                     child: Icon(Icons.notes),
                   ),
                 ),
@@ -87,16 +87,5 @@ class TaskTile extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _getTextColor(BuildContext context) =>
-      _getBackgroundColor(context).computeLuminance() > 0.5
-      ? Colors.black
-      : Colors.white;
-
-  Color _getBackgroundColor(BuildContext context) {
-    return task.color != Colors.black && task.color != null
-        ? task.color!
-        : Theme.of(context).colorScheme.surface;
   }
 }

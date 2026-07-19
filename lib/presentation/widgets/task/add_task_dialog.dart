@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vikunja_app/core/utils/date_extensions.dart';
 import 'package:vikunja_app/domain/entities/new_task_due.dart';
 import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
+import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 
 class AddTaskDialog extends StatefulWidget {
@@ -126,12 +127,13 @@ class AddTaskDialogState extends State<AddTaskDialog> {
         ],
       ),
       actions: <Widget>[
-        TextButton(
-          child: Text(AppLocalizations.of(context).cancel),
+        AppButton(
+          label: AppLocalizations.of(context).cancel,
+          variant: AppButtonVariant.text,
           onPressed: () => Navigator.pop(context),
         ),
-        TextButton(
-          child: Text(AppLocalizations.of(context).add),
+        AppButton(
+          label: AppLocalizations.of(context).add,
           onPressed: () {
             if (textController.text.isNotEmpty) {
               widget.onAddTask(textController.text, dueDate);

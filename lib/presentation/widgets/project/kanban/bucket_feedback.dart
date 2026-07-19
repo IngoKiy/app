@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/theming/dimensions.dart';
 import 'package:vikunja_app/domain/entities/bucket.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_widget.dart';
 
@@ -9,16 +10,17 @@ class BucketFeedback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
       elevation: 12,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
       child: Container(
         width: KanbanWidgetState.bucketWidth,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppDimensions.sm),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
+          color: colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+          border: Border.all(color: colorScheme.outlineVariant),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

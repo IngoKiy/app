@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
+import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/utils/priority.dart';
 import 'package:vikunja_app/core/utils/repeat_after_parse.dart';
 import 'package:vikunja_app/core/utils/repeat_after_unit.dart';
@@ -20,6 +21,7 @@ import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
 import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
+import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_delete_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_save_dialog.dart';
@@ -96,11 +98,14 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         appBar: _buildAppBar(),
         body: Stack(
           children: [
-            _buildForm(context),
+            ConstrainedPage(child: _buildForm(context)),
             if (_isLoading)
-              const Opacity(
+              Opacity(
                 opacity: 0.5,
-                child: ModalBarrier(dismissible: false, color: Colors.black),
+                child: ModalBarrier(
+                  dismissible: false,
+                  color: Theme.of(context).colorScheme.scrim,
+                ),
               ),
             if (_isLoading) const Center(child: CircularProgressIndicator()),
           ],
@@ -398,11 +403,17 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           children: <Widget>[
             Padding(
               padding: EdgeInsets.only(right: 16),
-              child: Icon(Icons.alarm_add, color: Colors.grey),
+              child: Icon(
+                Icons.alarm_add,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             Text(
               AppLocalizations.of(context).addReminder,
-              style: TextStyle(color: Colors.grey, fontSize: 16),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 16,
+              ),
             ),
           ],
         ),
@@ -445,7 +456,10 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.only(right: 15, left: 2),
-            child: Icon(Icons.label, color: Colors.grey),
+            child: Icon(
+              Icons.label,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           SizedBox(
             width:
@@ -498,7 +512,10 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.only(right: 15, left: 2),
-            child: Icon(Icons.palette, color: Colors.grey),
+            child: Icon(
+              Icons.palette,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           ElevatedButton(
             style: (_color == null || _color == Colors.black)
@@ -513,11 +530,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
               AppLocalizations.of(context).setColor,
               style: (_color == null || _color == Colors.black)
                   ? null
-                  : TextStyle(
-                      color: (_color)!.computeLuminance() > 0.5
-                          ? Colors.black
-                          : Colors.white,
-                    ),
+                  : TextStyle(color: contrastingTextColor(_color!)),
             ),
           ),
           Padding(
@@ -532,7 +545,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
                     ? "#${color.toHexString()}"
                     : AppLocalizations.of(context).none,
                 style: TextStyle(
-                  color: Colors.grey,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontStyle: FontStyle.italic,
                 ),
               );

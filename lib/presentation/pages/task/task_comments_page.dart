@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_comments.dart';
+import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 
 class TaskCommentsPage extends StatelessWidget {
   final int taskId;
@@ -29,9 +30,11 @@ class TaskCommentsPage extends StatelessWidget {
           ],
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: TaskComments(taskId: taskId),
+      body: ConstrainedPage(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TaskComments(taskId: taskId),
+        ),
       ),
     );
   }

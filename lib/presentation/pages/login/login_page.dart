@@ -247,13 +247,13 @@ class LoginPageState extends ConsumerState<LoginPage> {
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               child: _loading
-                  ? const SizedBox(
-                      key: ValueKey('loading'),
+                  ? SizedBox(
+                      key: const ValueKey('loading'),
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       ),
                     )
                   : Text(
@@ -338,7 +338,6 @@ class LoginPageState extends ConsumerState<LoginPage> {
       },
       validator: (_) => _serverError,
       decoration: InputDecoration(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         labelText: AppLocalizations.of(context).serverAddress,
         hintText: AppLocalizations.of(
           context,
@@ -405,7 +404,7 @@ class LoginPageState extends ConsumerState<LoginPage> {
             width: 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: filled ? Colors.white : null,
+              color: filled ? Theme.of(context).colorScheme.onPrimary : null,
             ),
           )
         : Text(
@@ -581,12 +580,7 @@ class LoginPageState extends ConsumerState<LoginPage> {
   void _showErrorSnackBar(BuildContext context, String message) {
     final colors = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: colors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
+      SnackBar(content: Text(message), backgroundColor: colors.error),
     );
   }
 }
