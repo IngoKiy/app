@@ -72,3 +72,11 @@ Keys in `lib/l10n/app_en.arb` anlegen und `flutter gen-l10n` laufen lassen.
   `ui/`-Komponenten und Theme-Rollen bauen — dann entfällt spätere Migration.
 - Geteilte Dateien (`main.dart`, `theme_model.dart`, `app_theme.dart`)
   minimal und semantisch editieren, keine fremden Regionen umformatieren.
+
+## Web-Target
+
+Das Flutter-Web-Target ruht bewusst: Im Browser ist das offizielle
+Vue-Frontend des Vikunja-Servers die Firmen-Oberfläche. `flutter build web`
+wird nicht unterstützt (u. a. `dart:io` im HTTP-Client, Mobile-only-Plugins)
+und soll nicht repariert werden. Der `web/`-Ordner bleibt aus
+Kompatibilitätsgründen im Repo.
