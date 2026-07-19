@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/theming/theme.dart';
 
 @immutable
 class AppColors extends ThemeExtension<AppColors> {
@@ -17,6 +18,24 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.danger,
     required this.onDanger,
   });
+
+  static final light = AppColors(
+    success: MaterialTheme.success.light.colorContainer,
+    onSuccess: MaterialTheme.success.light.onColorContainer,
+    warning: MaterialTheme.warning.light.colorContainer,
+    onWarning: MaterialTheme.warning.light.onColorContainer,
+    danger: MaterialTheme.danger.light.colorContainer,
+    onDanger: MaterialTheme.danger.light.onColorContainer,
+  );
+
+  static final dark = AppColors(
+    success: MaterialTheme.success.dark.color,
+    onSuccess: MaterialTheme.success.dark.onColor,
+    warning: MaterialTheme.warning.dark.color,
+    onWarning: MaterialTheme.warning.dark.onColor,
+    danger: MaterialTheme.danger.dark.color,
+    onDanger: MaterialTheme.danger.dark.onColor,
+  );
 
   @override
   AppColors copyWith({
@@ -47,4 +66,9 @@ class AppColors extends ThemeExtension<AppColors> {
       onDanger: Color.lerp(onDanger, other.onDanger, t)!,
     );
   }
+}
+
+extension AppColorsContext on BuildContext {
+  /// The [AppColors] installed by `buildAppTheme` — always present.
+  AppColors get appColors => Theme.of(this).extension<AppColors>()!;
 }
