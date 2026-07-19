@@ -69,6 +69,16 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
+  /// Löscht sämtliche lokalen Daten (Logout / Kontowechsel). Läuft in einer
+  /// Transaktion, damit die DB nie halb geleert zurückbleibt.
+  Future<void> wipeAll() {
+    return transaction(() async {
+      for (final table in allTables) {
+        await delete(table).go();
+      }
+    });
+  }
+
   static QueryExecutor _openConnection() {
     return driftDatabase(name: 'boos_agenda');
   }

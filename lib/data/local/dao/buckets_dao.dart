@@ -23,6 +23,10 @@ class BucketsDao extends DatabaseAccessor<AppDatabase> with _$BucketsDaoMixin {
   Future<BucketRow?> getById(int id) =>
       (select(buckets)..where((b) => b.id.equals(id))).getSingleOrNull();
 
+  /// Löscht eine einzelne Zeile (z.B. nach erfolgreichem Server-Delete).
+  Future<int> deleteById(int id) =>
+      (delete(buckets)..where((b) => b.id.equals(id))).go();
+
   /// Merge vom Server, siehe [ProjectsDao.upsertFromServer].
   Future<void> upsertFromServer(BucketsCompanion data) async {
     final remoteId = data.remoteId.value;

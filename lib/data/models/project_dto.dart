@@ -38,7 +38,7 @@ class ProjectDto extends Dto<Project> {
     : title = json['title'],
       description = json['description'],
       id = json['id'],
-      position = json['position'].toDouble(),
+      position = (json['position'] ?? 0).toDouble(),
       isArchived = json['is_archived'],
       isFavourite = json['is_archived'],
       parentProjectId = json['parent_project_id'],
@@ -49,7 +49,7 @@ class ProjectDto extends Dto<Project> {
           : [],
       created = DateTime.parse(json['created']),
       updated = DateTime.parse(json['updated']),
-      color = json['hex_color'] != ''
+      color = (json['hex_color'] != null && json['hex_color'] != '')
           ? Color(int.parse(json['hex_color'], radix: 16) + 0xFF000000)
           : null,
       owner = json['owner'] != null ? UserDto.fromJson(json['owner']) : null;

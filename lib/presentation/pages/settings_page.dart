@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/locale_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/notification_provider.dart';
@@ -253,11 +254,22 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                 AppButton(
                   label: l10n.logout,
                   variant: AppButtonVariant.danger,
-                  onPressed: () {
-                    ref.read(settingsRepositoryProvider).saveServer(null);
-                    ref.read(settingsRepositoryProvider).saveUserToken(null);
-                    ref.read(settingsRepositoryProvider).saveRefreshToken(null);
+                  onPressed: () async {
+                    // Logout = lokale Wahrheitsquelle leeren, damit kein
+                    // fremder Kontostand zurückbleibt. Currentuser wird über
+                    // die LoginPage/Init neu gesetzt.
+                    ref.read(currentUserProvider.notifier).clear();
+                    await ref.read(appDatabaseProvider).wipeAll();
 
+                    await ref.read(settingsRepositoryProvider).saveServer(null);
+                    await ref
+                        .read(settingsRepositoryProvider)
+                        .saveUserToken(null);
+                    await ref
+                        .read(settingsRepositoryProvider)
+                        .saveRefreshToken(null);
+
+                    if (!context.mounted) return;
                     Navigator.of(context).popUntil((route) => route.isFirst);
                     Navigator.pushReplacement(
                       context,

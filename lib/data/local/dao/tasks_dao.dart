@@ -23,6 +23,26 @@ class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
   Stream<TaskRow?> watchTask(int id) =>
       (select(tasks)..where((t) => t.id.equals(id))).watchSingleOrNull();
 
+  /// Übersicht (Landing-Page): offene Tasks projektübergreifend. Sortiert wie
+  /// bisher serverseitig nach Fälligkeitsdatum, dann id. [onlyDueDate] blendet
+  /// Tasks ohne Fälligkeit aus.
+  Stream<List<TaskRow>> watchOverviewTasks({bool onlyDueDate = false}) {
+    final query = select(tasks)
+      ..where((t) => t.isDeleted.equals(false) & t.done.equals(false));
+    if (onlyDueDate) {
+      query.where((t) => t.dueDate.isNotNull());
+    }
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.dueDate),
+      (t) => OrderingTerm(expression: t.id),
+    ]);
+    return query.watch();
+  }
+
+  /// Löscht eine einzelne Zeile (z.B. nach erfolgreichem Server-Delete).
+  Future<int> deleteById(int id) =>
+      (delete(tasks)..where((t) => t.id.equals(id))).go();
+
   Future<TaskRow?> getById(int id) =>
       (select(tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
 

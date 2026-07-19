@@ -7,9 +7,14 @@ part of 'task_page_controller.dart';
 // **************************************************************************
 
 String _$taskPageControllerHash() =>
-    r'784914dd69f9e0627c0981d5e2a6538a2c236533';
+    r'db5c45cb81bc8bf3602de6f1ffcb33dee2b2db28';
 
-/// See also [TaskPageController].
+/// Übersicht (Landing-Page). Standardfälle (offene Tasks, optional nur mit
+/// Fälligkeit) kommen reaktiv aus der DB. Ein benutzerdefinierter Übersichts-
+/// Filter (filter_id) wird online geladen; schlägt das fehl (offline), fällt
+/// er auf den DB-Standard zurück (lokaler Filter-Evaluator kommt in M3).
+///
+/// Copied from [TaskPageController].
 @ProviderFor(TaskPageController)
 final taskPageControllerProvider =
     AutoDisposeAsyncNotifierProvider<

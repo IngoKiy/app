@@ -1,249 +1,139 @@
-import 'package:collection/collection.dart';
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
-import 'package:vikunja_app/core/network/response.dart';
+import 'package:vikunja_app/core/di/sync_provider.dart';
+import 'package:vikunja_app/core/sync/dto_companion_mapper.dart';
+import 'package:vikunja_app/data/local/row_mappers.dart';
+import 'package:vikunja_app/data/models/bucket_dto.dart';
+import 'package:vikunja_app/data/models/project_dto.dart';
+import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/domain/entities/bucket.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/project_page_model.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/view_kind.dart';
-import 'package:vikunja_app/presentation/manager/pagination_mixin.dart';
 import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 
 part 'project_controller.g.dart';
 
+/// Liest Liste bzw. Kanban-Buckets reaktiv aus der lokalen DB (watch-Streams).
+/// Schreib-Methoden gehen weiterhin über die Repositories (Online-API) und
+/// upserten die Server-Antwort in die DB; die UI aktualisiert sich per Stream.
 @riverpod
-class ProjectController extends _$ProjectController with PaginationMixin<Task> {
+class ProjectController extends _$ProjectController {
+  static const _mapper = DtoCompanionMapper();
+
+  StreamSubscription<void>? _sub;
+  late Project _project;
+  int _viewIndex = 0;
+  bool _displayDoneTask = false;
+
   @override
-  Future<ProjectPageModel> build(Project project) async {
-    resetPagination();
-
-    var displayDoneTask = await ref
-        .read(settingsRepositoryProvider)
-        .getDisplayDoneTasks(project.id);
-    int? viewId = _getFirstListViewIdFromProject(project);
-
-    var tasksResponse = await _loadTasks(
-      project.id,
-      displayDoneTask,
-      viewId,
-      1,
-    );
-
-    if (tasksResponse.isSuccessful) {
-      updateTotalPages(tasksResponse.toSuccess().headers);
-      final tasks = tasksResponse.toSuccess().body;
-      return ProjectPageModel(project, 0, tasks, [], displayDoneTask, false);
-    } else if (tasksResponse.isException) {
-      throw Exception(tasksResponse.toException().message);
-    } else {
-      throw Exception(tasksResponse.toError().error.toString());
-    }
+  Future<ProjectPageModel> build(Project project) {
+    _project = project;
+    ref.onDispose(() => _sub?.cancel());
+    return _watchView(project, 0);
   }
 
-  Future<void> loadNextPage() async {
-    if (state.isLoading || state.hasError) return;
-    if (!canLoadNextPage) return;
-
-    final currentState = state.value;
-    if (currentState == null || currentState.project.views.isEmpty) return;
-
-    state = AsyncData(currentState.copyWith(isLoadingNextPage: true));
-
-    final currentView = currentState.project.views[currentState.viewIndex];
-    if (currentView.viewKind == ViewKind.list) {
-      final viewId = currentView.id;
-
-      await loadMoreItems(
-        fetcher: (page) => _loadTasks(
-          currentState.project.id,
-          currentState.displayDoneTask,
-          viewId,
-          page,
-        ),
-        stateUpdater: (newTasks) {
-          final updatedTasks = [
-            ...currentState.tasks,
-            ...newTasks as List<Task>,
-          ];
-          state = AsyncData(
-            currentState.copyWith(
-              tasks: updatedTasks,
-              isLoadingNextPage: false,
-            ),
-          );
-        },
-      );
-    } else if (currentView.viewKind == ViewKind.kanban) {
-      final viewId = currentView.id;
-
-      await loadMoreItems(
-        fetcher: (page) => _loadBuckets(
-          projectId: currentState.project.id,
-          viewId: viewId,
-          page: page,
-        ),
-        stateUpdater: (newTasks) {
-          for (int i = 0; i < newTasks.length; i++) {
-            var firstWhere = currentState.buckets.firstWhereOrNull(
-              (e) => e.id == (newTasks[i] as Bucket).id,
-            );
-            if (firstWhere != null) {
-              currentState.buckets[i].tasks.addAll(
-                (newTasks[i] as Bucket).tasks,
-              );
-            }
-          }
-          state = AsyncData(
-            currentState.copyWith(
-              buckets: currentState.buckets,
-              isLoadingNextPage: false,
-            ),
-          );
-        },
-      );
-    }
-
-    //Fallback
-    if (state.value?.isLoadingNextPage == true) {
-      state = AsyncData(state.value!.copyWith(isLoadingNextPage: false));
-    }
-  }
-
-  Future<void> loadForView(Project project, int viewIndex) async {
-    resetPagination();
-
-    var displayDoneTask = await ref
+  /// Abonniert den passenden DB-Stream (Tasks für List-, Buckets für Kanban-
+  /// View) und liefert das erste Modell zurück. Folge-Emissionen patchen den
+  /// State direkt.
+  Future<ProjectPageModel> _watchView(Project project, int viewIndex) async {
+    _project = project;
+    _viewIndex = viewIndex;
+    _displayDoneTask = await ref
         .read(settingsRepositoryProvider)
         .getDisplayDoneTasks(project.id);
 
-    var tasks = <Task>[];
-    int? viewId = viewIndex == 0
-        ? project.views.firstWhere((view) => view.viewKind == ViewKind.list).id
+    await _sub?.cancel();
+
+    final view = (viewIndex >= 0 && viewIndex < project.views.length)
+        ? project.views[viewIndex]
         : null;
+    final completer = Completer<ProjectPageModel>();
 
-    var tasksResponse = await _loadTasks(
-      project.id,
-      displayDoneTask,
-      viewId,
-      1,
-    );
-
-    if (tasksResponse.isSuccessful) {
-      updateTotalPages(tasksResponse.toSuccess().headers);
-      tasks = tasksResponse.toSuccess().body;
-    } else if (tasksResponse.isError) {
-      state = AsyncError(tasksResponse.toError().error, StackTrace.current);
-      return;
-    } else if (tasksResponse.isException) {
-      state = AsyncError(
-        tasksResponse.toException().message,
-        StackTrace.current,
-      );
-      return;
-    }
-
-    var buckets = <Bucket>[];
-    if (project.views[viewIndex].viewKind == ViewKind.kanban) {
-      var bucketsResponse = await _loadBuckets(
-        projectId: project.id,
-        viewId: project.views[viewIndex].id,
-      );
-
-      switch (bucketsResponse) {
-        case SuccessResponse<List<Bucket>>():
-          buckets = bucketsResponse.body;
-        case ErrorResponse<List<Bucket>>():
-          state = AsyncError(bucketsResponse.error, StackTrace.current);
-          return;
-        case ExceptionResponse<List<Bucket>>():
-          state = AsyncError(bucketsResponse.message, StackTrace.current);
-          return;
+    void emit(ProjectPageModel model) {
+      if (!completer.isCompleted) {
+        completer.complete(model);
+      } else {
+        state = AsyncData(model);
       }
     }
 
-    state = AsyncData(
-      ProjectPageModel(
-        project,
-        viewIndex,
-        tasks,
-        buckets,
-        displayDoneTask,
-        false,
-      ),
-    );
-  }
-
-  int? _getFirstListViewIdFromProject(Project project) {
-    // Return null in case the first view is kanban
-    return project.views.isNotEmpty &&
-            project.views.first.viewKind == ViewKind.list
-        ? project.views.first.id
-        : null;
-  }
-
-  Future<Response<List<Task>>> _loadTasks(
-    int projectId,
-    bool displayDoneTasks, [
-    int? view,
-    int page = 1,
-  ]) async {
-    var repo = ref.read(taskRepositoryProvider);
-
-    Map<String, List<String>> queryParams = view == null
-        ? {
-            "sort_by": ["done", "id"],
-            "order_by": ["asc", "desc"],
-            "page": ["$page"],
-          }
-        : {
-            "sort_by": ["position"],
-            "order_by": ["asc"],
-            "page": ["$page"],
-          };
-
-    if (!displayDoneTasks) {
-      queryParams.addAll({
-        "filter": ["done=false"],
+    if (view != null && view.viewKind == ViewKind.kanban) {
+      final dao = ref.read(bucketsDaoProvider);
+      _sub = dao.watchBucketsByProject(project.id).listen((rows) {
+        final buckets = rows
+            .where((b) => b.viewId == null || b.viewId == view.id)
+            .map(bucketFromRow)
+            .toList();
+        emit(
+          ProjectPageModel(
+            project,
+            viewIndex,
+            const [],
+            buckets,
+            _displayDoneTask,
+            false,
+          ),
+        );
+      });
+    } else {
+      final dao = ref.read(tasksDaoProvider);
+      _sub = dao.watchTasksByProject(project.id).listen((rows) {
+        var tasks = rows.map(taskFromRow).toList();
+        if (!_displayDoneTask) {
+          tasks = tasks.where((t) => !t.done).toList();
+        }
+        tasks.sort(
+          (a, b) => (a.position ?? 0).compareTo(b.position ?? 0),
+        );
+        emit(
+          ProjectPageModel(
+            project,
+            viewIndex,
+            tasks,
+            const [],
+            _displayDoneTask,
+            false,
+          ),
+        );
       });
     }
 
-    return view == null
-        ? await repo.getAllByProject(projectId, queryParams)
-        : await repo.getAllByProjectView(projectId, view, queryParams);
+    return completer.future;
   }
 
-  Future<Response<List<Bucket>>> _loadBuckets({
-    required int projectId,
-    required int viewId,
-    int page = 1,
-  }) async {
-    Map<String, List<String>> queryParams = {
-      "page": [page.toString()],
-    };
+  Future<void> loadForView(Project project, int viewIndex) async {
+    // Kein AsyncLoading: bestehende Daten bleiben sichtbar bis der Stream die
+    // neue Ansicht liefert (verhindert Flackern beim View-Wechsel/Reload).
+    try {
+      state = AsyncData(await _watchView(project, viewIndex));
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
 
-    var bucketsResponse = await ref
-        .read(bucketRepositoryProvider)
-        .getAllByList(projectId, viewId, queryParams);
+  /// Pagination entfällt bei DB-Reads (alles lokal) — No-Op für API-Kompat.
+  Future<void> loadNextPage() async {}
 
-    return bucketsResponse;
+  /// Setzt die Ansicht auf den DB-Stand zurück (verwirft optimistische
+  /// UI-Änderungen) und stößt im Hintergrund einen Voll-Pull an.
+  void reload() {
+    unawaited(ref.read(syncServiceProvider).syncNow());
+    loadForView(_project, _viewIndex);
   }
 
   Future<bool> addTask(Project project, Task newTask) async {
-    var response = await ref
+    final response = await ref
         .read(taskRepositoryProvider)
         .add(project.id, newTask);
     if (response.isSuccessful) {
-      var value = state.value;
-      if (value != null) {
-        var tasks = value.tasks;
-        tasks.add(response.toSuccess().body);
-        state = AsyncData(value.copyWith(tasks: tasks));
-
-        return true;
-      }
+      await _upsertTask(response.toSuccess().body, projectId: project.id);
+      return true;
     }
-
     return false;
   }
 
@@ -252,20 +142,17 @@ class ProjectController extends _$ProjectController with PaginationMixin<Task> {
     required Project project,
     required int viewId,
   }) async {
-    var response = await ref
+    final response = await ref
         .read(bucketRepositoryProvider)
         .add(project.id, viewId, newBucket);
     if (response.isSuccessful) {
-      var value = state.value;
-      if (value != null) {
-        var buckets = value.buckets;
-        buckets.add(newBucket);
-        state = AsyncData(value.copyWith(buckets: buckets));
-
-        return true;
-      }
+      await _upsertBucket(
+        response.toSuccess().body,
+        projectId: project.id,
+        viewId: viewId,
+      );
+      return true;
     }
-
     return false;
   }
 
@@ -273,25 +160,17 @@ class ProjectController extends _$ProjectController with PaginationMixin<Task> {
     required Bucket bucket,
     required Project project,
   }) async {
-    var response = await ref
+    final response = await ref
         .read(bucketRepositoryProvider)
         .delete(
           project.id,
           project.views[state.value!.viewIndex].id,
           bucket.id,
         );
-
     if (response.isSuccessful) {
-      var value = state.value;
-      if (value != null) {
-        var buckets = value.buckets;
-        buckets.removeWhere((element) => element.id == bucket.id);
-        state = AsyncData(value.copyWith(buckets: buckets));
-
-        return true;
-      }
+      await ref.read(bucketsDaoProvider).deleteById(bucket.id);
+      return true;
     }
-
     return false;
   }
 
@@ -299,22 +178,17 @@ class ProjectController extends _$ProjectController with PaginationMixin<Task> {
     required Bucket bucket,
     required Project project,
   }) async {
-    var response = await ref
+    final response = await ref
         .read(bucketRepositoryProvider)
         .update(project.id, project.views[state.value!.viewIndex].id, bucket);
-
     if (response.isSuccessful) {
-      var value = state.value;
-      if (value != null) {
-        var buckets = value.buckets;
-        buckets.removeWhere((element) => element.id == bucket.id);
-        buckets.add(bucket);
-        state = AsyncData(value.copyWith(buckets: buckets));
-
-        return true;
-      }
+      await _upsertBucket(
+        bucket,
+        projectId: project.id,
+        viewId: project.views[state.value!.viewIndex].id,
+      );
+      return true;
     }
-
     return false;
   }
 
@@ -327,12 +201,8 @@ class ProjectController extends _$ProjectController with PaginationMixin<Task> {
     final value = state.value;
     if (value == null) return false;
 
-    state = AsyncData(
-      value.copyWith(
-        tasks: newOrderedTasks,
-        displayDoneTask: value.displayDoneTask,
-      ),
-    );
+    // Optimistisch anzeigen; der DB-Upsert unten liefert den finalen Stand.
+    state = AsyncData(value.copyWith(tasks: newOrderedTasks));
 
     int? viewId = _getFirstListViewIdFromProject(value.project);
     if (viewId == null) {
@@ -346,6 +216,10 @@ class ProjectController extends _$ProjectController with PaginationMixin<Task> {
       reload();
       return false;
     }
+
+    final moved = newOrderedTasks.firstWhere((t) => t.id == movedTaskId);
+    moved.position = newPosition;
+    await _upsertTask(moved, projectId: project.id);
     return true;
   }
 
@@ -355,20 +229,22 @@ class ProjectController extends _$ProjectController with PaginationMixin<Task> {
     Bucket bucket,
     double position,
   ) async {
-    var viewId = project.views[state.value!.viewIndex].id;
+    final viewId = project.views[state.value!.viewIndex].id;
 
-    var updateBucketResponse = await ref
+    final updateBucketResponse = await ref
         .read(bucketRepositoryProvider)
         .updateTaskBucket(task.id, bucket.id, project.id, viewId);
 
-    var updateTaskResponse = await ref
+    final updateTaskResponse = await ref
         .read(bucketRepositoryProvider)
         .updateTaskPosition(task.id, viewId, position);
 
     if (updateBucketResponse.isSuccessful && updateTaskResponse.isSuccessful) {
+      task.position = position;
+      task.bucketId = bucket.id;
+      await _upsertTask(task, projectId: project.id, bucketId: bucket.id);
       return true;
     }
-
     return false;
   }
 
@@ -377,21 +253,20 @@ class ProjectController extends _$ProjectController with PaginationMixin<Task> {
     int bucketId,
     isDoneColumn,
   ) async {
-    var projectView = project.views[state.value!.viewIndex];
+    final projectView = project.views[state.value!.viewIndex];
     projectView.doneBucketId = isDoneColumn ? 0 : bucketId;
 
-    var response = await ref
+    final response = await ref
         .read(projectViewRepositoryProvider)
         .update(projectView);
     if (response.isSuccessful) {
-      var value = state.value;
+      await _persistProjectViews(project);
+      final value = state.value;
       if (value != null) {
         state = AsyncData(value.copyWith(project: project));
-
         return true;
       }
     }
-
     return false;
   }
 
@@ -400,91 +275,113 @@ class ProjectController extends _$ProjectController with PaginationMixin<Task> {
     int bucketId,
     isDefaultColumn,
   ) async {
-    var projectView = project.views[state.value!.viewIndex];
+    final projectView = project.views[state.value!.viewIndex];
     projectView.defaultBucketId = isDefaultColumn ? 0 : bucketId;
 
-    var response = await ref
+    final response = await ref
         .read(projectViewRepositoryProvider)
         .update(projectView);
     if (response.isSuccessful) {
-      var value = state.value;
+      await _persistProjectViews(project);
+      final value = state.value;
       if (value != null) {
         state = AsyncData(value.copyWith(project: project));
-
         return true;
       }
     }
-
     return false;
   }
 
   Future<bool> setDisplayDoneTasks(bool displayDoneTasks) async {
+    final value = state.value;
+    if (value == null) return false;
+
     await ref
         .read(settingsRepositoryProvider)
-        .setDisplayDoneTasks(state.value!.project.id, displayDoneTasks);
+        .setDisplayDoneTasks(value.project.id, displayDoneTasks);
 
-    var value = state.value;
-    if (value != null) {
-      int? viewId = _getFirstListViewIdFromProject(value.project);
-      var tasksResponse = await _loadTasks(
-        value.project.id,
-        displayDoneTasks,
-        viewId,
-      );
-      if (tasksResponse.isSuccessful) {
-        var tasks = tasksResponse.toSuccess().body;
-        state = AsyncData(
-          value.copyWith(tasks: tasks, displayDoneTask: displayDoneTasks),
-        );
-        return true;
-      } else {
-        return false;
-      }
-    }
-
-    return false;
+    // Neu abonnieren, damit der Filter im Stream greift.
+    await loadForView(value.project, value.viewIndex);
+    return true;
   }
 
   Future<bool> updateProject(Project project) async {
-    var updateResponse = await ref
+    final updateResponse = await ref
         .read(projectRepositoryProvider)
         .update(project);
 
     if (updateResponse.isSuccessful) {
-      var value = state.value;
+      await ref
+          .read(projectsDaoProvider)
+          .upsertFromServer(
+            _mapper.project(ProjectDto.fromDomain(project), DateTime.now()),
+          );
+      ref.read(projectsControllerProvider.notifier).reload();
+
+      final value = state.value;
       if (value != null) {
         state = AsyncData(value.copyWith(project: project));
-
         return true;
       }
-
-      ref.read(projectsControllerProvider.notifier).reload();
     }
-
     return false;
   }
 
   Future<bool> markAsDone(Task task) async {
     task.done = true;
-    var response = await ref.read(taskRepositoryProvider).update(task);
+    final response = await ref.read(taskRepositoryProvider).update(task);
     if (response.isSuccessful) {
-      var value = state.value;
-      if (value != null) {
-        var tasks = value.tasks;
-        tasks.removeWhere((element) => element.id == task.id);
-        state = AsyncData(value.copyWith(tasks: tasks));
-
-        return true;
-      }
+      await _upsertTask(response.toSuccess().body, projectId: task.projectId);
+      return true;
     }
-
     return false;
   }
 
-  void reload() {
-    var value = state.value;
-    if (value != null) {
-      loadForView(value.project, value.viewIndex);
-    }
+  // --- Helfer ---------------------------------------------------------------
+
+  int? _getFirstListViewIdFromProject(Project project) {
+    return project.views.isNotEmpty &&
+            project.views.first.viewKind == ViewKind.list
+        ? project.views.first.id
+        : null;
+  }
+
+  Future<void> _upsertTask(Task task, {int? projectId, int? bucketId}) {
+    return ref
+        .read(tasksDaoProvider)
+        .upsertFromServer(
+          _mapper.task(
+            TaskDto.fromDomain(task),
+            DateTime.now(),
+            projectId: projectId ?? task.projectId,
+            bucketId: bucketId,
+          ),
+        );
+  }
+
+  Future<void> _upsertBucket(
+    Bucket bucket, {
+    required int projectId,
+    int? viewId,
+  }) {
+    return ref
+        .read(bucketsDaoProvider)
+        .upsertFromServer(
+          _mapper.bucket(
+            BucketDto.fromDomain(bucket),
+            DateTime.now(),
+            projectId: projectId,
+            viewId: viewId,
+          ),
+        );
+  }
+
+  /// Persistiert geänderte View-Metadaten (done-/default-Bucket) im Projekt.
+  Future<void> _persistProjectViews(Project project) {
+    return ref
+        .read(projectsDaoProvider)
+        .upsertFromServer(
+          _mapper.project(ProjectDto.fromDomain(project), DateTime.now()),
+        );
   }
 }

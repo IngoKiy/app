@@ -1,221 +1,185 @@
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/notification_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
-import 'package:vikunja_app/core/network/response.dart';
-import 'package:vikunja_app/domain/entities/project.dart';
+import 'package:vikunja_app/core/di/sync_provider.dart';
+import 'package:vikunja_app/core/sync/dto_companion_mapper.dart';
+import 'package:vikunja_app/data/local/row_mappers.dart';
+import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_page_model.dart';
-import 'package:vikunja_app/presentation/manager/pagination_mixin.dart';
 import 'package:vikunja_app/presentation/manager/widget_controller.dart';
 
 part 'task_page_controller.g.dart';
 
+/// Übersicht (Landing-Page). Standardfälle (offene Tasks, optional nur mit
+/// Fälligkeit) kommen reaktiv aus der DB. Ein benutzerdefinierter Übersichts-
+/// Filter (filter_id) wird online geladen; schlägt das fehl (offline), fällt
+/// er auf den DB-Standard zurück (lokaler Filter-Evaluator kommt in M3).
 @riverpod
-class TaskPageController extends _$TaskPageController
-    with PaginationMixin<Task> {
+class TaskPageController extends _$TaskPageController {
+  static const _mapper = DtoCompanionMapper();
+
   @override
   Future<TaskPageModel> build() async {
-    resetPagination();
-
-    var tasksResponse = await _getAllFiltered();
-
-    switch (tasksResponse) {
-      case SuccessResponse<List<Task>>():
-        updateTotalPages(tasksResponse.headers);
-        return await _createPageModel(tasksResponse.body);
-      case ErrorResponse<List<Task>>():
-        throw AsyncError(tasksResponse.error, StackTrace.current);
-      case ExceptionResponse<List<Task>>():
-        throw AsyncError(tasksResponse.message, StackTrace.current);
+    final filterId = _overviewFilterId();
+    if (filterId != null) {
+      final online = await _loadFilteredOnline(filterId);
+      if (online != null) return online;
+      // offline/Fehler -> Fallback auf DB-Standard.
     }
+    return _watchStandard();
   }
 
-  void reload() async {
-    state = const AsyncLoading();
-    resetPagination();
-
-    var tasksResponse = await _getAllFiltered();
-
-    switch (tasksResponse) {
-      case SuccessResponse<List<Task>>():
-        updateTotalPages(tasksResponse.headers);
-        var pageModel = await _createPageModel(tasksResponse.body);
-        state = AsyncData(pageModel);
-      case ErrorResponse<List<Task>>():
-        state = AsyncError(tasksResponse.error, StackTrace.current);
-      case ExceptionResponse<List<Task>>():
-        state = AsyncError(tasksResponse.message, StackTrace.current);
-    }
+  int? _overviewFilterId() {
+    final user = ref.read(currentUserProvider);
+    final settings = user?.settings?.frontendSettings;
+    final filterId = settings?['filter_id_used_on_overview'];
+    if (filterId is int && filterId != 0) return filterId;
+    return null;
   }
 
-  Future<void> loadNextPage() async {
-    if (state.isLoading || state.hasError) return;
-    if (!canLoadNextPage) return;
-
-    final currentModel = state.value;
-    if (currentModel == null) return;
-
-    state = AsyncData(currentModel.copyWith(isLoadingNextPage: true));
-
-    await loadMoreItems(
-      fetcher: (page) => _getAllFiltered(page: page),
-      stateUpdater: (newTasks) async {
-        var projectsResponse = await ref
-            .read(projectRepositoryProvider)
-            .getAll();
-        _setProjectOfTask(projectsResponse, newTasks as List<Task>);
-
-        final latestModel = state.value;
-        if (latestModel != null) {
-          final updatedTasks = [...latestModel.tasks, ...newTasks];
-          state = AsyncData(
-            latestModel.copyWith(tasks: updatedTasks, isLoadingNextPage: false),
-          );
-        }
-      },
-    );
-
-    // Fallback
-    if (state.value?.isLoadingNextPage == true) {
-      state = AsyncData(state.value!.copyWith(isLoadingNextPage: false));
-    }
-  }
-
-  Future<TaskPageModel> _createPageModel(List<Task> tasks) async {
-    var defaultProjectId =
-        ref.read(currentUserProvider)?.settings?.defaultProjectId ?? 0;
-
-    var projectsResponse = await ref.read(projectRepositoryProvider).getAll();
-
-    _setProjectOfTask(projectsResponse, tasks);
-
-    updateWidget();
-    ref
-        .read(notificationProvider)
-        ?.scheduleDueNotifications(ref.read(taskRepositoryProvider));
-
-    var showOnlyDueDateTasks = await ref
+  /// Standardfall: offene Tasks projektübergreifend, reaktiv aus der DB.
+  Future<TaskPageModel> _watchStandard() async {
+    final onlyDue = await ref
         .read(settingsRepositoryProvider)
         .getLandingPageOnlyDueDateTasks();
 
-    return TaskPageModel(tasks, showOnlyDueDateTasks, defaultProjectId, false);
-  }
+    final dao = ref.read(tasksDaoProvider);
+    final completer = Completer<TaskPageModel>();
 
-  void _setProjectOfTask(
-    Response<List<Project>> projectsResponse,
-    List<Task> tasks,
-  ) {
-    if (projectsResponse.isSuccessful) {
-      var projectsMap = {
-        for (var v in projectsResponse.toSuccess().body) v.id: v,
-      };
-
-      for (var tasks in tasks) {
-        tasks.project = projectsMap[tasks.projectId];
+    final sub = dao.watchOverviewTasks(onlyDueDate: onlyDue).listen((rows) async {
+      final tasks = rows.map(taskFromRow).toList();
+      final model = await _createPageModel(tasks, onlyDue, isInitial: !completer.isCompleted);
+      if (!completer.isCompleted) {
+        completer.complete(model);
+      } else {
+        state = AsyncData(model);
       }
-    }
+    });
+    ref.onDispose(sub.cancel);
+
+    return completer.future;
   }
 
-  Future<Response<List<Task>>> _getAllFiltered({int page = 1}) async {
-    var showOnlyDueDateTasks = await ref
+  /// Benutzerdefinierter Übersichts-Filter: online wie bisher. Rückgabe null
+  /// signalisiert offline/Fehler -> Aufrufer fällt auf den DB-Standard zurück.
+  Future<TaskPageModel?> _loadFilteredOnline(int filterId) async {
+    final onlyDue = await ref
         .read(settingsRepositoryProvider)
         .getLandingPageOnlyDueDateTasks();
 
-    var user = ref.read(currentUserProvider);
-    if (user != null) {
-      Map<String, dynamic>? frontendSettings = user.settings?.frontendSettings;
-      int? filterId = frontendSettings?["filter_id_used_on_overview"];
-      if (filterId != null && filterId != 0) {
-        var tasksResponse = await ref
-            .read(taskRepositoryProvider)
-            .getAllByProject(filterId, {
-              "sort_by": ["due_date", "id"],
-              "order_by": ["asc", "desc"],
-              "page": ["$page"],
-            });
-
-        return tasksResponse;
-      }
-    }
-
-    List<String> filterStrings = ["done = false"];
-    if (showOnlyDueDateTasks) {
-      filterStrings.add("due_date > 0001-01-01 00:00");
-    }
-
-    var tasksResponse = await ref
+    final response = await ref
         .read(taskRepositoryProvider)
-        .getByFilterString(filterStrings.join(" && "), {
+        .getAllByProject(filterId, {
           "sort_by": ["due_date", "id"],
           "order_by": ["asc", "desc"],
-          "filter_include_nulls": ["false"],
-          "page": ["$page"],
+          "page": ["1"],
         });
 
-    return tasksResponse;
+    if (response.isSuccessful) {
+      return _createPageModel(
+        response.toSuccess().body,
+        onlyDue,
+        isInitial: true,
+      );
+    }
+    return null;
   }
+
+  Future<TaskPageModel> _createPageModel(
+    List<Task> tasks,
+    bool onlyDue, {
+    bool isInitial = false,
+  }) async {
+    // Projekte lokal zuordnen (für Untertitel etc.).
+    final projectRows = await ref.read(projectsDaoProvider).getAll();
+    final projectsById = {for (final r in projectRows) r.id: projectFromRow(r)};
+    for (final task in tasks) {
+      task.project = projectsById[task.projectId];
+    }
+
+    final defaultProjectId =
+        ref.read(currentUserProvider)?.settings?.defaultProjectId ?? 0;
+
+    // Seiteneffekte (Home-Widget/Notifications) nur beim ersten Aufbau, damit
+    // Stream-Updates keine Netzwerk-Aufrufe spammen. Bleibt bis M3 online.
+    if (isInitial) {
+      unawaited(updateWidget().catchError((_) {}));
+      ref
+          .read(notificationProvider)
+          ?.scheduleDueNotifications(ref.read(taskRepositoryProvider));
+    }
+
+    return TaskPageModel(tasks, onlyDue, defaultProjectId, false);
+  }
+
+  /// Pull-to-Refresh: Voll-Pull anstoßen und neu aufbauen (deckt auch den
+  /// Online-Filterpfad ab).
+  Future<void> reload() async {
+    unawaited(ref.read(syncServiceProvider).syncNow());
+    ref.invalidateSelf();
+  }
+
+  /// Pagination entfällt bei DB-Reads (alles lokal) — No-Op für API-Kompat.
+  Future<void> loadNextPage() async {}
 
   Future<void> setLandingPageOnlyDueDateTasks(bool newValue) async {
     await ref
         .read(settingsRepositoryProvider)
         .setLandingPageOnlyDueDateTasks(newValue);
-
-    reload();
+    ref.invalidateSelf();
   }
 
   Future<bool> addTask(int projectId, Task task) async {
-    var response = await ref.read(taskRepositoryProvider).add(projectId, task);
+    final response = await ref.read(taskRepositoryProvider).add(projectId, task);
     if (response.isSuccessful) {
-      reload();
-
+      await _upsertTask(response.toSuccess().body, projectId: projectId);
       return true;
     }
-
     return false;
   }
 
   Future<bool> deleteTask(int id) async {
-    var response = await ref.read(taskRepositoryProvider).delete(id);
+    final response = await ref.read(taskRepositoryProvider).delete(id);
     if (response.isSuccessful) {
-      var value = state.value;
-      if (value != null) {
-        var tasks = value.tasks;
-        tasks.removeWhere((element) => element.id == id);
-        state = AsyncData(value.copyWith(tasks: tasks));
-      }
-
+      await ref.read(tasksDaoProvider).deleteById(id);
       return true;
     }
-
     return false;
   }
 
   Future<bool> updateTask(Task task) async {
-    var response = await ref.read(taskRepositoryProvider).update(task);
+    final response = await ref.read(taskRepositoryProvider).update(task);
     if (response.isSuccessful) {
-      reload();
-
+      await _upsertTask(response.toSuccess().body, projectId: task.projectId);
       return true;
     }
-
     return false;
   }
 
   Future<bool> markAsDone(Task task) async {
     task.done = true;
-    var response = await ref.read(taskRepositoryProvider).update(task);
+    final response = await ref.read(taskRepositoryProvider).update(task);
     if (response.isSuccessful) {
-      var value = state.value;
-      if (value != null) {
-        var tasks = value.tasks;
-        tasks.removeWhere((element) => element.id == task.id);
-        state = AsyncData(value.copyWith(tasks: tasks));
-      }
-
+      await _upsertTask(response.toSuccess().body, projectId: task.projectId);
       return true;
     }
-
     return false;
+  }
+
+  Future<void> _upsertTask(Task task, {int? projectId}) {
+    return ref
+        .read(tasksDaoProvider)
+        .upsertFromServer(
+          _mapper.task(
+            TaskDto.fromDomain(task),
+            DateTime.now(),
+            projectId: projectId ?? task.projectId,
+          ),
+        );
   }
 }

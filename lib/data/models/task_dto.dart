@@ -58,20 +58,30 @@ class TaskDto extends Dto<Task> {
     : id = json['id'],
       title = json['title'],
       description = json['description'],
-      identifier = json['identifier'],
-      done = json['done'],
+      identifier = json['identifier'] ?? '',
+      done = json['done'] ?? false,
       reminderDates = json['reminders'] != null
           ? (json['reminders'] as List<dynamic>)
                 .map((ts) => TaskReminderDto.fromJson(ts))
                 .toList()
           : [],
-      dueDate = DateTime.parse(json['due_date']),
-      startDate = DateTime.parse(json['start_date']),
-      endDate = DateTime.parse(json['end_date']),
+      // Null-tolerant, damit rawJson aus toJSON (leere Werte = null)
+      // verlustfrei zurückgelesen werden kann.
+      dueDate = json['due_date'] != null
+          ? DateTime.parse(json['due_date'])
+          : null,
+      startDate = json['start_date'] != null
+          ? DateTime.parse(json['start_date'])
+          : null,
+      endDate = json['end_date'] != null
+          ? DateTime.parse(json['end_date'])
+          : null,
       parentTaskId = json['parent_task_id'],
       priority = json['priority'],
-      repeatAfter = Duration(seconds: json['repeat_after']),
-      color = json['hex_color'] != ''
+      repeatAfter = json['repeat_after'] != null
+          ? Duration(seconds: json['repeat_after'])
+          : null,
+      color = (json['hex_color'] != null && json['hex_color'] != '')
           ? Color(int.parse(json['hex_color'], radix: 16) + 0xFF000000)
           : null,
       position = json['position'] is int

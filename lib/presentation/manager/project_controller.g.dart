@@ -6,7 +6,7 @@ part of 'project_controller.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$projectControllerHash() => r'2ae4088dfc5ed100c9509c2b6955c51f6f921ed9';
+String _$projectControllerHash() => r'7c046c239222e2bf61818f3e146331d816beb90f';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -36,16 +36,32 @@ abstract class _$ProjectController
   FutureOr<ProjectPageModel> build(Project project);
 }
 
-/// See also [ProjectController].
+/// Liest Liste bzw. Kanban-Buckets reaktiv aus der lokalen DB (watch-Streams).
+/// Schreib-Methoden gehen weiterhin über die Repositories (Online-API) und
+/// upserten die Server-Antwort in die DB; die UI aktualisiert sich per Stream.
+///
+/// Copied from [ProjectController].
 @ProviderFor(ProjectController)
 const projectControllerProvider = ProjectControllerFamily();
 
-/// See also [ProjectController].
+/// Liest Liste bzw. Kanban-Buckets reaktiv aus der lokalen DB (watch-Streams).
+/// Schreib-Methoden gehen weiterhin über die Repositories (Online-API) und
+/// upserten die Server-Antwort in die DB; die UI aktualisiert sich per Stream.
+///
+/// Copied from [ProjectController].
 class ProjectControllerFamily extends Family<AsyncValue<ProjectPageModel>> {
-  /// See also [ProjectController].
+  /// Liest Liste bzw. Kanban-Buckets reaktiv aus der lokalen DB (watch-Streams).
+  /// Schreib-Methoden gehen weiterhin über die Repositories (Online-API) und
+  /// upserten die Server-Antwort in die DB; die UI aktualisiert sich per Stream.
+  ///
+  /// Copied from [ProjectController].
   const ProjectControllerFamily();
 
-  /// See also [ProjectController].
+  /// Liest Liste bzw. Kanban-Buckets reaktiv aus der lokalen DB (watch-Streams).
+  /// Schreib-Methoden gehen weiterhin über die Repositories (Online-API) und
+  /// upserten die Server-Antwort in die DB; die UI aktualisiert sich per Stream.
+  ///
+  /// Copied from [ProjectController].
   ProjectControllerProvider call(Project project) {
     return ProjectControllerProvider(project);
   }
@@ -72,14 +88,22 @@ class ProjectControllerFamily extends Family<AsyncValue<ProjectPageModel>> {
   String? get name => r'projectControllerProvider';
 }
 
-/// See also [ProjectController].
+/// Liest Liste bzw. Kanban-Buckets reaktiv aus der lokalen DB (watch-Streams).
+/// Schreib-Methoden gehen weiterhin über die Repositories (Online-API) und
+/// upserten die Server-Antwort in die DB; die UI aktualisiert sich per Stream.
+///
+/// Copied from [ProjectController].
 class ProjectControllerProvider
     extends
         AutoDisposeAsyncNotifierProviderImpl<
           ProjectController,
           ProjectPageModel
         > {
-  /// See also [ProjectController].
+  /// Liest Liste bzw. Kanban-Buckets reaktiv aus der lokalen DB (watch-Streams).
+  /// Schreib-Methoden gehen weiterhin über die Repositories (Online-API) und
+  /// upserten die Server-Antwort in die DB; die UI aktualisiert sich per Stream.
+  ///
+  /// Copied from [ProjectController].
   ProjectControllerProvider(Project project)
     : this._internal(
         () => ProjectController()..project = project,

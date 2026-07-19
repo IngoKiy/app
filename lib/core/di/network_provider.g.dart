@@ -21,7 +21,7 @@ final authDataProvider = NotifierProvider<AuthData, AuthModel?>.internal(
 );
 
 typedef _$AuthData = Notifier<AuthModel?>;
-String _$currentUserHash() => r'6c693923886cc2ac9303d1f1c51786f9b4638b0a';
+String _$currentUserHash() => r'ab32c92e6beee66fb67594b0c2d2d612f95dbcf1';
 
 /// See also [CurrentUser].
 @ProviderFor(CurrentUser)

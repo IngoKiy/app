@@ -7,9 +7,13 @@ part of 'projects_controller.dart';
 // **************************************************************************
 
 String _$projectsControllerHash() =>
-    r'3a48e7d7453bae23d569e62976cfdcdf9222cc85';
+    r'58841b74964d783bccf377a375429e194d0220ac';
 
-/// See also [ProjectsController].
+/// Liest die Projektliste reaktiv aus der lokalen DB (watch-Stream). Schreib-
+/// Methoden gehen weiterhin über die Repositories (Online-API) und upserten
+/// die Server-Antwort in die DB; die UI aktualisiert sich über den Stream.
+///
+/// Copied from [ProjectsController].
 @ProviderFor(ProjectsController)
 final projectsControllerProvider =
     AutoDisposeAsyncNotifierProvider<

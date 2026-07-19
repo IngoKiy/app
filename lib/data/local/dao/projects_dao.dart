@@ -21,6 +21,10 @@ class ProjectsDao extends DatabaseAccessor<AppDatabase>
   Future<ProjectRow?> getById(int id) =>
       (select(projects)..where((p) => p.id.equals(id))).getSingleOrNull();
 
+  /// Alle nicht gelöschten Projekte (z.B. um Tasks ihr Projekt zuzuordnen).
+  Future<List<ProjectRow>> getAll() =>
+      (select(projects)..where((p) => p.isDeleted.equals(false))).get();
+
   /// Merge vom Server: legt neue Projekte an bzw. aktualisiert bestehende
   /// per [ProjectsCompanion.remoteId]. Ist der lokale Datensatz dirty
   /// (unpushte lokale Änderung), wird er NICHT überschrieben.

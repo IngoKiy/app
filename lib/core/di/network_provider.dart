@@ -22,6 +22,8 @@ class CurrentUser extends _$CurrentUser {
   User? build() => null;
 
   void set(User user) => state = user;
+
+  void clear() => state = null;
 }
 
 @Riverpod(keepAlive: true)
