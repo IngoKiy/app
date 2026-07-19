@@ -122,4 +122,49 @@ void main() {
     expect(result.length, 1);
     expect(result.first.id, 1);
   });
+
+  test(
+    'deleteMissingCleanForProject löscht nur im Projekt-Scope, andere '
+    'Projekte bleiben unangetastet',
+    () async {
+      await db.tasksDao.upsertFromServer(
+        _task(id: 1, remoteId: 1, projectId: 10, title: 'bleibt (keep)'),
+      );
+      await db.tasksDao.upsertFromServer(
+        _task(id: 2, remoteId: 2, projectId: 10, title: 'weg (fehlt in Scope)'),
+      );
+      await db.tasksDao.upsertLocal(
+        _task(id: 3, remoteId: 3, projectId: 10, title: 'bleibt (dirty)'),
+      );
+      await db.tasksDao.upsertFromServer(
+        _task(id: 4, remoteId: 4, projectId: 20, title: 'anderes Projekt'),
+      );
+
+      final deleted = await db.tasksDao.deleteMissingCleanForProject(10, [1]);
+
+      expect(deleted, 1);
+      expect(await db.tasksDao.getById(1), isNotNull);
+      expect(await db.tasksDao.getById(2), isNull);
+      expect(await db.tasksDao.getById(3), isNotNull); // dirty bleibt
+      expect(await db.tasksDao.getById(4), isNotNull); // Projekt 20 unberührt
+    },
+  );
+
+  test(
+    'deleteMissingCleanForProject mit leerer keep-Liste löscht alle clean '
+    'Tasks des Projekts',
+    () async {
+      await db.tasksDao.upsertFromServer(
+        _task(id: 1, remoteId: 1, projectId: 10),
+      );
+      await db.tasksDao.upsertFromServer(
+        _task(id: 2, remoteId: 2, projectId: 20),
+      );
+
+      await db.tasksDao.deleteMissingCleanForProject(10, const []);
+
+      expect(await db.tasksDao.getById(1), isNull);
+      expect(await db.tasksDao.getById(2), isNotNull);
+    },
+  );
 }

@@ -60,5 +60,23 @@ class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
         .go();
   }
 
+  /// Wie [deleteMissingClean], aber auf ein Projekt beschränkt. Der Pull-Sync
+  /// synchronisiert Tasks projektweise; damit ein Teilabbruch (z.B. Netzfehler
+  /// bei einem späteren Projekt) nicht die Tasks anderer Projekte löscht, wird
+  /// pro Projekt-Scope aufgeräumt.
+  Future<int> deleteMissingCleanForProject(
+    int projectId,
+    Iterable<int> keepRemoteIds,
+  ) {
+    return (delete(tasks)..where(
+          (t) =>
+              t.projectId.equals(projectId) &
+              t.isDirty.equals(false) &
+              t.remoteId.isNotNull() &
+              t.remoteId.isNotIn(keepRemoteIds),
+        ))
+        .go();
+  }
+
   Future<int> wipeAll() => delete(tasks).go();
 }

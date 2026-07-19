@@ -44,6 +44,21 @@ class ServerDto extends Dto<Server> {
       userDeletion = json['user_deletion'],
       version = json['version'];
 
+  Map<String, dynamic> toJSON() => {
+    'caldav_enabled': caldavEnabled,
+    'email_reminders_enabled': emailRemindersEnabled,
+    'frontend_url': frontendUrl,
+    'link_sharing_enabled': linkSharingEnabled,
+    'max_file_size': maxFileSize,
+    'motd': motd,
+    'registration_enabled': registrationEnabled,
+    'task_attachments_enabled': taskAttachmentsEnabled,
+    'task_comments_enabled': taskCommentsEnabled,
+    'totp_enabled': totpEnabled,
+    'user_deletion': userDeletion,
+    'version': version,
+  };
+
   @override
   Server toDomain() => Server(
     caldavEnabled,

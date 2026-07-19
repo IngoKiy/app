@@ -57,5 +57,21 @@ class BucketsDao extends DatabaseAccessor<AppDatabase> with _$BucketsDaoMixin {
         .go();
   }
 
+  /// Wie [deleteMissingClean], aber auf ein Projekt beschränkt (analog zu
+  /// [TasksDao.deleteMissingCleanForProject]).
+  Future<int> deleteMissingCleanForProject(
+    int projectId,
+    Iterable<int> keepRemoteIds,
+  ) {
+    return (delete(buckets)..where(
+          (b) =>
+              b.projectId.equals(projectId) &
+              b.isDirty.equals(false) &
+              b.remoteId.isNotNull() &
+              b.remoteId.isNotIn(keepRemoteIds),
+        ))
+        .go();
+  }
+
   Future<int> wipeAll() => delete(buckets).go();
 }
