@@ -8,6 +8,7 @@ import 'package:vikunja_app/domain/entities/task_comment.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/manager/task_comments_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/comment_edit_page.dart';
+import 'package:vikunja_app/presentation/widgets/ui/confirmation_dialog.dart';
 
 class TaskComments extends ConsumerWidget {
   final int taskId;
@@ -41,26 +42,16 @@ class TaskComments extends ConsumerWidget {
     TaskComment comment,
   ) async {
     final l10n = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.deleteCommentTitle),
-        content: Text(l10n.deleteCommentConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: l10n.deleteCommentTitle,
+      message: l10n.deleteCommentConfirm,
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      isDestructive: true,
     );
 
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     // Check context is still valid after dialog
     if (!context.mounted) return;
@@ -109,7 +100,7 @@ class TaskComments extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Text(
             l10n.commentsLoadError,
-            style: const TextStyle(color: Colors.red),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ),
       ],
@@ -126,7 +117,9 @@ class TaskComments extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 8.0),
         child: Text(
           AppLocalizations.of(context).noComments,
-          style: const TextStyle(color: Colors.grey),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
