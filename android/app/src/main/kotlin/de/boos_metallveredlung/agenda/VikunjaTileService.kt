@@ -1,4 +1,4 @@
-package io.vikunja.app
+package de.boos_metallveredlung.agenda
 
 
 import android.content.Intent

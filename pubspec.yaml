@@ -1,5 +1,5 @@
 name: vikunja_app
-description: Vikunja as Flutter cross platform app
+description: BOOS Agenda – interne Aufgaben-App (Vikunja-Fork)
 
 version: 0.1.8-beta
 
@@ -58,8 +58,8 @@ dev_dependencies:
   riverpod_lint: ^2.6.5
 
 flutter_icons:
-  image_path: "assets/vikunja_logo.png"
-  image_path_ios: "assets/vikunja_ios.png"
+  image_path: "assets/boos_agenda_icon.png"
+  image_path_ios: "assets/boos_agenda_icon.png"
   android: true
   ios: true
   adaptive_icon_background: "#FF455486"

@@ -1,4 +1,4 @@
-package io.vikunja.app.widget
+package de.boos_metallveredlung.agenda.widget
 
 import androidx.annotation.Keep
 import java.util.Date

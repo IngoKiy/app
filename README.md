@@ -1,20 +1,36 @@
-# Vikunja Cross-Platform App
+# BOOS Agenda
 
-[![GitHub release (latest by SemVer including pre-releases)](https://img.shields.io/github/downloads-pre/go-vikunja/app/latest/total)](https://github.com/go-vikunja/app/releases/latest)
-[![Beta Release on Google Play](https://img.shields.io/badge/Google_Play-Beta-blue)](https://play.google.com/store/apps/details?id=io.vikunja.app)
-[![Talk on Matrix](https://img.shields.io/matrix/vikunja%3Amatrix.org)](https://matrix.to/#/#vikunja:matrix.org)
+Die interne Aufgaben-App der BOOS Metallveredelung — ein eigenständiger Fork der
+offiziellen [Vikunja-Flutter-App](https://github.com/go-vikunja/app), angepasst
+und erweitert für den Firmeneinsatz gegen unsere selbst gehostete
+Vikunja-Instanz.
 
-This repo contains the Cross-Platform app for Vikunja, the fluffy, open-source, self-hostable to-do app.
-Vikunja helps you organize tasks, collaborate with teams, and view projects in multiple formats including list, Gantt, table, and Kanban views. Built with privacy in mind, Vikunja gives you complete control over your data whether you self-host or use Vikunja Cloud. Learn more at the [main Vikunja repository](https://github.com/go-vikunja/vikunja/).
+## Unterschiede zum Upstream
 
-## Translations
+- **Anhänge vollständig:** Anzeige mit Bild-Thumbnails in der Aufgaben-Ansicht,
+  Vollbild-Viewer, Upload über Kamera/Fotomediathek/Dateien, Löschen
+  (`lib/presentation/widgets/task_attachments_section.dart`)
+- **Aufgaben-Zuweisung:** Personen zuweisen/entfernen mit Nutzersuche,
+  Avatar-Chips in Detail- und Bearbeiten-Ansicht, Mini-Avatare in der
+  Aufgabenliste (`task_assignees_section.dart`, `user_avatar.dart`)
+- **Eigene Identität:** App-Name „BOOS Agenda", Bundle-ID
+  `de.boos-metallveredlung.agenda` (iOS) bzw. `de.boos_metallveredlung.agenda`
+  (Android), eigenes Icon
+- iOS-Deployment-Target 14.0
 
-[Check out the docs](https://vikunja.io/docs/translations/) about how to contribute translations or add a new language for translation.
+## Entwicklung
 
-## Disclaimer
+```bash
+flutter pub get
+flutter gen-l10n
+flutter analyze
+flutter build ios --release   # bzw. flutter build apk --release
+```
 
-This app is in alpha pre-release. You must absolutely expect things to not work, and sometimes even break something in the backend. Using this app on important production backends is possible but discouraged. However, as we rely on your feedback about missing features and bugs, we do encourage you to try it out and give us feedback here on GitHub. This app requires the latest **stable** build of Vikunja (see [here](https://vikunja.io/docs/versions/)) to run. We are not responsible for lost data and similar destruction.
+Upstream-Änderungen können bei Bedarf selektiv übernommen werden
+(`git remote upstream` zeigt auf go-vikunja/app; Cherry-Picks statt Voll-Merges).
 
-If you have anything to contribute, please open a PR. It is encouraged to let us know before you start developing, so we can discuss possible overlap with features other people might already be working on. This avoids unnecessary waste of time for either party.
+## Lizenz
 
-The latest unstable builds are available on the [Google Play Beta](https://play.google.com/store/apps/details?id=io.vikunja.app) and on the [download server](https://dl.vikunja.io/app/). Stable releases are available on the [download server](https://dl.vikunja.io/app/) and the [Releases](https://github.com/go-vikunja/app/releases/latest) page. If you want to try this app on an iPhone, I cannot provide support, as I do not have an iPhone to develop on. However, contributors have confirmed that it works™. If you do decide to try it out, please share with the community any bugs you experience.
+GPL-3.0 (geerbt vom Upstream-Projekt). Bei Weitergabe der App außerhalb der
+Firma muss der Quellcode dieses Forks zugänglich sein.
