@@ -155,24 +155,28 @@ class SyncService {
 
   /// Manueller Auslöser (Pull-to-Refresh / "jetzt synchronisieren"): erst
   /// Push (Outbox), dann voller Pull.
-  Future<SyncResult> syncNow() async {
+  ///
+  /// [userInitiated] wird an [SyncStateNotifier.setSyncing] durchgereicht,
+  /// damit der globale Banner während nutzerausgelöster Syncs still bleibt
+  /// (der auslösende RefreshIndicator/Sheet-Button zeigt den Fortschritt).
+  Future<SyncResult> syncNow({bool userInitiated = false}) async {
     if (_pushBeforePull != null) {
       await _pushBeforePull();
     }
-    return pullAll();
+    return pullAll(userInitiated: userInitiated);
   }
 
-  Future<SyncResult> pullAll() {
-    return _pullInFlight ??= _pullAll().whenComplete(() {
+  Future<SyncResult> pullAll({bool userInitiated = false}) {
+    return _pullInFlight ??= _pullAll(userInitiated: userInitiated).whenComplete(() {
       _pullInFlight = null;
     });
   }
 
-  Future<SyncResult> _pullAll() async {
+  Future<SyncResult> _pullAll({bool userInitiated = false}) async {
     final stopwatch = Stopwatch()..start();
     final stats = SyncStats();
     final now = DateTime.now();
-    _syncState.setSyncing();
+    _syncState.setSyncing(userInitiated: userInitiated);
 
     try {
       // 1. Server-Info + aktueller Nutzer.

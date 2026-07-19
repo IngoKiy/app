@@ -188,9 +188,12 @@ class TaskPageController extends _$TaskPageController {
   }
 
   /// Pull-to-Refresh: Voll-Pull anstoßen und neu aufbauen (deckt auch den
-  /// Online-Filterpfad ab).
+  /// Online-Filterpfad ab). `userInitiated: true`, damit der globale Banner
+  /// während des sichtbaren RefreshIndicators nicht zusätzlich
+  /// "Synchronisiere …" zeigt. Der Pull wird awaited, damit der
+  /// RefreshIndicator bis zum Sync-Ende sichtbar bleibt.
   Future<void> reload() async {
-    unawaited(ref.read(syncServiceProvider).syncNow());
+    await ref.read(syncServiceProvider).syncNow(userInitiated: true);
     ref.invalidateSelf();
   }
 

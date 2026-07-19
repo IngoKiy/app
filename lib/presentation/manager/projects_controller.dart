@@ -53,7 +53,10 @@ class ProjectsController extends _$ProjectsController {
 
   /// Pull-to-Refresh: stößt einen Voll-Pull an; die DB-Streams liefern das
   /// Ergebnis. Fehler (offline) werden vom SyncService still behandelt.
-  Future<void> reload() => ref.read(syncServiceProvider).syncNow();
+  /// `userInitiated: true`, damit der globale Banner während des sichtbaren
+  /// RefreshIndicators nicht zusätzlich "Synchronisiere …" zeigt.
+  Future<void> reload() =>
+      ref.read(syncServiceProvider).syncNow(userInitiated: true);
 
   /// Pagination entfällt bei DB-Reads (alles lokal) — No-Op für API-Kompat.
   Future<void> loadNextPage() async {}

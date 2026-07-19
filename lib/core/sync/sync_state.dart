@@ -37,11 +37,18 @@ class SyncState {
   /// Human-readable error message set when [phase] is [SyncPhase.error].
   final String? errorMessage;
 
+  /// Whether the current/last [SyncPhase.syncing] round was triggered by the
+  /// user (pull-to-refresh, "sync now" in the sync sheet) rather than
+  /// automatically (app start, reconnect, background work). Only meaningful
+  /// while [phase] is [SyncPhase.syncing]; always `false` otherwise.
+  final bool userInitiated;
+
   const SyncState({
     this.phase = SyncPhase.idle,
     this.pendingOps = 0,
     this.lastSyncAt,
     this.errorMessage,
+    this.userInitiated = false,
   });
 
   SyncState copyWith({
@@ -49,6 +56,7 @@ class SyncState {
     int? pendingOps,
     DateTime? lastSyncAt,
     String? errorMessage,
+    bool? userInitiated,
     bool clearLastSyncAt = false,
     bool clearErrorMessage = false,
   }) {
@@ -59,6 +67,7 @@ class SyncState {
       errorMessage: clearErrorMessage
           ? null
           : (errorMessage ?? this.errorMessage),
+      userInitiated: userInitiated ?? this.userInitiated,
     );
   }
 
@@ -70,13 +79,16 @@ class SyncState {
           phase == other.phase &&
           pendingOps == other.pendingOps &&
           lastSyncAt == other.lastSyncAt &&
-          errorMessage == other.errorMessage;
+          errorMessage == other.errorMessage &&
+          userInitiated == other.userInitiated;
 
   @override
-  int get hashCode => Object.hash(phase, pendingOps, lastSyncAt, errorMessage);
+  int get hashCode =>
+      Object.hash(phase, pendingOps, lastSyncAt, errorMessage, userInitiated);
 
   @override
   String toString() =>
       'SyncState(phase: $phase, pendingOps: $pendingOps, '
-      'lastSyncAt: $lastSyncAt, errorMessage: $errorMessage)';
+      'lastSyncAt: $lastSyncAt, errorMessage: $errorMessage, '
+      'userInitiated: $userInitiated)';
 }

@@ -56,9 +56,8 @@ class ProjectListPage extends ConsumerWidget {
                   return _buildListItem(ref, projects[index]);
                 },
               ),
-              onRefresh: () async {
-                ref.read(projectsControllerProvider.notifier).reload();
-              },
+              onRefresh: () =>
+                  ref.read(projectsControllerProvider.notifier).reload(),
             ),
           ),
           appBar: AppBar(

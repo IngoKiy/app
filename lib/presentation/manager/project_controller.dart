@@ -120,10 +120,14 @@ class ProjectController extends _$ProjectController {
   Future<void> loadNextPage() async {}
 
   /// Setzt die Ansicht auf den DB-Stand zurück (verwirft optimistische
-  /// UI-Änderungen) und stößt im Hintergrund einen Voll-Pull an.
-  void reload() {
-    unawaited(ref.read(syncServiceProvider).syncNow());
-    loadForView(_project, _viewIndex);
+  /// UI-Änderungen) und stößt einen Voll-Pull an. `userInitiated: true`,
+  /// damit der globale Banner während des sichtbaren RefreshIndicators nicht
+  /// zusätzlich "Synchronisiere …" zeigt. Die zurückgegebene Future wird von
+  /// Pull-to-Refresh awaited, damit der Indikator bis zum Sync-Ende sichtbar
+  /// bleibt; andere Aufrufer dürfen sie weiterhin fire-and-forget nutzen.
+  Future<void> reload() async {
+    await ref.read(syncServiceProvider).syncNow(userInitiated: true);
+    await loadForView(_project, _viewIndex);
   }
 
   Future<bool> addTask(Project project, Task newTask) async {

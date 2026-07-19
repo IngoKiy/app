@@ -32,9 +32,8 @@ class TaskListPage extends ConsumerWidget {
           appBar: _buildAppBar(ref, context, model.onlyDueDate),
           body: ConstrainedPage(
             child: RefreshIndicator(
-              onRefresh: () async {
-                ref.read(taskPageControllerProvider.notifier).reload();
-              },
+              onRefresh: () =>
+                  ref.read(taskPageControllerProvider.notifier).reload(),
               child: NotificationListener<ScrollNotification>(
                 onNotification: (ScrollNotification scrollInfo) {
                   if (scrollInfo.metrics.pixels ==

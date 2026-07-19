@@ -10,7 +10,7 @@ import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 /// fehlgeschlagene Outbox-Operationen samt Aktionen (jetzt synchronisieren,
 /// fehlgeschlagene Op verwerfen). Wird per Tap auf den [SyncStatusBanner]
 /// geöffnet.
-class SyncStatusSheet extends ConsumerWidget {
+class SyncStatusSheet extends ConsumerStatefulWidget {
   const SyncStatusSheet({super.key});
 
   static Future<void> show(BuildContext context) {
@@ -23,7 +23,28 @@ class SyncStatusSheet extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SyncStatusSheet> createState() => _SyncStatusSheetState();
+}
+
+class _SyncStatusSheetState extends ConsumerState<SyncStatusSheet> {
+  bool _syncing = false;
+
+  /// "Jetzt synchronisieren": stößt Push+Pull an (userInitiated: true, damit
+  /// der globale Banner währenddessen still bleibt) und zeigt den Fortschritt
+  /// stattdessen als Spinner auf dem Button — die einzige Anzeige für diesen
+  /// nutzerausgelösten Sync. Das Sheet schließt erst danach.
+  Future<void> _syncNow() async {
+    setState(() => _syncing = true);
+    try {
+      await ref.read(syncServiceProvider).syncNow(userInitiated: true);
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context);
     final opsAsync = ref.watch(pendingOpsListProvider);
@@ -81,11 +102,17 @@ class SyncStatusSheet extends ConsumerWidget {
             ),
             const SizedBox(height: AppDimensions.sm),
             FilledButton.icon(
-              onPressed: () {
-                ref.read(syncServiceProvider).syncNow();
-                Navigator.of(context).pop();
-              },
-              icon: const Icon(Icons.sync),
+              onPressed: _syncing ? null : _syncNow,
+              icon: _syncing
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.onPrimary,
+                      ),
+                    )
+                  : const Icon(Icons.sync),
               label: Text(loc.syncSheetSyncNow),
             ),
           ],

@@ -21,8 +21,18 @@ class SyncStateNotifier extends _$SyncStateNotifier {
   }
 
   /// Marks a sync round (pull and/or push) as currently in progress.
-  void setSyncing() {
-    state = state.copyWith(phase: SyncPhase.syncing, clearErrorMessage: true);
+  ///
+  /// [userInitiated] distinguishes a user-triggered sync (pull-to-refresh,
+  /// "sync now" in the sync sheet) from an automatic one (app start,
+  /// reconnect, background work). The banner uses this to stay silent during
+  /// user-triggered syncs, since the triggering widget (RefreshIndicator,
+  /// sheet button) already shows its own progress.
+  void setSyncing({bool userInitiated = false}) {
+    state = state.copyWith(
+      phase: SyncPhase.syncing,
+      userInitiated: userInitiated,
+      clearErrorMessage: true,
+    );
   }
 
   /// Marks the sync engine as idle, optionally recording when the last
@@ -31,13 +41,18 @@ class SyncStateNotifier extends _$SyncStateNotifier {
     state = state.copyWith(
       phase: SyncPhase.idle,
       lastSyncAt: lastSyncAt,
+      userInitiated: false,
       clearErrorMessage: true,
     );
   }
 
   /// Records that the last sync attempt failed with [message].
   void setError(String message) {
-    state = state.copyWith(phase: SyncPhase.error, errorMessage: message);
+    state = state.copyWith(
+      phase: SyncPhase.error,
+      errorMessage: message,
+      userInitiated: false,
+    );
   }
 
   /// Updates the number of operations still queued in the outbox.
