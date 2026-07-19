@@ -116,3 +116,8 @@ local.properties
 
 # pre-commit
 .pre-commit-config.yaml
+
+# Golden tests: only deterministic CI goldens are committed
+test/**/goldens/linux/
+test/**/goldens/macos/
+test/**/goldens/windows/
