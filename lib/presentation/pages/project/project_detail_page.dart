@@ -16,6 +16,7 @@ import 'package:vikunja_app/presentation/pages/project/project_edit.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_widget.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_task_list.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 
 class ProjectDetailPage extends ConsumerStatefulWidget {
   final Project project;
@@ -51,29 +52,45 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
 
     return projectController.when(
       data: (data) {
+        final isCompact = context.isCompact;
+        final scrollBody = NotificationListener<ScrollNotification>(
+          onNotification: (ScrollNotification scrollInfo) {
+            if (scrollInfo.metrics.pixels ==
+                scrollInfo.metrics.maxScrollExtent) {
+              ref
+                  .read(projectControllerProvider(widget.project).notifier)
+                  .loadNextPage();
+            }
+            return false;
+          },
+          child: RefreshIndicator(
+            onRefresh: () {
+              return ref
+                  .read(projectControllerProvider(widget.project).notifier)
+                  .loadForView(data.project, _viewIndex);
+            },
+            child: getBody(data.project),
+          ),
+        );
+
         return Scaffold(
           appBar: _buildAppBar(context, data.project, data.displayDoneTask),
-          body: NotificationListener<ScrollNotification>(
-            onNotification: (ScrollNotification scrollInfo) {
-              if (scrollInfo.metrics.pixels ==
-                  scrollInfo.metrics.maxScrollExtent) {
-                ref
-                    .read(projectControllerProvider(widget.project).notifier)
-                    .loadNextPage();
-              }
-              return false;
-            },
-            child: RefreshIndicator(
-              onRefresh: () {
-                return ref
-                    .read(projectControllerProvider(widget.project).notifier)
-                    .loadForView(data.project, _viewIndex);
-              },
-              child: getBody(data.project),
-            ),
-          ),
+          body: isCompact
+              ? scrollBody
+              : Column(
+                  children: [
+                    if (data.project.views.length >= 2)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: _buildViewSwitcher(data.project),
+                      ),
+                    Expanded(child: scrollBody),
+                  ],
+                ),
           floatingActionButton: _buildFab(data.project),
-          bottomNavigationBar: _buildBottomNavigation(data.project),
+          bottomNavigationBar: isCompact
+              ? _buildBottomNavigation(data.project)
+              : null,
         );
       },
       error: (err, _) => VikunjaErrorWidget(
@@ -140,25 +157,39 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     );
   }
 
-  BottomNavigationBar? _buildBottomNavigation(Project project) {
+  NavigationBar? _buildBottomNavigation(Project project) {
     if (project.views.length >= 2) {
-      return BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: project.views
+      return NavigationBar(
+        destinations: project.views
             .map(
-              (view) => BottomNavigationBarItem(
+              (view) => NavigationDestination(
                 icon: view.icon,
                 label: view.title,
                 tooltip: view.title,
               ),
             )
             .toList(),
-        currentIndex: _viewIndex,
-        onTap: _onViewTapped,
+        selectedIndex: _viewIndex,
+        onDestinationSelected: _onViewTapped,
       );
     }
 
     return null;
+  }
+
+  Widget _buildViewSwitcher(Project project) {
+    return SegmentedButton<int>(
+      segments: [
+        for (var i = 0; i < project.views.length; i++)
+          ButtonSegment(
+            value: i,
+            icon: project.views[i].icon,
+            label: Text(project.views[i].title),
+          ),
+      ],
+      selected: {_viewIndex},
+      onSelectionChanged: (selection) => _onViewTapped(selection.first),
+    );
   }
 
   Future<void> _addITaskDialog(BuildContext context, Project project) {
