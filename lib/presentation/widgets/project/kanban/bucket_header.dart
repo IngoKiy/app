@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/theming/app_colors.dart';
 import 'package:vikunja_app/domain/entities/bucket.dart';
 
 enum HeaderAction {
@@ -32,7 +33,8 @@ class BucketHeader extends StatelessWidget {
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
       child: Row(
         children: [
-          if (isDoneColumn) const Icon(Icons.done_all, color: Colors.green),
+          if (isDoneColumn)
+            Icon(Icons.done_all, color: context.appColors.success),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -46,7 +48,7 @@ class BucketHeader extends StatelessWidget {
               "${bucket.tasks.length}/${bucket.limit}",
               style: bucket.tasks.length > bucket.limit
                   ? Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.red,
+                      color: Theme.of(context).colorScheme.error,
                       fontWeight: FontWeight.bold,
                     )
                   : Theme.of(context).textTheme.titleSmall,
@@ -78,13 +80,13 @@ class BucketHeader extends StatelessWidget {
           "Done Column",
           HeaderAction.doneColumn,
           Icons.done_all,
-          isDoneColumn ? Colors.green : null,
+          isDoneColumn ? context.appColors.success : null,
         ),
         buildPopupMenuItem(
           "Default Column",
           HeaderAction.defaultColumn,
           Icons.grid_on,
-          isDefaultColumn ? Colors.blue : null,
+          isDefaultColumn ? Theme.of(context).colorScheme.primary : null,
         ),
         buildPopupMenuItem(
           "Collapse column",

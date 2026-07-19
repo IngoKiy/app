@@ -63,6 +63,9 @@ class Task {
     return Colors.white;
   }
 
+  /// The server encodes "no color" as black.
+  bool get hasCustomColor => color != null && color != Colors.black;
+
   bool get hasDueDate => dueDate != null && dueDate?.year != 1;
 
   bool get hasStartDate => startDate != null && startDate?.year != 1;
