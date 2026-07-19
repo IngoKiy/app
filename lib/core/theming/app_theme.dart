@@ -14,6 +14,7 @@ ThemeData buildAppTheme({
     useMaterial3: true,
     brightness: colorScheme.brightness,
     colorScheme: colorScheme,
+    fontFamily: 'Quicksand',
     scaffoldBackgroundColor: colorScheme.surface,
     canvasColor: colorScheme.surface,
     appBarTheme: AppBarTheme(
