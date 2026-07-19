@@ -13,5 +13,9 @@
   "assignees": "Zugewiesen an",
   "addAssignee": "Person zuweisen",
   "assigneeSearchHint": "Nutzer suchen…",
-  "assigneesUpdateFailed": "Zuweisung konnte nicht gespeichert werden"
+  "assigneesUpdateFailed": "Zuweisung konnte nicht gespeichert werden",
+  "offlineBanner": "Offline — Änderungen werden synchronisiert, sobald du wieder online bist",
+  "syncingBanner": "Synchronisiere …",
+  "pendingChangesBanner": "{count} Änderungen ausstehend",
+  "syncErrorBanner": "Synchronisierung fehlgeschlagen: {message}"
 }
