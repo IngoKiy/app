@@ -17,6 +17,7 @@ part 'sync_provider.g.dart';
 SyncService syncService(Ref ref) {
   final service = SyncService(
     pushBeforePull: () => ref.read(pushProcessorProvider).pushAll(),
+    onPullCompleted: () => ref.read(attachmentPrefetcherProvider).run(),
     serverDataSource: ref.watch(serverDataSourceProvider),
     userDataSource: ref.watch(userDataSourceProvider),
     labelDataSource: ref.watch(labelDataSourceProvider),

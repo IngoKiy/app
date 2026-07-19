@@ -134,6 +134,48 @@ void main() {
     expect(await db.imageCacheDao.getByHash('c'), isNotNull);
   });
 
+  test('loadWithProgress: meldet Fortschritt + schreibt Cache', () async {
+    final client = MockClient((_) async => http.Response.bytes(bytes, 200));
+    final cache = cacheWith(client);
+    final events = <(int, int?)>[];
+
+    final result = await cache.loadWithProgress(
+      'https://x/img',
+      const {},
+      onProgress: (cumulative, total) => events.add((cumulative, total)),
+    );
+
+    expect(result, bytes);
+    // Mindestens ein Fortschritts-Event; letzter Stand = volle Größe.
+    expect(events, isNotEmpty);
+    expect(events.last.$1, bytes.length);
+    // Cache wurde geschrieben.
+    final hash = ImageDiskCache.hashUrl('https://x/img');
+    expect(await db.imageCacheDao.getByHash(hash), isNotNull);
+  });
+
+  test('loadWithProgress: fällt offline auf gecachte Datei zurück', () async {
+    final online = MockClient((_) async => http.Response.bytes(bytes, 200));
+    await cacheWith(online).loadWithProgress(
+      'https://x/img',
+      const {},
+      onProgress: (_, _) {},
+    );
+
+    final offline = MockClient(
+      (_) async => throw http.ClientException('offline'),
+    );
+    final events = <(int, int?)>[];
+    final result = await cacheWith(offline).loadWithProgress(
+      'https://x/img',
+      const {},
+      onProgress: (c, t) => events.add((c, t)),
+    );
+
+    expect(result, bytes);
+    expect(events, isEmpty); // kein Netz → keine Fortschritts-Events
+  });
+
   test('AuthCachedImageProvider: Gleichheit hängt nur an url + scale', () {
     final cache = cacheWith(MockClient((_) async => http.Response('', 200)));
     final a = AuthCachedImageProvider('u', headers: const {}, cache: cache);

@@ -34,8 +34,9 @@ abstract class TaskRepository {
 
   Future<TaskStatusUpdate> downloadAttachment(
     int taskId,
-    TaskAttachment attachment,
-  );
+    TaskAttachment attachment, {
+    void Function(double)? onProgress,
+  });
 
   /// Setzt die komplette Zuweisungsliste einer Aufgabe (ersetzt vorhandene).
   Future<Response<Object>> setAssignees(int taskId, List<User> assignees);

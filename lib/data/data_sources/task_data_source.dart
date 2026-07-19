@@ -148,8 +148,9 @@ class TaskDataSource extends RemoteDataSource {
 
   Future<TaskStatusUpdate> downloadAttachment(
     int taskId,
-    TaskAttachmentDto attachment,
-  ) async {
+    TaskAttachmentDto attachment, {
+    void Function(double)? onProgress,
+  }) async {
     String url = client.apiBase;
     url += '/tasks/$taskId/attachments/${attachment.id}';
 
@@ -161,6 +162,6 @@ class TaskDataSource extends RemoteDataSource {
       updates: Updates.statusAndProgress,
     );
 
-    return await FileDownloader().download(task);
+    return await FileDownloader().download(task, onProgress: onProgress);
   }
 }

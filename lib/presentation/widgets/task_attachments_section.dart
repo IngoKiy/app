@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:background_downloader/background_downloader.dart'
     show FileDownloader, TaskStatus;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -25,10 +26,15 @@ class TaskAttachmentsSection extends ConsumerStatefulWidget {
   final Task task;
   final bool editable;
 
+  /// Öffnet eine lokale Datei; injizierbar für Tests
+  /// (Default: FileDownloader().openFile, ein Plattform-Kanal).
+  final Future<void> Function(String path)? openLocalFile;
+
   const TaskAttachmentsSection({
     super.key,
     required this.task,
     this.editable = true,
+    this.openLocalFile,
   });
 
   @override
@@ -40,6 +46,18 @@ class _TaskAttachmentsSectionState
     extends ConsumerState<TaskAttachmentsSection> {
   late List<TaskAttachment> _attachments;
   Map<String, String>? _headers;
+
+  /// Lokal vorliegende Anhang-Pfade (heruntergeladen oder vorgeladen), Schlüssel
+  /// = Anhang-ID. Wird einmalig geladen, damit „Öffnen"/Vollbild ohne Netz geht.
+  Map<int, String> _localPaths = {};
+
+  /// Stabile ImageProvider-Instanzen (kein Neu-Laden bei jedem setState),
+  /// Schlüssel = `<id>|<previewSize>`.
+  final Map<String, ImageProvider> _providerCache = {};
+
+  /// Download-Fortschritt pro Anhang (`null` = kein aktiver Download).
+  final Map<int, ValueNotifier<double?>> _downloadProgress = {};
+
   bool _uploading = false;
 
   @override
@@ -49,7 +67,30 @@ class _TaskAttachmentsSectionState
     ref.read(taskRepositoryProvider).attachmentHeaders().then((headers) {
       if (mounted) setState(() => _headers = headers);
     });
+    // Lokale Pfade (Prefetch/Download) laden → lokale Datei zuerst nutzen.
+    ref
+        .read(offlineWriterProvider)
+        .attachmentLocalPathsForTask(widget.task.id)
+        .then((paths) {
+          if (mounted && paths.isNotEmpty) {
+            setState(() {
+              _localPaths = paths;
+              _providerCache.clear(); // ggf. gecachte Netz-Provider verwerfen
+            });
+          }
+        });
   }
+
+  @override
+  void dispose() {
+    for (final notifier in _downloadProgress.values) {
+      notifier.dispose();
+    }
+    super.dispose();
+  }
+
+  ValueNotifier<double?> _progressNotifier(int id) =>
+      _downloadProgress.putIfAbsent(id, () => ValueNotifier<double?>(null));
 
   bool _isImage(TaskAttachment attachment) =>
       attachment.file.mime.startsWith('image/');
@@ -114,24 +155,36 @@ class _TaskAttachmentsSectionState
     );
   }
 
-  /// Lokaler Platzhalter (offline, negative ID) → FileImage; sonst der
-  /// authentifizierte Platten-Cache. `previewSize` gilt nur für Server-Bilder.
-  bool _isLocalPlaceholder(TaskAttachment a) =>
-      a.id < 0 && a.localFilePath != null;
+  /// Lokal vorliegender Pfad eines Anhangs (Offline-Platzhalter oder
+  /// heruntergeladen/vorgeladen), sonst `null`.
+  String? _localPathOf(TaskAttachment a) =>
+      a.localFilePath ?? _localPaths[a.id];
 
+  /// Lokale Datei zuerst (FileImage, ohne Netz); sonst der authentifizierte
+  /// Platten-Cache. Provider werden memoisiert, damit setState (Upload,
+  /// Fortschritt) sie nicht neu erzeugt. `previewSize` gilt nur für Server-Bilder.
   ImageProvider? _imageProvider(TaskAttachment attachment, {String? previewSize}) {
-    if (_isLocalPlaceholder(attachment)) {
-      return FileImage(File(attachment.localFilePath!));
+    final cacheKey = '${attachment.id}|${previewSize ?? ''}';
+    final cached = _providerCache[cacheKey];
+    if (cached != null) return cached;
+
+    final localPath = _localPathOf(attachment);
+    if (localPath != null) {
+      final provider = FileImage(File(localPath));
+      _providerCache[cacheKey] = provider;
+      return provider;
     }
     if (_headers == null) return null; // warten bis Auth-Header geladen sind
     final url = ref
         .read(taskRepositoryProvider)
         .attachmentUrl(widget.task.id, attachment.id, previewSize: previewSize);
-    return AuthCachedImageProvider(
+    final provider = AuthCachedImageProvider(
       url,
       headers: _headers!,
       cache: ref.read(imageDiskCacheProvider),
     );
+    _providerCache[cacheKey] = provider;
+    return provider;
   }
 
   Widget _buildThumbnail(TaskAttachment attachment) {
@@ -168,6 +221,7 @@ class _TaskAttachmentsSectionState
   }
 
   Widget _buildFileTile(TaskAttachment attachment) {
+    final progress = _progressNotifier(attachment.id);
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: const Icon(Icons.insert_drive_file_outlined),
@@ -176,7 +230,17 @@ class _TaskAttachmentsSectionState
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Text(_formatSize(attachment.file.size)),
+      subtitle: ValueListenableBuilder<double?>(
+        valueListenable: progress,
+        builder: (context, value, _) {
+          if (value == null) return Text(_formatSize(attachment.file.size));
+          // Laufender Download: determinater Balken (indeterminate bei 0).
+          return Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: LinearProgressIndicator(value: value == 0 ? null : value),
+          );
+        },
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -197,11 +261,15 @@ class _TaskAttachmentsSectionState
   void _openImageViewer(TaskAttachment attachment) {
     final provider = _imageProvider(attachment);
     if (provider == null) return; // Auth-Header noch nicht geladen
+    // Bereits gecachtes md-Thumbnail als Sofort-Platzhalter hinter dem Original.
+    final thumbnail = _imageProvider(attachment, previewSize: 'md');
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => _AttachmentImageViewer(
           attachment: attachment,
           image: provider,
+          thumbnail: thumbnail,
+          progress: _progressNotifier(attachment.id),
           onDownload: () => _downloadAndOpen(attachment),
           onDelete: widget.editable
               ? () async {
@@ -341,17 +409,29 @@ class _TaskAttachmentsSectionState
   Future<void> _downloadAndOpen(TaskAttachment attachment) async {
     final writer = ref.read(offlineWriterProvider);
 
-    // Offline (oder bereits heruntergeladen): lokale Datei direkt öffnen.
+    // Offline (oder bereits heruntergeladen/vorgeladen): lokale Datei öffnen.
     final localPath =
-        attachment.localFilePath ?? await writer.attachmentLocalFilePath(attachment.id);
+        _localPathOf(attachment) ??
+        await writer.attachmentLocalFilePath(attachment.id);
     if (localPath != null && await File(localPath).exists()) {
-      await FileDownloader().openFile(filePath: localPath);
+      final open =
+          widget.openLocalFile ??
+          (path) => FileDownloader().openFile(filePath: path);
+      await open(localPath);
       return;
     }
 
+    // Download mit Fortschritt (background_downloader meldet 0..1, <0 = offen).
+    final notifier = _progressNotifier(attachment.id);
+    notifier.value = 0;
     final update = await ref
         .read(taskRepositoryProvider)
-        .downloadAttachment(widget.task.id, attachment);
+        .downloadAttachment(
+          widget.task.id,
+          attachment,
+          onProgress: (p) => notifier.value = p < 0 ? null : p,
+        );
+    notifier.value = null;
     if (!mounted) return;
 
     if (update.status == TaskStatus.complete) {
@@ -362,6 +442,7 @@ class _TaskAttachmentsSectionState
         TaskAttachmentDto.fromDomain(attachment),
         path,
       );
+      _localPaths[attachment.id] = path;
       FileDownloader().openFile(task: update.task);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -376,12 +457,20 @@ class _TaskAttachmentsSectionState
 class _AttachmentImageViewer extends StatelessWidget {
   final TaskAttachment attachment;
   final ImageProvider image;
+
+  /// Bereits gecachtes Thumbnail als Sofort-Platzhalter (Hintergrund).
+  final ImageProvider? thumbnail;
+
+  /// Fortschritt eines „Öffnen"-Downloads (`null` = keiner aktiv).
+  final ValueListenable<double?> progress;
   final VoidCallback onDownload;
   final Future<void> Function()? onDelete;
 
   const _AttachmentImageViewer({
     required this.attachment,
     required this.image,
+    required this.progress,
+    this.thumbnail,
     required this.onDownload,
     this.onDelete,
   });
@@ -403,23 +492,64 @@ class _AttachmentImageViewer extends StatelessWidget {
             ),
         ],
       ),
-      body: Center(
-        child: InteractiveViewer(
-          maxScale: 6,
-          child: Image(
-            image: image,
-            loadingBuilder: (context, child, progress) => progress == null
-                ? child
-                : const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
+      body: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              maxScale: 6,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Sofort sichtbarer, leicht abgedunkelter Thumbnail-Hintergrund.
+                  if (thumbnail != null)
+                    Opacity(
+                      opacity: 0.4,
+                      child: Image(image: thumbnail!, fit: BoxFit.contain),
+                    ),
+                  Image(
+                    image: image,
+                    // Original blendet über dem Thumbnail ein.
+                    frameBuilder: (context, child, frame, wasSync) =>
+                        AnimatedOpacity(
+                          opacity: frame == null && !wasSync ? 0 : 1,
+                          duration: const Duration(milliseconds: 250),
+                          child: child,
+                        ),
+                    loadingBuilder: (context, child, chunk) {
+                      if (chunk == null) return child;
+                      final total = chunk.expectedTotalBytes;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          value: total != null && total > 0
+                              ? chunk.cumulativeBytesLoaded / total
+                              : null,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stack) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white,
+                      size: 48,
+                    ),
                   ),
-            errorBuilder: (context, error, stack) => const Icon(
-              Icons.broken_image_outlined,
-              color: Colors.white,
-              size: 48,
+                ],
+              ),
             ),
           ),
-        ),
+          // Download-Fortschritt („Öffnen") als Balken oben.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ValueListenableBuilder<double?>(
+              valueListenable: progress,
+              builder: (context, value, _) => value == null
+                  ? const SizedBox.shrink()
+                  : LinearProgressIndicator(value: value == 0 ? null : value),
+            ),
+          ),
+        ],
       ),
     );
   }

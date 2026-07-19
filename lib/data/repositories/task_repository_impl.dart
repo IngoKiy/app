@@ -83,11 +83,13 @@ class TaskRepositoryImpl extends TaskRepository {
   @override
   Future<TaskStatusUpdate> downloadAttachment(
     int taskId,
-    TaskAttachment attachment,
-  ) async {
+    TaskAttachment attachment, {
+    void Function(double)? onProgress,
+  }) async {
     return _dataSource.downloadAttachment(
       taskId,
       TaskAttachmentDto.fromDomain(attachment),
+      onProgress: onProgress,
     );
   }
 

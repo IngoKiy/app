@@ -103,8 +103,10 @@ class SyncService {
     required SyncStateNotifier syncState,
     DtoCompanionMapper mapper = const DtoCompanionMapper(),
     Future<void> Function()? pushBeforePull,
+    Future<void> Function()? onPullCompleted,
   }) : _serverDataSource = serverDataSource,
        _pushBeforePull = pushBeforePull,
+       _onPullCompleted = onPullCompleted,
        _userDataSource = userDataSource,
        _labelDataSource = labelDataSource,
        _projectDataSource = projectDataSource,
@@ -148,6 +150,11 @@ class SyncService {
   /// Provider mit [PushProcessor.pushAll] verkabelt; in Tests, die nur den Pull
   /// prüfen, bleibt er null.
   final Future<void> Function()? _pushBeforePull;
+
+  /// Optionaler Nachlauf nach einem erfolgreichen Pull (pullAll/pullTaskDetails).
+  /// Über den Provider mit dem [AttachmentPrefetcher] verkabelt (Anhänge
+  /// on-device laden). Fehler bleiben ohne Folgen für das Sync-Ergebnis.
+  final Future<void> Function()? _onPullCompleted;
 
   /// Laufender Pull; Single-Flight — ein zweiter Aufruf wartet auf denselben
   /// Future statt einen weiteren Durchlauf zu starten.
@@ -214,6 +221,7 @@ class SyncService {
       // Erfolg.
       await _keyValueDao.set(kvLastFullSync, _iso(now));
       _syncState.setIdle(lastSyncAt: now);
+      await _runPullCompleted();
       return SyncResult(
         success: true,
         offline: false,
@@ -363,6 +371,16 @@ class SyncService {
       remoteTaskId,
       comments.map((c) => c.id),
     );
+
+    await _runPullCompleted();
+  }
+
+  /// Ruft den optionalen Pull-Nachlauf ([_onPullCompleted]) auf. Fehler werden
+  /// geschluckt — der Prefetcher darf ein erfolgreiches Sync nicht kippen.
+  Future<void> _runPullCompleted() async {
+    try {
+      await _onPullCompleted?.call();
+    } catch (_) {}
   }
 
   /// Nutzer eines Projekts in die users-Tabelle spiegeln (Assignee-Picker

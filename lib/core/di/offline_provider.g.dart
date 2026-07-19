@@ -45,6 +45,28 @@ final imageDiskCacheProvider = Provider<ImageDiskCache>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ImageDiskCacheRef = ProviderRef<ImageDiskCache>;
+String _$attachmentPrefetcherHash() =>
+    r'29f9505aa39bf15d448975d5c53612d1354cf795';
+
+/// Lädt Anhänge synchronisierter Tasks automatisch on-device (Offline-
+/// Verfügbarkeit). Wird über [SyncService.onPullCompleted] nach jedem Pull
+/// angestoßen.
+///
+/// Copied from [attachmentPrefetcher].
+@ProviderFor(attachmentPrefetcher)
+final attachmentPrefetcherProvider = Provider<AttachmentPrefetcher>.internal(
+  attachmentPrefetcher,
+  name: r'attachmentPrefetcherProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$attachmentPrefetcherHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef AttachmentPrefetcherRef = ProviderRef<AttachmentPrefetcher>;
 String _$tempIdAllocatorHash() => r'6b178b8018fe902457ea99a7b6c605eef8b2fccb';
 
 /// See also [tempIdAllocator].

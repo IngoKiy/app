@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -36,8 +37,12 @@ class AuthCachedImageProvider extends ImageProvider<AuthCachedImageProvider> {
     AuthCachedImageProvider key,
     ImageDecoderCallback decode,
   ) {
+    // Chunk-Events aus dem Download durchreichen, damit Image.loadingBuilder
+    // echten Fortschritt anzeigen kann.
+    final chunkEvents = StreamController<ImageChunkEvent>();
     return MultiFrameImageStreamCompleter(
-      codec: _loadAsync(key, decode),
+      codec: _loadAsync(key, decode, chunkEvents),
+      chunkEvents: chunkEvents.stream,
       scale: key.scale,
       debugLabel: url,
     );
@@ -46,11 +51,29 @@ class AuthCachedImageProvider extends ImageProvider<AuthCachedImageProvider> {
   Future<ui.Codec> _loadAsync(
     AuthCachedImageProvider key,
     ImageDecoderCallback decode,
+    StreamController<ImageChunkEvent> chunkEvents,
   ) async {
-    final bytes = await cache.load(url, headers);
-    if (bytes.isEmpty) throw ImageCacheMiss(url);
-    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-    return decode(buffer);
+    try {
+      final bytes = await cache.loadWithProgress(
+        url,
+        headers,
+        onProgress: (cumulative, total) {
+          if (!chunkEvents.isClosed) {
+            chunkEvents.add(
+              ImageChunkEvent(
+                cumulativeBytesLoaded: cumulative,
+                expectedTotalBytes: total,
+              ),
+            );
+          }
+        },
+      );
+      if (bytes.isEmpty) throw ImageCacheMiss(url);
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      return await decode(buffer);
+    } finally {
+      unawaited(chunkEvents.close());
+    }
   }
 
   @override

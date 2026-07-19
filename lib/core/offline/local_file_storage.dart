@@ -19,7 +19,13 @@ class LocalFileStorage {
   /// Unterverzeichnis für offline kopierte Anhang-Uploads (pro Op ein Ordner).
   static const String pendingUploadsDirName = 'pending_uploads';
 
+  /// Unterverzeichnis für automatisch vorgeladene Server-Anhänge (Offline-
+  /// Verfügbarkeit). Dateiname = `<remoteAttachmentId>_<filename>`.
+  static const String attachmentsDirName = 'attachments';
+
   Future<Directory> imageCacheDir() => _subdir(imageCacheDirName);
+
+  Future<Directory> attachmentsDir() => _subdir(attachmentsDirName);
 
   /// Ordner eines einzelnen offline Uploads (Schlüssel = eindeutige Op-/Temp-ID).
   Future<Directory> pendingUploadDir(String key) =>
@@ -30,11 +36,13 @@ class LocalFileStorage {
     return Directory('${base.path}/$name');
   }
 
-  /// Löscht Bild-Cache- und pending-uploads-Verzeichnisse physisch (Logout /
-  /// Kontowechsel). Fehler werden geschluckt — Logout darf daran nicht scheitern.
+  /// Löscht Bild-Cache-, pending-uploads- und Anhang-Verzeichnisse physisch
+  /// (Logout / Kontowechsel). Fehler werden geschluckt — Logout darf daran
+  /// nicht scheitern.
   Future<void> wipeAll() async {
     await _deleteDirQuietly(imageCacheDirName);
     await _deleteDirQuietly(pendingUploadsDirName);
+    await _deleteDirQuietly(attachmentsDirName);
   }
 
   Future<void> _deleteDirQuietly(String name) async {

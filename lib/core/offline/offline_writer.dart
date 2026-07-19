@@ -867,6 +867,26 @@ class OfflineWriter {
     );
   }
 
+  /// Lokal vorliegende Anhang-Pfade eines Tasks (heruntergeladen oder vom
+  /// [AttachmentPrefetcher] vorgeladen). Schlüssel ist die aus UI-Sicht gültige
+  /// Anhang-ID (Server-ID bei synchronisierten, negative Temp-ID bei
+  /// Offline-Platzhaltern); nur existierende Dateien werden aufgenommen.
+  Future<Map<int, String>> attachmentLocalPathsForTask(int taskId) async {
+    final rows =
+        await (_db.select(_db.taskAttachments)..where(
+              (a) => a.taskId.equals(taskId) & a.localFilePath.isNotNull(),
+            ))
+            .get();
+    final result = <int, String>{};
+    for (final row in rows) {
+      final path = row.localFilePath;
+      if (path == null) continue;
+      if (!await File(path).exists()) continue;
+      result[row.remoteId ?? row.id] = path;
+    }
+    return result;
+  }
+
   /// Lokaler Pfad eines Anhangs, falls heruntergeladen/zwischengespeichert.
   Future<String?> attachmentLocalFilePath(int attachmentId) async {
     final row =

@@ -5,6 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/data_source_provider.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/network/image_disk_cache.dart';
+import 'package:vikunja_app/core/offline/attachment_prefetcher.dart';
 import 'package:vikunja_app/core/offline/local_file_storage.dart';
 import 'package:vikunja_app/core/offline/offline_writer.dart';
 import 'package:vikunja_app/core/offline/op_executor.dart';
@@ -31,6 +32,16 @@ ImageDiskCache imageDiskCache(Ref ref) {
   unawaited(cache.evict());
   return cache;
 }
+
+/// Lädt Anhänge synchronisierter Tasks automatisch on-device (Offline-
+/// Verfügbarkeit). Wird über [SyncService.onPullCompleted] nach jedem Pull
+/// angestoßen.
+@Riverpod(keepAlive: true)
+AttachmentPrefetcher attachmentPrefetcher(Ref ref) => AttachmentPrefetcher(
+  db: ref.watch(appDatabaseProvider),
+  taskDataSource: ref.watch(taskDataSourceProvider),
+  storage: ref.watch(localFileStorageProvider),
+);
 
 @Riverpod(keepAlive: true)
 TempIdAllocator tempIdAllocator(Ref ref) => TempIdAllocator(
