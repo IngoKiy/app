@@ -16,20 +16,23 @@ class FilterDto extends Dto<Filter> {
     this.filterIncludesNulls,
   );
 
+  // Null-tolerant, damit rawJson aus toJSON (das die Server-Keys nicht 1:1
+  // schreibt) verlustfrei zurückgelesen werden kann.
   FilterDto.fromJson(Map<String, dynamic> json)
-    : s = json['s'],
-      sortBy = json['sort_by'] == null
+    : s = json['s'] ?? '',
+      sortBy = (json['sort_by'] ?? json['sortBy']) == null
           ? []
-          : (json['sort_by'] as List<dynamic>)
+          : ((json['sort_by'] ?? json['sortBy']) as List<dynamic>)
                 .map((e) => e.toString())
                 .toList(),
-      orderBy = json['order_by'] == null
+      orderBy = (json['order_by'] ?? json['orderBy']) == null
           ? []
-          : (json['order_by'] as List<dynamic>)
+          : ((json['order_by'] ?? json['orderBy']) as List<dynamic>)
                 .map((e) => e.toString())
                 .toList(),
-      filter = json['filter'],
-      filterIncludesNulls = json['filter_include_nulls'];
+      filter = json['filter'] ?? '',
+      filterIncludesNulls =
+          json['filter_include_nulls'] ?? json['filterIncludesNulls'] ?? false;
 
   Map<String, dynamic> toJSON() => {
     's': s,

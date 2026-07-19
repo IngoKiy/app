@@ -60,6 +60,7 @@ Future<void> seedTask(
   double? position,
   bool done = false,
   DateTime? dueDate,
+  int? priority,
 }) {
   final dto = TaskDto(
     id: id,
@@ -69,6 +70,7 @@ Future<void> seedTask(
     done: done,
     position: position,
     dueDate: dueDate,
+    priority: priority,
     created: testTime,
     updated: testTime,
   );

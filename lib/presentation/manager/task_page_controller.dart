@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/core/sync/filter/filter_ast.dart';
+import 'package:vikunja_app/core/sync/filter/filter_evaluator.dart';
+import 'package:vikunja_app/core/sync/filter/filter_parser.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/notification_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
@@ -24,11 +28,79 @@ class TaskPageController extends _$TaskPageController {
   Future<TaskPageModel> build() async {
     final filterId = _overviewFilterId();
     if (filterId != null) {
+      // M3/F1: gespeicherten Filter, sofern lokal verfügbar, direkt gegen den
+      // Task-Stream auswerten (funktioniert offline). Nur wenn kein lokaler
+      // Filterstring vorliegt oder er nicht auswertbar ist, den Online-Pfad
+      // gehen.
+      final expr = await _localFilterExpr(filterId);
+      if (expr != null) return _watchFiltered(expr);
+
       final online = await _loadFilteredOnline(filterId);
       if (online != null) return online;
       // offline/Fehler -> Fallback auf DB-Standard.
     }
     return _watchStandard();
+  }
+
+  /// Beschafft den lokal gespeicherten Filterstring des Pseudo-Projekts
+  /// [filterId] und parst ihn. Rückgabe `null`, wenn kein Filterstring
+  /// verfügbar ist oder er nicht lokal auswertbar ist
+  /// ([UnsupportedFilterException]) -> Aufrufer nutzt den Online-Pfad.
+  Future<FilterExpr?> _localFilterExpr(int filterId) async {
+    final row = await ref.read(projectsDaoProvider).getById(filterId);
+    if (row == null) return null;
+    final filterString = _filterStringFromViews(row.viewsJson);
+    if (filterString == null || filterString.trim().isEmpty) return null;
+    try {
+      return FilterParser.parse(filterString);
+    } on UnsupportedFilterException {
+      return null;
+    }
+  }
+
+  /// Extrahiert den Filterstring aus dem gespeicherten Views-JSON: Der erste
+  /// View mit nicht-leerem `filter.filter` gewinnt.
+  String? _filterStringFromViews(String viewsJson) {
+    final decoded = jsonDecode(viewsJson);
+    if (decoded is! List) return null;
+    for (final view in decoded) {
+      if (view is Map && view['filter'] is Map) {
+        final f = (view['filter'] as Map)['filter'];
+        if (f is String && f.trim().isNotEmpty) return f;
+      }
+    }
+    return null;
+  }
+
+  /// Gespeicherter Filter, lokal ausgewertet: offene Tasks aus der DB, gegen
+  /// den Evaluator gefiltert, sortiert wie die Standardübersicht (dueDate, id).
+  Future<TaskPageModel> _watchFiltered(FilterExpr expr) async {
+    final onlyDue = await ref
+        .read(settingsRepositoryProvider)
+        .getLandingPageOnlyDueDateTasks();
+
+    final dao = ref.read(tasksDaoProvider);
+    final completer = Completer<TaskPageModel>();
+
+    final sub = dao.watchOverviewTasks().listen((rows) async {
+      final tasks = rows
+          .map(taskFromRow)
+          .where((t) => matches(t, expr))
+          .toList();
+      final model = await _createPageModel(
+        tasks,
+        onlyDue,
+        isInitial: !completer.isCompleted,
+      );
+      if (!completer.isCompleted) {
+        completer.complete(model);
+      } else {
+        state = AsyncData(model);
+      }
+    });
+    ref.onDispose(sub.cancel);
+
+    return completer.future;
   }
 
   int? _overviewFilterId() {
