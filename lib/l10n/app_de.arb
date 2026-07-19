@@ -9,5 +9,9 @@
   "attachmentUploadFailed": "Anhang konnte nicht hochgeladen werden",
   "attachmentDeleteTitle": "Anhang löschen?",
   "attachmentDeleteMessage": "Der Anhang wird dauerhaft gelöscht.",
-  "attachmentDownloadFailed": "Anhang konnte nicht heruntergeladen werden"
+  "attachmentDownloadFailed": "Anhang konnte nicht heruntergeladen werden",
+  "assignees": "Zugewiesen an",
+  "addAssignee": "Person zuweisen",
+  "assigneeSearchHint": "Nutzer suchen…",
+  "assigneesUpdateFailed": "Zuweisung konnte nicht gespeichert werden"
 }

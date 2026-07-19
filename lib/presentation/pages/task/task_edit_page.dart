@@ -18,6 +18,7 @@ import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/edit_description.dart';
 import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
+import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_delete_dialog.dart';
@@ -180,6 +181,10 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           _buildAddLabel(context),
           _buildLabelList(),
           _buildColor(),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: TaskAssigneesSection(task: widget.task),
+          ),
           Padding(
             padding: EdgeInsets.symmetric(vertical: 8.0),
             child: TaskAttachmentsSection(task: widget.task),

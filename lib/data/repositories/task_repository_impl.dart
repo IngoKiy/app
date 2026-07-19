@@ -7,8 +7,10 @@ import 'package:vikunja_app/core/utils/mapping_extensions.dart';
 import 'package:vikunja_app/data/data_sources/task_data_source.dart';
 import 'package:vikunja_app/data/models/task_attachment_dto.dart';
 import 'package:vikunja_app/data/models/task_dto.dart';
+import 'package:vikunja_app/data/models/user_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_attachment.dart';
+import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/domain/repositories/task_repository.dart';
 
 class TaskRepositoryImpl extends TaskRepository {
@@ -87,6 +89,22 @@ class TaskRepositoryImpl extends TaskRepository {
       taskId,
       TaskAttachmentDto.fromDomain(attachment),
     );
+  }
+
+  @override
+  Future<Response<Object>> setAssignees(int taskId, List<User> assignees) {
+    return _dataSource.setAssignees(
+      taskId,
+      assignees.map((e) => UserDto.fromDomain(e)).toList(),
+    );
+  }
+
+  @override
+  Future<Response<List<User>>> getAssignableUsers(
+    int projectId, [
+    String? query,
+  ]) async {
+    return (await _dataSource.getAssignableUsers(projectId, query)).toDomain();
   }
 
   @override

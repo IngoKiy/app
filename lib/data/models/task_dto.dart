@@ -24,6 +24,7 @@ class TaskDto extends Dto<Task> {
   final List<TaskDto> subtasks;
   final List<LabelDto> labels;
   final List<TaskAttachmentDto> attachments;
+  final List<UserDto> assignees;
 
   TaskDto({
     this.id = 0,
@@ -44,6 +45,7 @@ class TaskDto extends Dto<Task> {
     this.subtasks = const [],
     this.labels = const [],
     this.attachments = const [],
+    this.assignees = const [],
     DateTime? created,
     DateTime? updated,
     required this.createdBy,
@@ -93,6 +95,11 @@ class TaskDto extends Dto<Task> {
                 .map((attachment) => TaskAttachmentDto.fromJSON(attachment))
                 .toList()
           : [],
+      assignees = json['assignees'] != null
+          ? (json['assignees'] as List<dynamic>)
+                .map((assignee) => UserDto.fromJson(assignee))
+                .toList()
+          : [],
       updated = DateTime.parse(json['updated']),
       created = DateTime.parse(json['created']),
       projectId = json['project_id'],
@@ -126,6 +133,7 @@ class TaskDto extends Dto<Task> {
     'attachments': attachments
         .map((attachment) => attachment.toJSON())
         .toList(),
+    'assignees': assignees.map((assignee) => assignee.toJSON()).toList(),
     'bucket_id': bucketId,
     'created_by': createdBy?.toJSON(),
     'updated': updated.toUtc().toIso8601String(),
@@ -152,6 +160,7 @@ class TaskDto extends Dto<Task> {
     labels: labels.map((e) => e.toDomain()).toList(),
     subtasks: subtasks.map((e) => e.toDomain()).toList(),
     attachments: attachments.map((e) => e.toDomain()).toList(),
+    assignees: assignees.map((e) => e.toDomain()).toList(),
     updated: updated,
     created: created,
     projectId: projectId,
@@ -182,6 +191,7 @@ class TaskDto extends Dto<Task> {
     attachments: b.attachments
         .map((e) => TaskAttachmentDto.fromDomain(e))
         .toList(),
+    assignees: b.assignees.map((e) => UserDto.fromDomain(e)).toList(),
     updated: b.updated,
     created: b.created,
     projectId: b.projectId,

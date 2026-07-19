@@ -232,5 +232,9 @@
   "attachmentUploadFailed": "Could not upload attachment",
   "attachmentDeleteTitle": "Delete attachment?",
   "attachmentDeleteMessage": "The attachment will be deleted permanently.",
-  "attachmentDownloadFailed": "Could not download attachment"
+  "attachmentDownloadFailed": "Could not download attachment",
+  "assignees": "Assigned to",
+  "addAssignee": "Assign person",
+  "assigneeSearchHint": "Search users…",
+  "assigneesUpdateFailed": "Could not update assignees"
 }

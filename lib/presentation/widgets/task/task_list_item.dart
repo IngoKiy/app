@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
+import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/presentation/widgets/due_date_card.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/priority_batch.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_actions.dart';
+import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 
 class TaskListItem extends StatefulWidget {
   final Task task;
@@ -59,6 +61,8 @@ class TaskListItemState extends State<TaskListItem> {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (widget.task.assignees.isNotEmpty)
+                _buildAssigneeAvatars(widget.task.assignees),
               TaskActions(
                 task: widget.task,
                 onEdit: () => widget.onEdit(),
@@ -73,6 +77,39 @@ class TaskListItemState extends State<TaskListItem> {
           color: widget.task.color,
         ),
       ],
+    );
+  }
+
+  /// Bis zu drei überlappende Mini-Avatare der zugewiesenen Personen,
+  /// bei mehr Personen mit "+n"-Kreis.
+  Widget _buildAssigneeAvatars(List<User> assignees) {
+    const maxShown = 3;
+    const radius = 11.0;
+    const overlap = 15.0;
+    final shown = assignees.take(maxShown).toList();
+    final more = assignees.length - shown.length;
+    final slots = shown.length + (more > 0 ? 1 : 0);
+
+    return SizedBox(
+      width: 2 * radius + (slots - 1) * overlap,
+      height: 2 * radius,
+      child: Stack(
+        children: [
+          for (var i = 0; i < shown.length; i++)
+            Positioned(
+              left: i * overlap,
+              child: UserAvatar(user: shown[i], radius: radius),
+            ),
+          if (more > 0)
+            Positioned(
+              left: shown.length * overlap,
+              child: CircleAvatar(
+                radius: radius,
+                child: Text('+$more', style: const TextStyle(fontSize: 9)),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:vikunja_app/core/network/remote_data_source.dart';
 import 'package:vikunja_app/core/network/response.dart';
 import 'package:vikunja_app/data/models/task_attachment_dto.dart';
 import 'package:vikunja_app/data/models/task_dto.dart';
+import 'package:vikunja_app/data/models/user_dto.dart';
 
 class TaskDataSource extends RemoteDataSource {
   TaskDataSource(super.client);
@@ -84,6 +85,32 @@ class TaskDataSource extends RemoteDataSource {
         return convertList(body, (result) => TaskDto.fromJson(result));
       },
       queryParameters: parameters,
+    );
+  }
+
+  /// Setzt die komplette Zuweisungsliste einer Aufgabe (ersetzt vorhandene).
+  Future<Response<Object>> setAssignees(int taskId, List<UserDto> assignees) {
+    return client.post(
+      url: '/tasks/$taskId/assignees/bulk',
+      body: {'assignees': assignees.map((e) => e.toJSON()).toList()},
+    );
+  }
+
+  /// Nutzer mit Zugriff auf das Projekt (für die Zuweisungs-Auswahl).
+  Future<Response<List<UserDto>>> getAssignableUsers(
+    int projectId, [
+    String? query,
+  ]) {
+    return client.get(
+      url: '/projects/$projectId/projectusers',
+      queryParameters: query != null && query.isNotEmpty
+          ? {
+              's': [query],
+            }
+          : null,
+      mapper: (body) => (body as List<dynamic>)
+          .map((e) => UserDto.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
