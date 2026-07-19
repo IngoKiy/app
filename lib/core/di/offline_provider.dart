@@ -1,13 +1,44 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/data_source_provider.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/core/network/image_disk_cache.dart';
+import 'package:vikunja_app/core/offline/attachment_writer.dart';
+import 'package:vikunja_app/core/offline/local_file_storage.dart';
 import 'package:vikunja_app/core/offline/outbox.dart';
 import 'package:vikunja_app/core/offline/push_processor.dart';
 import 'package:vikunja_app/core/offline/temp_ids.dart';
 import 'package:vikunja_app/core/sync/sync_state_provider.dart';
 
 part 'offline_provider.g.dart';
+
+/// Kapselt die auf der Platte liegenden Local-First-Verzeichnisse.
+@Riverpod(keepAlive: true)
+LocalFileStorage localFileStorage(Ref ref) => LocalFileStorage();
+
+/// Platten-Cache für authentifizierte Bilder. Beim ersten Zugriff wird eine
+/// Eviction (Alter/Größe) angestoßen.
+@Riverpod(keepAlive: true)
+ImageDiskCache imageDiskCache(Ref ref) {
+  final cache = ImageDiskCache(
+    dao: ref.watch(imageCacheDaoProvider),
+    storage: ref.watch(localFileStorageProvider),
+  );
+  unawaited(cache.evict());
+  return cache;
+}
+
+/// Schreibende Fassade für Anhänge (offline-fähiger Upload/Delete).
+@Riverpod(keepAlive: true)
+AttachmentWriter attachmentWriter(Ref ref) => AttachmentWriter(
+  db: ref.watch(appDatabaseProvider),
+  dataSource: ref.watch(taskDataSourceProvider),
+  outbox: ref.watch(outboxProvider),
+  attachmentsDao: ref.watch(taskAttachmentsDaoProvider),
+  storage: ref.watch(localFileStorageProvider),
+);
 
 @Riverpod(keepAlive: true)
 TempIdAllocator tempIdAllocator(Ref ref) => TempIdAllocator(

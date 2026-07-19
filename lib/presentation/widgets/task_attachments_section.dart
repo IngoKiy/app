@@ -1,10 +1,17 @@
+import 'dart:io';
+
 import 'package:background_downloader/background_downloader.dart'
     show FileDownloader, TaskStatus;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:vikunja_app/core/di/network_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
+import 'package:vikunja_app/core/network/cached_image_provider.dart';
+import 'package:vikunja_app/core/offline/attachment_writer.dart';
+import 'package:vikunja_app/data/models/task_attachment_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_attachment.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
@@ -107,20 +114,37 @@ class _TaskAttachmentsSectionState
     );
   }
 
-  Widget _buildThumbnail(TaskAttachment attachment) {
+  /// Lokaler Platzhalter (offline, negative ID) → FileImage; sonst der
+  /// authentifizierte Platten-Cache. `previewSize` gilt nur für Server-Bilder.
+  bool _isLocalPlaceholder(TaskAttachment a) =>
+      a.id < 0 && a.localFilePath != null;
+
+  ImageProvider? _imageProvider(TaskAttachment attachment, {String? previewSize}) {
+    if (_isLocalPlaceholder(attachment)) {
+      return FileImage(File(attachment.localFilePath!));
+    }
+    if (_headers == null) return null; // warten bis Auth-Header geladen sind
     final url = ref
         .read(taskRepositoryProvider)
-        .attachmentUrl(widget.task.id, attachment.id, previewSize: 'md');
+        .attachmentUrl(widget.task.id, attachment.id, previewSize: previewSize);
+    return AuthCachedImageProvider(
+      url,
+      headers: _headers!,
+      cache: ref.read(imageDiskCacheProvider),
+    );
+  }
+
+  Widget _buildThumbnail(TaskAttachment attachment) {
+    final provider = _imageProvider(attachment, previewSize: 'md');
 
     return GestureDetector(
       onTap: () => _openImageViewer(attachment),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: _headers == null
+        child: provider == null
             ? Container(color: Theme.of(context).hoverColor)
-            : Image.network(
-                url,
-                headers: _headers,
+            : Image(
+                image: provider,
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, progress) => progress == null
                     ? child
@@ -171,14 +195,13 @@ class _TaskAttachmentsSectionState
   }
 
   void _openImageViewer(TaskAttachment attachment) {
+    final provider = _imageProvider(attachment);
+    if (provider == null) return; // Auth-Header noch nicht geladen
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => _AttachmentImageViewer(
           attachment: attachment,
-          url: ref
-              .read(taskRepositoryProvider)
-              .attachmentUrl(widget.task.id, attachment.id),
-          headers: _headers ?? {},
+          image: provider,
           onDownload: () => _downloadAndOpen(attachment),
           onDelete: widget.editable
               ? () async {
@@ -251,18 +274,29 @@ class _TaskAttachmentsSectionState
 
   Future<void> _upload(List<String> paths) async {
     setState(() => _uploading = true);
-    final response = await ref
-        .read(taskRepositoryProvider)
-        .uploadAttachments(widget.task.id, paths);
+    final result = await ref
+        .read(attachmentWriterProvider)
+        .uploadAttachments(
+          widget.task.id,
+          paths,
+          uploadedBy: ref.read(currentUserProvider),
+        );
     if (!mounted) return;
 
     setState(() {
       _uploading = false;
-      if (response.isSuccessful) {
-        _attachments.addAll(response.toSuccess().body);
+      switch (result) {
+        case AttachmentUploaded(:final attachments):
+          _attachments.addAll(attachments);
+        case AttachmentQueued(:final placeholders):
+          // Offline: Platzhalter (localFilePath) sofort als Thumbnail zeigen.
+          _attachments.addAll(placeholders);
+        case AttachmentFailed():
+        case AttachmentDeleted():
+          break;
       }
     });
-    if (!response.isSuccessful) {
+    if (result is AttachmentFailed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context).attachmentUploadFailed),
@@ -283,12 +317,16 @@ class _TaskAttachmentsSectionState
     );
     if (!confirmed) return false;
 
-    final response = await ref
-        .read(taskRepositoryProvider)
-        .deleteAttachment(widget.task.id, attachment.id);
+    final result = await ref
+        .read(attachmentWriterProvider)
+        .deleteAttachment(
+          widget.task.id,
+          attachment.id,
+          localFilePath: attachment.localFilePath,
+        );
     if (!mounted) return false;
 
-    if (response.isSuccessful) {
+    if (result is AttachmentDeleted) {
       setState(() => _attachments.removeWhere((a) => a.id == attachment.id));
       return true;
     }
@@ -301,12 +339,29 @@ class _TaskAttachmentsSectionState
   }
 
   Future<void> _downloadAndOpen(TaskAttachment attachment) async {
+    final writer = ref.read(attachmentWriterProvider);
+
+    // Offline (oder bereits heruntergeladen): lokale Datei direkt öffnen.
+    final localPath =
+        attachment.localFilePath ?? await writer.localFilePathFor(attachment.id);
+    if (localPath != null && await File(localPath).exists()) {
+      await FileDownloader().openFile(filePath: localPath);
+      return;
+    }
+
     final update = await ref
         .read(taskRepositoryProvider)
         .downloadAttachment(widget.task.id, attachment);
     if (!mounted) return;
 
     if (update.status == TaskStatus.complete) {
+      // Pfad merken, damit „Öffnen" später auch offline funktioniert.
+      final path = await update.task.filePath();
+      await writer.registerDownloadedFile(
+        widget.task.id,
+        TaskAttachmentDto.fromDomain(attachment),
+        path,
+      );
       FileDownloader().openFile(task: update.task);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -320,15 +375,13 @@ class _TaskAttachmentsSectionState
 
 class _AttachmentImageViewer extends StatelessWidget {
   final TaskAttachment attachment;
-  final String url;
-  final Map<String, String> headers;
+  final ImageProvider image;
   final VoidCallback onDownload;
   final Future<void> Function()? onDelete;
 
   const _AttachmentImageViewer({
     required this.attachment,
-    required this.url,
-    required this.headers,
+    required this.image,
     required this.onDownload,
     this.onDelete,
   });
@@ -353,9 +406,8 @@ class _AttachmentImageViewer extends StatelessWidget {
       body: Center(
         child: InteractiveViewer(
           maxScale: 6,
-          child: Image.network(
-            url,
-            headers: headers,
+          child: Image(
+            image: image,
             loadingBuilder: (context, child, progress) => progress == null
                 ? child
                 : const Center(

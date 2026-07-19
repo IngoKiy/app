@@ -22,11 +22,17 @@ class TaskAttachment {
   final User createdBy;
   final TaskAttachmentFile file;
 
+  /// Pfad einer lokal vorliegenden Datei (offline zwischengespeicherter Upload
+  /// oder heruntergeladener Anhang); sonst `null`. Steuert den FileImage-
+  /// Fallback in der Anhang-Section.
+  final String? localFilePath;
+
   TaskAttachment({
     this.id = 0,
     required this.taskId,
     DateTime? created,
     required this.createdBy,
     required this.file,
+    this.localFilePath,
   }) : created = created ?? DateTime.now();
 }

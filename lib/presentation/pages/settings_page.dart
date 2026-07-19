@@ -7,6 +7,7 @@ import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/locale_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/notification_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/theming/theme_mode.dart';
 import 'package:vikunja_app/core/utils/language_autonyms.dart';
@@ -260,6 +261,8 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                     // die LoginPage/Init neu gesetzt.
                     ref.read(currentUserProvider.notifier).clear();
                     await ref.read(appDatabaseProvider).wipeAll();
+                    // Bild-Cache + pending_uploads physisch entfernen.
+                    await ref.read(localFileStorageProvider).wipeAll();
 
                     await ref.read(settingsRepositoryProvider).saveServer(null);
                     await ref

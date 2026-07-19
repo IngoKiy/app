@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:vikunja_app/core/network/response.dart';
+import 'package:vikunja_app/core/offline/attachment_mapping.dart';
 import 'package:vikunja_app/core/offline/pending_op.dart';
 import 'package:vikunja_app/core/sync/dto_companion_mapper.dart';
+import 'package:vikunja_app/data/models/task_attachment_dto.dart';
 import 'package:vikunja_app/data/data_sources/bucket_data_source.dart';
 import 'package:vikunja_app/data/data_sources/project_data_source.dart';
 import 'package:vikunja_app/data/data_sources/project_view_data_source.dart';
@@ -88,7 +91,9 @@ class PushProcessor {
     required PendingOpsDao pendingOpsDao,
     required KeyValueDao keyValueDao,
     DtoCompanionMapper mapper = const DtoCompanionMapper(),
-  }) : _db = db,
+    Future<void> Function(List<String> paths)? deleteUploadedFiles,
+  }) : _deleteUploadedFiles = deleteUploadedFiles ?? _defaultDeleteFiles,
+       _db = db,
        _taskDataSource = taskDataSource,
        _taskCommentDataSource = taskCommentDataSource,
        _projectDataSource = projectDataSource,
@@ -120,6 +125,29 @@ class PushProcessor {
   final PendingOpsDao _pendingOpsDao;
   final KeyValueDao _keyValueDao;
   final DtoCompanionMapper _mapper;
+
+  /// Löscht die kopierten Upload-Dateien nach erfolgreichem Push (injizierbar
+  /// für Tests). Standard löscht Dateien + jetzt leeren Elternordner.
+  final Future<void> Function(List<String> paths) _deleteUploadedFiles;
+
+  static Future<void> _defaultDeleteFiles(List<String> paths) async {
+    final parents = <String>{};
+    for (final path in paths) {
+      try {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+        parents.add(file.parent.path);
+      } catch (_) {}
+    }
+    for (final p in parents) {
+      try {
+        final dir = Directory(p);
+        if (await dir.exists() && await dir.list().isEmpty) {
+          await dir.delete();
+        }
+      } catch (_) {}
+    }
+  }
 
   /// Sicherheitsnetz gegen fehlerhafte Zustände (Ops-Zahl ist ohnehin klein).
   static const int _maxOps = 100000;
@@ -292,6 +320,11 @@ class PushProcessor {
         )..where((r) => r.taskId.equals(temp))).write(
           TaskAssigneesCompanion(taskId: Value(server)),
         );
+        await (_db.update(
+          _db.taskAttachments,
+        )..where((a) => a.taskId.equals(temp))).write(
+          TaskAttachmentsCompanion(taskId: Value(server)),
+        );
       case PendingOpType.projectCreate:
         await (_db.update(_db.projects)..where((p) => p.id.equals(temp))).write(
           ProjectsCompanion(
@@ -430,15 +463,46 @@ class PushProcessor {
         await (_db.delete(
           _db.taskComments,
         )..where((c) => c.id.equals(primaryId))).go();
+      case PendingOpType.attachmentUpload:
+        await _applyUploadedAttachments(op, body, primaryId, now);
+      case PendingOpType.attachmentDelete:
+        final attachmentId = (op.payload['attachment_id'] as num).toInt();
+        await (_db.delete(
+          _db.taskAttachments,
+        )..where((a) => a.remoteId.equals(attachmentId))).go();
       case PendingOpType.projectViewUpdate:
       case PendingOpType.userSettings:
-      case PendingOpType.attachmentUpload:
-      case PendingOpType.attachmentDelete:
         // Keine lokale dirty-Entität, die aufgeräumt werden müsste.
         break;
       default:
         break;
     }
+  }
+
+  /// Ersetzt die offline angelegten Platzhalter-Zeilen durch die Server-Anhänge
+  /// und löscht die kopierten Upload-Dateien.
+  Future<void> _applyUploadedAttachments(
+    PendingOp op,
+    dynamic body,
+    int taskId,
+    DateTime now,
+  ) async {
+    final dtos = (body as List).cast<TaskAttachmentDto>();
+    final paths = op.localFilePaths ?? const <String>[];
+
+    if (paths.isNotEmpty) {
+      await (_db.delete(_db.taskAttachments)..where(
+            (a) => a.taskId.equals(taskId) & a.localFilePath.isIn(paths),
+          ))
+          .go();
+    }
+    final syncedAt = now.toUtc().toIso8601String();
+    for (final dto in dtos) {
+      await _db.taskAttachmentsDao.upsertFromServer(
+        attachmentCompanionFromDto(dto, taskId: taskId, syncedAt: syncedAt),
+      );
+    }
+    await _deleteUploadedFiles(paths);
   }
 
   Future<void> _clearTaskDirty(int id) =>
@@ -704,6 +768,9 @@ class PushProcessor {
         await (_db.delete(
           _db.taskComments,
         )..where((c) => c.taskId.equals(temp))).go();
+        await (_db.delete(
+          _db.taskAttachments,
+        )..where((a) => a.taskId.equals(temp))).go();
       });
       cancelled.add(createOpId);
       cancelled.add(op.opId!);
