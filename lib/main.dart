@@ -12,8 +12,10 @@ import 'package:home_widget/home_widget.dart' show HomeWidget;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:responsive_framework/responsive_framework.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sentry_logging/sentry_logging.dart';
+import 'package:vikunja_app/core/theming/breakpoints.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/core/di/theme_provider.dart';
 import 'package:vikunja_app/core/di/locale_provider.dart';
@@ -154,7 +156,26 @@ class VikunjaApp extends ConsumerWidget {
             final locale = Localizations.localeOf(context);
             Intl.defaultLocale = locale.toString();
             initializeDateFormatting(locale.toString());
-            return child ?? const SizedBox.shrink();
+            return ResponsiveBreakpoints.builder(
+              child: child ?? const SizedBox.shrink(),
+              breakpoints: [
+                const Breakpoint(
+                  start: 0,
+                  end: AppBreakpoints.compactMax,
+                  name: MOBILE,
+                ),
+                const Breakpoint(
+                  start: AppBreakpoints.mediumMin,
+                  end: AppBreakpoints.mediumMax,
+                  name: TABLET,
+                ),
+                const Breakpoint(
+                  start: AppBreakpoints.expandedMin,
+                  end: double.infinity,
+                  name: DESKTOP,
+                ),
+              ],
+            );
           },
         );
       },
