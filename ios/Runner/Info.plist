@@ -65,5 +65,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Mit der Kamera aufgenommene Fotos können als Anhang zu Aufgaben hinzugefügt werden.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Fotos aus der Mediathek können als Anhang zu Aufgaben hinzugefügt werden.</string>
 </dict>
 </plist>

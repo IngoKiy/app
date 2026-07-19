@@ -87,6 +87,38 @@ class TaskDataSource extends RemoteDataSource {
     );
   }
 
+  Future<Response<List<TaskAttachmentDto>>> uploadAttachments(
+    int taskId,
+    List<String> filePaths,
+  ) {
+    return client.uploadFiles(
+      url: '/tasks/$taskId/attachments',
+      filePaths: filePaths,
+      mapper: (body) {
+        final success = (body['success'] as List<dynamic>?) ?? [];
+        return success
+            .map((e) => TaskAttachmentDto.fromJSON(e as Map<String, dynamic>))
+            .toList();
+      },
+    );
+  }
+
+  Future<Response<Object>> deleteAttachment(int taskId, int attachmentId) {
+    return client.delete(url: '/tasks/$taskId/attachments/$attachmentId');
+  }
+
+  /// URL zum direkten Laden eines Anhangs (z. B. für Bild-Vorschauen).
+  /// [previewSize]: sm, md, lg oder xl liefert für Bilder eine verkleinerte Vorschau.
+  String attachmentUrl(int taskId, int attachmentId, {String? previewSize}) {
+    var url = '${client.apiBase}/tasks/$taskId/attachments/$attachmentId';
+    if (previewSize != null) {
+      url += '?preview_size=$previewSize';
+    }
+    return url;
+  }
+
+  Future<Map<String, String>> authHeaders() => client.getHeaders();
+
   Future<TaskStatusUpdate> downloadAttachment(
     int taskId,
     TaskAttachmentDto attachment,

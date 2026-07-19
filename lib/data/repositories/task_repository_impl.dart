@@ -88,4 +88,31 @@ class TaskRepositoryImpl extends TaskRepository {
       TaskAttachmentDto.fromDomain(attachment),
     );
   }
+
+  @override
+  Future<Response<List<TaskAttachment>>> uploadAttachments(
+    int taskId,
+    List<String> filePaths,
+  ) async {
+    return (await _dataSource.uploadAttachments(taskId, filePaths)).toDomain();
+  }
+
+  @override
+  Future<Response<Object>> deleteAttachment(int taskId, int attachmentId) {
+    return _dataSource.deleteAttachment(taskId, attachmentId);
+  }
+
+  @override
+  String attachmentUrl(int taskId, int attachmentId, {String? previewSize}) {
+    return _dataSource.attachmentUrl(
+      taskId,
+      attachmentId,
+      previewSize: previewSize,
+    );
+  }
+
+  @override
+  Future<Map<String, String>> attachmentHeaders() {
+    return _dataSource.authHeaders();
+  }
 }

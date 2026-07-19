@@ -1,4 +1,13 @@
 {
   "ok": "OK",
-  "cancel": "Abbrechen"
+  "cancel": "Abbrechen",
+  "attachments": "Anhänge",
+  "addAttachment": "Anhang hinzufügen",
+  "attachmentCamera": "Kamera",
+  "attachmentGallery": "Fotomediathek",
+  "attachmentFile": "Dateien",
+  "attachmentUploadFailed": "Anhang konnte nicht hochgeladen werden",
+  "attachmentDeleteTitle": "Anhang löschen?",
+  "attachmentDeleteMessage": "Der Anhang wird dauerhaft gelöscht.",
+  "attachmentDownloadFailed": "Anhang konnte nicht heruntergeladen werden"
 }

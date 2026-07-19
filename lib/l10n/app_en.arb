@@ -223,5 +223,14 @@
   "versionDialogUsed": "Your server version: {versionString}",
   "@versionDialogUsed": {
     "placeholders": { "versionString": { "type": "String" } }
-  }
+  },
+  "attachments": "Attachments",
+  "addAttachment": "Add attachment",
+  "attachmentCamera": "Camera",
+  "attachmentGallery": "Photo library",
+  "attachmentFile": "Files",
+  "attachmentUploadFailed": "Could not upload attachment",
+  "attachmentDeleteTitle": "Delete attachment?",
+  "attachmentDeleteMessage": "The attachment will be deleted permanently.",
+  "attachmentDownloadFailed": "Could not download attachment"
 }

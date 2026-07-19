@@ -7,6 +7,7 @@ import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_actions.dart';
+import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 
 class TaskBottomSheet extends StatefulWidget {
   final Task task;
@@ -191,6 +192,9 @@ class TaskBottomSheetState extends State<TaskBottomSheet> {
                   ),
                 ],
               ),
+              SizedBox(height: propertyPadding),
+              // attachments
+              TaskAttachmentsSection(task: widget.task),
             ],
           ),
         ),

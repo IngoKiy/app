@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:background_downloader/background_downloader.dart'
-    show TaskStatus, FileDownloader;
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -20,6 +18,7 @@ import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/edit_description.dart';
 import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
+import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_delete_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_save_dialog.dart';
@@ -181,7 +180,10 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           _buildAddLabel(context),
           _buildLabelList(),
           _buildColor(),
-          _buildAttachments(),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: TaskAttachmentsSection(task: widget.task),
+          ),
         ],
       ),
     );
@@ -533,34 +535,6 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAttachments() {
-    return ListView.separated(
-      separatorBuilder: (context, index) => Divider(),
-      padding: const EdgeInsets.all(16.0),
-      shrinkWrap: true,
-      itemCount: widget.task.attachments.length,
-      itemBuilder: (context, index) {
-        return ListTile(
-          title: Text(widget.task.attachments[index].file.name),
-          trailing: IconButton(
-            icon: Icon(Icons.download),
-            onPressed: () async {
-              var taskId = await ref
-                  .read(taskRepositoryProvider)
-                  .downloadAttachment(
-                    widget.task.id,
-                    widget.task.attachments[index],
-                  );
-              if (taskId.status == TaskStatus.complete) {
-                FileDownloader().openFile(task: taskId.task);
-              }
-            },
-          ),
-        );
-      },
     );
   }
 

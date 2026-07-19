@@ -35,4 +35,18 @@ abstract class TaskRepository {
     int taskId,
     TaskAttachment attachment,
   );
+
+  Future<Response<List<TaskAttachment>>> uploadAttachments(
+    int taskId,
+    List<String> filePaths,
+  );
+
+  Future<Response<Object>> deleteAttachment(int taskId, int attachmentId);
+
+  /// URL zum direkten Laden eines Anhangs; für Bilder liefert
+  /// [previewSize] (sm/md/lg/xl) eine verkleinerte Vorschau.
+  String attachmentUrl(int taskId, int attachmentId, {String? previewSize});
+
+  /// Auth-Header für das direkte Laden von Anhängen (z. B. Image.network).
+  Future<Map<String, String>> attachmentHeaders();
 }

@@ -175,6 +175,29 @@ class Client {
     }
   }
 
+  Future<Response<T>> uploadFiles<T>({
+    required String url,
+    required List<String> filePaths,
+    T Function(dynamic body)? mapper,
+  }) async {
+    try {
+      return _handleResponseWithRefresh(mapper, () async {
+        final request = http.MultipartRequest('PUT', '$apiBase$url'.toUri()!);
+        final headers = await getHeaders();
+        // multipart setzt seinen eigenen Content-Type inkl. boundary
+        headers.remove('Content-Type');
+        request.headers.addAll(headers);
+        for (final path in filePaths) {
+          request.files.add(await http.MultipartFile.fromPath('files', path));
+        }
+        final streamed = await _httpClient.send(request);
+        return http.Response.fromStream(streamed);
+      });
+    } catch (e, s) {
+      return _handleException(e, s);
+    }
+  }
+
   Future<http.Response> postUnauthenticated({
     required String url,
     dynamic body,
