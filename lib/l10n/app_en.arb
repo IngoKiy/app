@@ -237,5 +237,15 @@
   "assignees": "Assigned to",
   "addAssignee": "Assign person",
   "assigneeSearchHint": "Search users…",
-  "assigneesUpdateFailed": "Could not update assignees"
+  "assigneesUpdateFailed": "Could not update assignees",
+  "offlineBanner": "Offline — changes will sync once you're back online",
+  "syncingBanner": "Syncing…",
+  "pendingChangesBanner": "{count} changes pending",
+  "@pendingChangesBanner": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "syncErrorBanner": "Sync failed: {message}",
+  "@syncErrorBanner": {
+    "placeholders": { "message": { "type": "String" } }
+  }
 }
