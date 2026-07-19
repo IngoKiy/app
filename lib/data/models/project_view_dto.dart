@@ -46,7 +46,10 @@ class ProjectViewDto extends Dto<ProjectView> {
       title = json['title'],
       viewKind = json['view_kind'],
       bucketConfigurationMode = json['bucket_configuration_mode'],
-      bucketConfiguration = json['bucket_configuration'] != null
+      // `is List` statt `!= null`: toJSON schreibt bei leerer Konfiguration den
+      // String "null", der beim lokalen Zurücklesen sonst fälschlich als Liste
+      // gecastet würde.
+      bucketConfiguration = json['bucket_configuration'] is List
           ? (json['bucket_configuration'] as List<dynamic>)
                 .map((task) => BucketConfigurationDto.fromJson(task))
                 .toList()

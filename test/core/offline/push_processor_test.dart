@@ -5,6 +5,7 @@ import 'package:vikunja_app/core/network/response.dart';
 import 'package:vikunja_app/core/offline/pending_op.dart';
 import 'package:vikunja_app/core/offline/push_processor.dart';
 import 'package:vikunja_app/data/data_sources/bucket_data_source.dart';
+import 'package:vikunja_app/data/data_sources/label_data_source.dart';
 import 'package:vikunja_app/data/data_sources/project_data_source.dart';
 import 'package:vikunja_app/data/data_sources/project_view_data_source.dart';
 import 'package:vikunja_app/data/data_sources/task_comment_data_source.dart';
@@ -101,6 +102,12 @@ class _FakeTaskLabelBulkDataSource implements TaskLabelBulkDataSource {
       throw UnimplementedError('${i.memberName}');
 }
 
+class _FakeLabelDataSource implements LabelDataSource {
+  @override
+  dynamic noSuchMethod(Invocation i) =>
+      throw UnimplementedError('${i.memberName}');
+}
+
 class _FakeProjectViewDataSource implements ProjectViewDataSource {
   @override
   dynamic noSuchMethod(Invocation i) =>
@@ -137,11 +144,13 @@ void main() {
     projectDataSource: _FakeProjectDataSource(),
     bucketDataSource: _FakeBucketDataSource(),
     taskLabelBulkDataSource: _FakeTaskLabelBulkDataSource(),
+    labelDataSource: _FakeLabelDataSource(),
     projectViewDataSource: _FakeProjectViewDataSource(),
     userDataSource: _FakeUserDataSource(),
     tasksDao: db.tasksDao,
     projectsDao: db.projectsDao,
     bucketsDao: db.bucketsDao,
+    labelsDao: db.labelsDao,
     taskCommentsDao: db.taskCommentsDao,
     pendingOpsDao: db.pendingOpsDao,
     keyValueDao: db.keyValueDao,
@@ -387,11 +396,13 @@ void main() {
       projectDataSource: _FakeProjectDataSource(),
       bucketDataSource: _FakeBucketDataSource(),
       taskLabelBulkDataSource: _FakeTaskLabelBulkDataSource(),
+      labelDataSource: _FakeLabelDataSource(),
       projectViewDataSource: _FakeProjectViewDataSource(),
       userDataSource: _FakeUserDataSource(),
       tasksDao: db.tasksDao,
       projectsDao: db.projectsDao,
       bucketsDao: db.bucketsDao,
+      labelsDao: db.labelsDao,
       taskCommentsDao: db.taskCommentsDao,
       pendingOpsDao: db.pendingOpsDao,
       keyValueDao: db.keyValueDao,

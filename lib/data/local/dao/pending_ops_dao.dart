@@ -20,6 +20,12 @@ class PendingOpsDao extends DatabaseAccessor<AppDatabase>
         .watchSingle();
   }
 
+  /// Reaktive Gesamtliste in FIFO-Reihenfolge (für das Sync-Status-Sheet).
+  Stream<List<PendingOpRow>> watchAll() =>
+      (select(pendingOps)
+            ..orderBy([(t) => OrderingTerm(expression: t.opId)]))
+          .watch();
+
   /// Nächste Charge in FIFO-Reihenfolge (aufsteigend nach [opId]).
   Future<List<PendingOpRow>> nextBatch({int limit = 20}) {
     return (select(pendingOps)

@@ -247,5 +247,35 @@
   "syncErrorBanner": "Sync failed: {message}",
   "@syncErrorBanner": {
     "placeholders": { "message": { "type": "String" } }
+  },
+  "syncSheetTitle": "Sync status",
+  "syncSheetEmpty": "Everything is up to date",
+  "syncSheetPendingSection": "Pending changes",
+  "syncSheetFailedSection": "Failed changes",
+  "syncSheetSyncNow": "Sync now",
+  "syncSheetDiscard": "Discard",
+  "syncOpTaskCreate": "New task",
+  "syncOpTaskUpdate": "Edit task",
+  "syncOpTaskDelete": "Delete task",
+  "syncOpTaskMove": "Move task",
+  "syncOpComment": "Comment",
+  "syncOpProject": "Project",
+  "syncOpBucket": "Bucket",
+  "syncOpLabel": "Label",
+  "syncOpAssignees": "Assignees",
+  "syncOpSettings": "Settings",
+  "syncOpGeneric": "Change",
+  "syncTimeJustNow": "just now",
+  "syncTimeMinutes": "{n} min ago",
+  "@syncTimeMinutes": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "syncTimeHours": "{n} h ago",
+  "@syncTimeHours": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "syncTimeDays": "{n} d ago",
+  "@syncTimeDays": {
+    "placeholders": { "n": { "type": "int" } }
   }
 }

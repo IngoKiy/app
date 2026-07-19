@@ -1,16 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/network/response.dart';
+import 'package:vikunja_app/core/sync/connectivity_provider.dart';
 import 'package:vikunja_app/data/local/database.dart';
+import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/repositories/settings_repository.dart';
-import 'package:vikunja_app/domain/repositories/task_repository.dart';
 import 'package:vikunja_app/presentation/manager/project_controller.dart';
 
+import '../../core/offline/offline_test_fakes.dart';
 import 'controller_test_helpers.dart';
+
+class _StubConnectivity extends ConnectivityStatus {
+  @override
+  bool build() => true;
+}
 
 class _FakeSettingsRepository implements SettingsRepository {
   bool displayDone = false;
@@ -20,18 +28,6 @@ class _FakeSettingsRepository implements SettingsRepository {
 
   @override
   Future<bool> getLandingPageOnlyDueDateTasks() async => false;
-
-  @override
-  dynamic noSuchMethod(Invocation i) =>
-      throw UnimplementedError('${i.memberName}');
-}
-
-class _FakeTaskRepository implements TaskRepository {
-  Future<Response<Task>> Function(int, Task)? addStub;
-
-  @override
-  Future<Response<Task>> add(int projectId, Task task) =>
-      addStub!(projectId, task);
 
   @override
   dynamic noSuchMethod(Invocation i) =>
@@ -57,6 +53,7 @@ void main() {
       overrides: [
         appDatabaseProvider.overrideWithValue(db),
         settingsRepositoryProvider.overrideWithValue(_FakeSettingsRepository()),
+        connectivityStatusProvider.overrideWith(() => _StubConnectivity()),
         ...overrides,
       ],
     );
@@ -93,14 +90,14 @@ void main() {
     expect(model.tasks.first.id, 10);
   });
 
-  test('addTask upsertet die Server-Antwort in die DB', () async {
-    final taskRepo = _FakeTaskRepository()
-      ..addStub = (projectId, task) async => SuccessResponse(
-        Task(
+  test('addTask (online) legt die Server-Antwort über den OfflineWriter an', () async {
+    final taskDs = FakeTaskDataSource()
+      ..addStub = (projectId, t) => SuccessResponse(
+        TaskDto(
           id: 55,
-          title: task.title,
-          createdBy: null,
+          title: t.title,
           projectId: projectId,
+          createdBy: null,
           created: testTime,
           updated: testTime,
         ),
@@ -110,7 +107,9 @@ void main() {
 
     final project = listProject();
     final container = createContainer(
-      overrides: [taskRepositoryProvider.overrideWithValue(taskRepo)],
+      overrides: [
+        opExecutorProvider.overrideWithValue(buildExecutor(db, task: taskDs)),
+      ],
     );
     await container.read(projectControllerProvider(project).future);
 
@@ -131,5 +130,36 @@ void main() {
     final row = await db.tasksDao.getById(55);
     expect(row, isNotNull);
     expect(row!.title, 'Neu');
+  });
+
+  test('addTask (offline) legt eine optimistische Temp-Zeile an', () async {
+    final project = listProject();
+    final container = createContainer(
+      overrides: [
+        opExecutorProvider.overrideWithValue(buildExecutor(db)),
+      ],
+    );
+    await container.read(projectControllerProvider(project).future);
+
+    final ok = await container
+        .read(projectControllerProvider(project).notifier)
+        .addTask(
+          project,
+          Task(
+            title: 'Offline',
+            createdBy: null,
+            projectId: 1,
+            created: testTime,
+            updated: testTime,
+          ),
+        );
+
+    // Optimistisch: aus UI-Sicht Erfolg, Op liegt in der Outbox.
+    expect(ok, isTrue);
+    final row = await db.tasksDao.getById(-1);
+    expect(row, isNotNull);
+    expect(row!.title, 'Offline');
+    expect(row.isDirty, isTrue);
+    expect(await db.pendingOpsDao.nextBatch(), hasLength(1));
   });
 }

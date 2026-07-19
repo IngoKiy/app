@@ -2,24 +2,19 @@ import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
-import 'package:vikunja_app/core/di/repository_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
-import 'package:vikunja_app/core/sync/dto_companion_mapper.dart';
 import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/data/local/row_mappers.dart';
-import 'package:vikunja_app/data/models/project_dto.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/project_list_model.dart';
 
 part 'projects_controller.g.dart';
 
 /// Liest die Projektliste reaktiv aus der lokalen DB (watch-Stream). Schreib-
-/// Methoden gehen weiterhin über die Repositories (Online-API) und upserten
-/// die Server-Antwort in die DB; die UI aktualisiert sich über den Stream.
+/// Methoden laufen über den [OfflineWriter] (lokal anwenden + Outbox).
 @riverpod
 class ProjectsController extends _$ProjectsController {
-  static const _mapper = DtoCompanionMapper();
-
   @override
   Future<ProjectListModel> build() {
     final dao = ref.watch(projectsDaoProvider);
@@ -64,17 +59,8 @@ class ProjectsController extends _$ProjectsController {
   Future<void> loadNextPage() async {}
 
   void create(Project project) async {
-    final response = await ref.read(projectRepositoryProvider).create(project);
-    if (response.isSuccessful) {
-      // Server-Antwort direkt in die DB spiegeln; der Stream aktualisiert die UI.
-      await ref
-          .read(projectsDaoProvider)
-          .upsertFromServer(
-            _mapper.project(
-              ProjectDto.fromDomain(response.toSuccess().body),
-              DateTime.now(),
-            ),
-          );
-    }
+    // Lokal anlegen + online versuchen; bei Netzwerkfehler in die Outbox. Der
+    // DB-Stream aktualisiert die UI (optimistisch).
+    await ref.read(offlineWriterProvider).createProject(project);
   }
 }

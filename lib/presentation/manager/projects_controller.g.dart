@@ -7,11 +7,10 @@ part of 'projects_controller.dart';
 // **************************************************************************
 
 String _$projectsControllerHash() =>
-    r'58841b74964d783bccf377a375429e194d0220ac';
+    r'7e2fa3f2e8a0fca3856a397ba62bc59755fb1fe1';
 
 /// Liest die Projektliste reaktiv aus der lokalen DB (watch-Stream). Schreib-
-/// Methoden gehen weiterhin über die Repositories (Online-API) und upserten
-/// die Server-Antwort in die DB; die UI aktualisiert sich über den Stream.
+/// Methoden laufen über den [OfflineWriter] (lokal anwenden + Outbox).
 ///
 /// Copied from [ProjectsController].
 @ProviderFor(ProjectsController)

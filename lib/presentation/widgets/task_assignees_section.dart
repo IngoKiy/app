@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
@@ -105,19 +106,21 @@ class _TaskAssigneesSectionState extends ConsumerState<TaskAssigneesSection> {
 
   Future<void> _setAssignees(List<User> updated) async {
     setState(() => _saving = true);
-    final response = await ref
-        .read(taskRepositoryProvider)
+    // Optimistisch über den OfflineWriter: lokal setzen + online versuchen;
+    // Netzwerkfehler → Outbox. Nur eine Server-Ablehnung gilt als Fehler.
+    final result = await ref
+        .read(offlineWriterProvider)
         .setAssignees(widget.task.id, updated);
     if (!mounted) return;
 
     setState(() {
       _saving = false;
-      if (response.isSuccessful) {
+      if (result.ok) {
         _assignees = updated;
         widget.task.assignees = updated;
       }
     });
-    if (!response.isSuccessful) {
+    if (!result.ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context).assigneesUpdateFailed),

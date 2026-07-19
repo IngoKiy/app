@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/di/theme_provider.dart';
+import 'package:vikunja_app/data/models/user_dto.dart';
 import 'package:vikunja_app/core/theming/theme_mode.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/settings_page_state.dart';
@@ -130,10 +132,16 @@ class SettingsController extends _$SettingsController {
     });
   }
 
-  void setDefaultProject(int value) {
+  void setDefaultProject(int value) async {
     final user = ref.read(currentUserProvider);
+    if (user?.settings == null) return;
     user!.settings!.defaultProjectId = value;
-    ref.read(userRepositoryProvider).setCurrentUserSettings(user.settings!);
+
+    // Nur online versuchen + bei Netzwerkfehler enqueuen; lokal wird der
+    // aktuelle-Nutzer-KeyValue gepatcht (kein eigenes DB-Modell nötig).
+    await ref
+        .read(offlineWriterProvider)
+        .updateUserSettings(UserSettingsDto.fromDomain(user.settings!));
 
     ref.read(currentUserProvider.notifier).set(user);
 

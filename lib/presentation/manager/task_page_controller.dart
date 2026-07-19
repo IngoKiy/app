@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/core/sync/filter/filter_ast.dart';
+import 'package:vikunja_app/core/sync/filter/filter_evaluator.dart';
+import 'package:vikunja_app/core/sync/filter/filter_parser.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/notification_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
-import 'package:vikunja_app/core/sync/dto_companion_mapper.dart';
 import 'package:vikunja_app/data/local/row_mappers.dart';
-import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_page_model.dart';
 import 'package:vikunja_app/presentation/manager/widget_controller.dart';
@@ -21,17 +24,83 @@ part 'task_page_controller.g.dart';
 /// er auf den DB-Standard zurück (lokaler Filter-Evaluator kommt in M3).
 @riverpod
 class TaskPageController extends _$TaskPageController {
-  static const _mapper = DtoCompanionMapper();
-
   @override
   Future<TaskPageModel> build() async {
     final filterId = _overviewFilterId();
     if (filterId != null) {
+      // M3/F1: gespeicherten Filter, sofern lokal verfügbar, direkt gegen den
+      // Task-Stream auswerten (funktioniert offline). Nur wenn kein lokaler
+      // Filterstring vorliegt oder er nicht auswertbar ist, den Online-Pfad
+      // gehen.
+      final expr = await _localFilterExpr(filterId);
+      if (expr != null) return _watchFiltered(expr);
+
       final online = await _loadFilteredOnline(filterId);
       if (online != null) return online;
       // offline/Fehler -> Fallback auf DB-Standard.
     }
     return _watchStandard();
+  }
+
+  /// Beschafft den lokal gespeicherten Filterstring des Pseudo-Projekts
+  /// [filterId] und parst ihn. Rückgabe `null`, wenn kein Filterstring
+  /// verfügbar ist oder er nicht lokal auswertbar ist
+  /// ([UnsupportedFilterException]) -> Aufrufer nutzt den Online-Pfad.
+  Future<FilterExpr?> _localFilterExpr(int filterId) async {
+    final row = await ref.read(projectsDaoProvider).getById(filterId);
+    if (row == null) return null;
+    final filterString = _filterStringFromViews(row.viewsJson);
+    if (filterString == null || filterString.trim().isEmpty) return null;
+    try {
+      return FilterParser.parse(filterString);
+    } on UnsupportedFilterException {
+      return null;
+    }
+  }
+
+  /// Extrahiert den Filterstring aus dem gespeicherten Views-JSON: Der erste
+  /// View mit nicht-leerem `filter.filter` gewinnt.
+  String? _filterStringFromViews(String viewsJson) {
+    final decoded = jsonDecode(viewsJson);
+    if (decoded is! List) return null;
+    for (final view in decoded) {
+      if (view is Map && view['filter'] is Map) {
+        final f = (view['filter'] as Map)['filter'];
+        if (f is String && f.trim().isNotEmpty) return f;
+      }
+    }
+    return null;
+  }
+
+  /// Gespeicherter Filter, lokal ausgewertet: offene Tasks aus der DB, gegen
+  /// den Evaluator gefiltert, sortiert wie die Standardübersicht (dueDate, id).
+  Future<TaskPageModel> _watchFiltered(FilterExpr expr) async {
+    final onlyDue = await ref
+        .read(settingsRepositoryProvider)
+        .getLandingPageOnlyDueDateTasks();
+
+    final dao = ref.read(tasksDaoProvider);
+    final completer = Completer<TaskPageModel>();
+
+    final sub = dao.watchOverviewTasks().listen((rows) async {
+      final tasks = rows
+          .map(taskFromRow)
+          .where((t) => matches(t, expr))
+          .toList();
+      final model = await _createPageModel(
+        tasks,
+        onlyDue,
+        isInitial: !completer.isCompleted,
+      );
+      if (!completer.isCompleted) {
+        completer.complete(model);
+      } else {
+        state = AsyncData(model);
+      }
+    });
+    ref.onDispose(sub.cancel);
+
+    return completer.future;
   }
 
   int? _overviewFilterId() {
@@ -135,52 +204,29 @@ class TaskPageController extends _$TaskPageController {
     ref.invalidateSelf();
   }
 
+  /// Schreibpfade laufen über den [OfflineWriter]: lokal anwenden + online
+  /// versuchen; bei Netzwerkfehler landet die Op in der Outbox (optimistisch).
+  /// Rückgabe `true`, sofern der Server die Änderung nicht abgelehnt hat.
   Future<bool> addTask(int projectId, Task task) async {
-    final response = await ref.read(taskRepositoryProvider).add(projectId, task);
-    if (response.isSuccessful) {
-      await _upsertTask(response.toSuccess().body, projectId: projectId);
-      return true;
-    }
-    return false;
+    final result = await ref
+        .read(offlineWriterProvider)
+        .addTask(projectId, task);
+    return result.ok;
   }
 
   Future<bool> deleteTask(int id) async {
-    final response = await ref.read(taskRepositoryProvider).delete(id);
-    if (response.isSuccessful) {
-      await ref.read(tasksDaoProvider).deleteById(id);
-      return true;
-    }
-    return false;
+    final result = await ref.read(offlineWriterProvider).deleteTask(id);
+    return result.ok;
   }
 
   Future<bool> updateTask(Task task) async {
-    final response = await ref.read(taskRepositoryProvider).update(task);
-    if (response.isSuccessful) {
-      await _upsertTask(response.toSuccess().body, projectId: task.projectId);
-      return true;
-    }
-    return false;
+    final result = await ref.read(offlineWriterProvider).updateTask(task);
+    return result.ok;
   }
 
   Future<bool> markAsDone(Task task) async {
     task.done = true;
-    final response = await ref.read(taskRepositoryProvider).update(task);
-    if (response.isSuccessful) {
-      await _upsertTask(response.toSuccess().body, projectId: task.projectId);
-      return true;
-    }
-    return false;
-  }
-
-  Future<void> _upsertTask(Task task, {int? projectId}) {
-    return ref
-        .read(tasksDaoProvider)
-        .upsertFromServer(
-          _mapper.task(
-            TaskDto.fromDomain(task),
-            DateTime.now(),
-            projectId: projectId ?? task.projectId,
-          ),
-        );
+    final result = await ref.read(offlineWriterProvider).updateTask(task);
+    return result.ok;
   }
 }

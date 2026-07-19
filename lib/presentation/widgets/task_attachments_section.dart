@@ -10,7 +10,7 @@ import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/network/cached_image_provider.dart';
-import 'package:vikunja_app/core/offline/attachment_writer.dart';
+import 'package:vikunja_app/core/offline/offline_writer.dart';
 import 'package:vikunja_app/data/models/task_attachment_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_attachment.dart';
@@ -275,7 +275,7 @@ class _TaskAttachmentsSectionState
   Future<void> _upload(List<String> paths) async {
     setState(() => _uploading = true);
     final result = await ref
-        .read(attachmentWriterProvider)
+        .read(offlineWriterProvider)
         .uploadAttachments(
           widget.task.id,
           paths,
@@ -318,7 +318,7 @@ class _TaskAttachmentsSectionState
     if (!confirmed) return false;
 
     final result = await ref
-        .read(attachmentWriterProvider)
+        .read(offlineWriterProvider)
         .deleteAttachment(
           widget.task.id,
           attachment.id,
@@ -339,11 +339,11 @@ class _TaskAttachmentsSectionState
   }
 
   Future<void> _downloadAndOpen(TaskAttachment attachment) async {
-    final writer = ref.read(attachmentWriterProvider);
+    final writer = ref.read(offlineWriterProvider);
 
     // Offline (oder bereits heruntergeladen): lokale Datei direkt öffnen.
     final localPath =
-        attachment.localFilePath ?? await writer.localFilePathFor(attachment.id);
+        attachment.localFilePath ?? await writer.attachmentLocalFilePath(attachment.id);
     if (localPath != null && await File(localPath).exists()) {
       await FileDownloader().openFile(filePath: localPath);
       return;
