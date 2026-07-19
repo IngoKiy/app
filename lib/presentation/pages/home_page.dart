@@ -20,6 +20,7 @@ import 'package:vikunja_app/presentation/pages/project/project_list_page.dart';
 import 'package:vikunja_app/presentation/pages/settings_page.dart';
 import 'package:vikunja_app/presentation/pages/task/task_list_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -85,6 +86,33 @@ class HomePageState extends ConsumerState<HomePage> {
       drawerItem = _getDrawerItemWidget(_selectedDrawerIndex);
     }
 
+    if (!context.isCompact) {
+      return Scaffold(
+        body: Row(
+          children: [
+            NavigationRail(
+              extended: context.isExpanded,
+              labelType: context.isExpanded
+                  ? NavigationRailLabelType.none
+                  : NavigationRailLabelType.all,
+              destinations: navbarItems(context)
+                  .map(
+                    (destination) => NavigationRailDestination(
+                      icon: destination.icon,
+                      label: Text(destination.label),
+                    ),
+                  )
+                  .toList(),
+              selectedIndex: _selectedDrawerIndex,
+              onDestinationSelected: _onDestinationSelected,
+            ),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(child: drawerItem!),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       bottomNavigationBar: ClipRRect(
         borderRadius: BorderRadius.only(
@@ -94,15 +122,17 @@ class HomePageState extends ConsumerState<HomePage> {
         child: NavigationBar(
           destinations: navbarItems(context),
           selectedIndex: _selectedDrawerIndex,
-          onDestinationSelected: (index) {
-            setState(() {
-              _selectedDrawerIndex = index;
-            });
-          },
+          onDestinationSelected: _onDestinationSelected,
         ),
       ),
       body: drawerItem,
     );
+  }
+
+  void _onDestinationSelected(int index) {
+    setState(() {
+      _selectedDrawerIndex = index;
+    });
   }
 
   Widget _getDrawerItemWidget(int pos) {
