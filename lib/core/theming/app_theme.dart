@@ -18,8 +18,12 @@ ThemeData buildAppTheme({
     scaffoldBackgroundColor: colorScheme.surface,
     canvasColor: colorScheme.surface,
     appBarTheme: AppBarTheme(
-      backgroundColor: isDark ? colorScheme.primaryContainer : colorScheme.primary,
-      foregroundColor: isDark ? colorScheme.onPrimaryContainer : colorScheme.onPrimary,
+      backgroundColor: isDark
+          ? colorScheme.primaryContainer
+          : colorScheme.primary,
+      foregroundColor: isDark
+          ? colorScheme.onPrimaryContainer
+          : colorScheme.onPrimary,
     ),
     cardTheme: CardThemeData(
       elevation: 0,

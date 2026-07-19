@@ -11,6 +11,8 @@ import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/task/task_edit_page.dart';
+import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
+import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/ui/empty_state.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
@@ -28,19 +30,23 @@ class TaskListPage extends ConsumerWidget {
       data: (model) {
         return Scaffold(
           appBar: _buildAppBar(ref, context, model.onlyDueDate),
-          body: RefreshIndicator(
-            onRefresh: () async {
-              ref.read(taskPageControllerProvider.notifier).reload();
-            },
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (ScrollNotification scrollInfo) {
-                if (scrollInfo.metrics.pixels ==
-                    scrollInfo.metrics.maxScrollExtent) {
-                  ref.read(taskPageControllerProvider.notifier).loadNextPage();
-                }
-                return false;
+          body: ConstrainedPage(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.read(taskPageControllerProvider.notifier).reload();
               },
-              child: _buildList(ref, context, model),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (ScrollNotification scrollInfo) {
+                  if (scrollInfo.metrics.pixels ==
+                      scrollInfo.metrics.maxScrollExtent) {
+                    ref
+                        .read(taskPageControllerProvider.notifier)
+                        .loadNextPage();
+                  }
+                  return false;
+                },
+                child: _buildList(ref, context, model),
+              ),
             ),
           ),
           floatingActionButton: FloatingActionButton(
@@ -216,9 +222,9 @@ class TaskListPage extends ConsumerWidget {
   void _showTaskBottomSheet(BuildContext context, Task task) {
     showModalBottomSheet<void>(
       context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10.0)),
-      ),
+      constraints: context.isCompact
+          ? null
+          : const BoxConstraints(maxWidth: 640),
       builder: (BuildContext context) {
         return TaskBottomSheet(
           task: task,

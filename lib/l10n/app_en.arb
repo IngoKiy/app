@@ -125,6 +125,7 @@
   "taskMarkDoneError": "Error marking task as done",
   "failedToMarkDone": "Failed to mark as done",
   "selectDefaultProject": "Please select a default project in the settings",
+  "selectProjectPlaceholder": "Select a project to see its tasks",
   "editTaskTitle": "Edit Task",
   "taskDeleteError": "Error deleting the task!",
   "taskSaveError": "Error saving the task!",

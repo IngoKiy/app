@@ -21,6 +21,7 @@ import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
 import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
+import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_delete_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_save_dialog.dart';
@@ -97,7 +98,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         appBar: _buildAppBar(),
         body: Stack(
           children: [
-            _buildForm(context),
+            ConstrainedPage(child: _buildForm(context)),
             if (_isLoading)
               Opacity(
                 opacity: 0.5,

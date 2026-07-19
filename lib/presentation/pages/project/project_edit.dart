@@ -4,6 +4,7 @@ import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/presentation/manager/project_controller.dart';
 import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
+import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 
 class ProjectEditPage extends ConsumerStatefulWidget {
   final Project project;
@@ -38,90 +39,92 @@ class ProjectEditPageState extends ConsumerState<ProjectEditPage> {
     final l10n = AppLocalizations.of(ctx);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.editProjectTitle)),
-      body: Builder(
-        builder: (BuildContext context) => Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: <Widget>[
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 10.0),
-                child: TextFormField(
-                  maxLines: null,
-                  keyboardType: TextInputType.multiline,
-                  initialValue: widget.project.title,
-                  validator: (title) {
-                    if (title == null) {
-                      return l10n.title;
-                    }
-
-                    if (title.isEmpty || title.length > 250) {
-                      return 'The title needs to have between 1 and 250 characters.';
-                    }
-
-                    return null;
-                  },
-                  onSaved: (value) {
-                    title = value;
-                  },
-                  decoration: InputDecoration(
-                    labelText: l10n.title,
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 10.0),
-                child: TextFormField(
-                  maxLines: null,
-                  keyboardType: TextInputType.multiline,
-                  initialValue: widget.project.description,
-                  validator: (description) {
-                    if (description == null) return null;
-                    if (description.length > 1000) {
-                      return 'The description can have a maximum of 1000 characters.';
-                    }
-                    return null;
-                  },
-                  onSaved: (value) {
-                    description = value;
-                  },
-                  decoration: InputDecoration(
-                    labelText: l10n.description,
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 10.0),
-                child: CheckboxListTile(
-                  value: displayDoneTask,
-                  title: Text(l10n.showDoneTasks),
-                  onChanged: (value) {
-                    value ??= false;
-
-                    setState(() {
-                      displayDoneTask = value;
-                    });
-                  },
-                ),
-              ),
-              Builder(
-                builder: (context) => Padding(
+      body: ConstrainedPage(
+        child: Builder(
+          builder: (BuildContext context) => Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: <Widget>[
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 10.0),
-                  child: AppButton(
-                    label: l10n.save,
-                    expand: true,
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        _formKey.currentState?.save();
-                        _saveProject(ref, widget.project);
+                  child: TextFormField(
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                    initialValue: widget.project.title,
+                    validator: (title) {
+                      if (title == null) {
+                        return l10n.title;
                       }
+
+                      if (title.isEmpty || title.length > 250) {
+                        return 'The title needs to have between 1 and 250 characters.';
+                      }
+
+                      return null;
+                    },
+                    onSaved: (value) {
+                      title = value;
+                    },
+                    decoration: InputDecoration(
+                      labelText: l10n.title,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10.0),
+                  child: TextFormField(
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                    initialValue: widget.project.description,
+                    validator: (description) {
+                      if (description == null) return null;
+                      if (description.length > 1000) {
+                        return 'The description can have a maximum of 1000 characters.';
+                      }
+                      return null;
+                    },
+                    onSaved: (value) {
+                      description = value;
+                    },
+                    decoration: InputDecoration(
+                      labelText: l10n.description,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10.0),
+                  child: CheckboxListTile(
+                    value: displayDoneTask,
+                    title: Text(l10n.showDoneTasks),
+                    onChanged: (value) {
+                      value ??= false;
+
+                      setState(() {
+                        displayDoneTask = value;
+                      });
                     },
                   ),
                 ),
-              ),
-            ],
+                Builder(
+                  builder: (context) => Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10.0),
+                    child: AppButton(
+                      label: l10n.save,
+                      expand: true,
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                          _formKey.currentState?.save();
+                          _saveProject(ref, widget.project);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
