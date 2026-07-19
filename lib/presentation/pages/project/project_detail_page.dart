@@ -65,9 +65,12 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
           },
           child: RefreshIndicator(
             onRefresh: () {
+              // reload() stößt Push+Pull an (userInitiated: true) und baut
+              // die aktuelle View danach neu auf; vorher rief dies nur
+              // loadForView auf und triggerte gar keinen Sync.
               return ref
                   .read(projectControllerProvider(widget.project).notifier)
-                  .loadForView(data.project, _viewIndex);
+                  .reload();
             },
             child: getBody(data.project),
           ),

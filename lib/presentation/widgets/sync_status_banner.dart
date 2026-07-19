@@ -13,12 +13,21 @@ import 'package:vikunja_app/presentation/widgets/sync_status_sheet.dart';
 /// when there are outstanding pending operations while online. Mounted once
 /// in [MaterialApp.builder] (see `lib/main.dart`) so it is visible above
 /// every screen.
+///
+/// A user-triggered sync (pull-to-refresh, "sync now" in the sync sheet) is
+/// treated like [SyncPhase.idle] here: the widget that triggered it
+/// (RefreshIndicator, sheet button) already shows its own progress, so the
+/// banner would otherwise duplicate it.
 class SyncStatusBanner extends ConsumerWidget {
   const SyncStatusBanner({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final syncState = ref.watch(syncStateNotifierProvider);
+    final rawState = ref.watch(syncStateNotifierProvider);
+    final syncState =
+        rawState.phase == SyncPhase.syncing && rawState.userInitiated
+        ? rawState.copyWith(phase: SyncPhase.idle)
+        : rawState;
     final visible =
         syncState.phase != SyncPhase.idle || syncState.pendingOps > 0;
 

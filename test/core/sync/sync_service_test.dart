@@ -462,6 +462,53 @@ void main() {
     expect(server.callCount, 1);
   });
 
+  test(
+    'userInitiated: true wird während des Pulls in den SyncState '
+    'durchgereicht und danach wieder zurückgesetzt',
+    () async {
+      final gate = Completer<void>();
+      server.getInfoStub = () async {
+        await gate.future;
+        return SuccessResponse(_server(), 200, {});
+      };
+
+      final future = buildService().pullAll(userInitiated: true);
+
+      // Während des Pulls: syncing + userInitiated gesetzt.
+      final duringPull = container.read(syncStateNotifierProvider);
+      expect(duringPull.phase, SyncPhase.syncing);
+      expect(duringPull.userInitiated, isTrue);
+
+      gate.complete();
+      await future;
+
+      // Nach Abschluss: idle, userInitiated zurückgesetzt.
+      final afterPull = container.read(syncStateNotifierProvider);
+      expect(afterPull.phase, SyncPhase.idle);
+      expect(afterPull.userInitiated, isFalse);
+    },
+  );
+
+  test(
+    'userInitiated bleibt standardmäßig false (automatischer Sync)',
+    () async {
+      final gate = Completer<void>();
+      server.getInfoStub = () async {
+        await gate.future;
+        return SuccessResponse(_server(), 200, {});
+      };
+
+      final future = buildService().pullAll();
+
+      final duringPull = container.read(syncStateNotifierProvider);
+      expect(duringPull.phase, SyncPhase.syncing);
+      expect(duringPull.userInitiated, isFalse);
+
+      gate.complete();
+      await future;
+    },
+  );
+
   test('Task-Junctions (Labels/Assignees) werden korrekt ersetzt', () async {
     // Ausgangszustand: Task 1 mit veralteten cleanen Relationen + einer
     // dirty-Relation, die erhalten bleiben muss.

@@ -71,5 +71,31 @@ void main() {
       expect(a.hashCode, equals(b.hashCode));
       expect(a == c, isFalse);
     });
+
+    test('userInitiated defaults to false', () {
+      const state = SyncState();
+      expect(state.userInitiated, isFalse);
+
+      const syncing = SyncState(phase: SyncPhase.syncing);
+      expect(syncing.userInitiated, isFalse);
+    });
+
+    test('copyWith can set userInitiated', () {
+      const state = SyncState(phase: SyncPhase.syncing);
+      final updated = state.copyWith(userInitiated: true);
+
+      expect(updated.userInitiated, isTrue);
+      expect(updated.phase, SyncPhase.syncing);
+    });
+
+    test('userInitiated participates in equality and hashCode', () {
+      const a = SyncState(phase: SyncPhase.syncing, userInitiated: true);
+      const b = SyncState(phase: SyncPhase.syncing, userInitiated: true);
+      const c = SyncState(phase: SyncPhase.syncing, userInitiated: false);
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a == c, isFalse);
+    });
   });
 }

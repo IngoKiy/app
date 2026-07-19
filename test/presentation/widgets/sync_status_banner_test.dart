@@ -61,6 +61,37 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
 
+  testWidgets(
+    'hides during a user-initiated sync (pull-to-refresh/sync sheet already '
+    'shows its own progress)',
+    (tester) async {
+      await _pumpBanner(
+        tester,
+        const SyncState(phase: SyncPhase.syncing, userInitiated: true),
+      );
+
+      expect(find.text('Syncing…'), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'still shows pending changes during a user-initiated sync if ops remain',
+    (tester) async {
+      await _pumpBanner(
+        tester,
+        const SyncState(
+          phase: SyncPhase.syncing,
+          userInitiated: true,
+          pendingOps: 2,
+        ),
+      );
+
+      expect(find.text('Syncing…'), findsNothing);
+      expect(find.text('2 changes pending'), findsOneWidget);
+    },
+  );
+
   testWidgets('shows error message', (tester) async {
     await _pumpBanner(
       tester,
