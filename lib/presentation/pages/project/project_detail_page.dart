@@ -14,6 +14,7 @@ import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/project/project_edit.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_widget.dart';
+import 'package:vikunja_app/presentation/widgets/project_members_section.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_task_list.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
@@ -129,6 +130,16 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     return AppBar(
       title: Text(project.title),
       actions: <Widget>[
+        IconButton(
+          icon: const Icon(Icons.people_alt_outlined),
+          tooltip: AppLocalizations.of(context).projectMembers,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProjectMembersPage(projectId: project.id),
+            ),
+          ),
+        ),
         IconButton(
           icon: Icon(Icons.edit),
           onPressed: () => Navigator.push(

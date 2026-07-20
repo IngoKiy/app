@@ -44,6 +44,26 @@ final projectViewDataSourceProvider =
 // ignore: unused_element
 typedef ProjectViewDataSourceRef =
     AutoDisposeProviderRef<ProjectViewDataSource>;
+String _$projectMemberDataSourceHash() =>
+    r'61012624c5c825c854617f49647a3abd1647308e';
+
+/// See also [projectMemberDataSource].
+@ProviderFor(projectMemberDataSource)
+final projectMemberDataSourceProvider =
+    AutoDisposeProvider<ProjectMemberDataSource>.internal(
+      projectMemberDataSource,
+      name: r'projectMemberDataSourceProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$projectMemberDataSourceHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef ProjectMemberDataSourceRef =
+    AutoDisposeProviderRef<ProjectMemberDataSource>;
 String _$bucketDataSourceHash() => r'8bcd761a3cd4e40e781bf8e3df7c317769361b8d';
 
 /// See also [bucketDataSource].

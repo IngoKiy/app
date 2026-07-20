@@ -5,6 +5,7 @@ import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/data/data_sources/bucket_data_source.dart';
 import 'package:vikunja_app/data/data_sources/label_data_source.dart';
 import 'package:vikunja_app/data/data_sources/project_data_source.dart';
+import 'package:vikunja_app/data/data_sources/project_member_data_source.dart';
 import 'package:vikunja_app/data/data_sources/project_view_data_source.dart';
 import 'package:vikunja_app/data/data_sources/server_data_source.dart';
 import 'package:vikunja_app/data/data_sources/settings_data_source.dart';
@@ -27,6 +28,12 @@ ProjectDataSource projectDataSource(Ref ref) {
 ProjectViewDataSource projectViewDataSource(Ref ref) {
   final client = ref.watch(clientProviderProvider);
   return ProjectViewDataSource(client);
+}
+
+@riverpod
+ProjectMemberDataSource projectMemberDataSource(Ref ref) {
+  final client = ref.watch(clientProviderProvider);
+  return ProjectMemberDataSource(client);
 }
 
 @riverpod
