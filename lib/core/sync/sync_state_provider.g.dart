@@ -6,7 +6,7 @@ part of 'sync_state_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$syncStateNotifierHash() => r'a816678828b538d6ca4806a930048274b560c070';
+String _$syncStateNotifierHash() => r'604474bae7ba458f048275d378185a055926c8f6';
 
 /// Global, app-wide sync/offline status.
 ///
