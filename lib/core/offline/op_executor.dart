@@ -142,7 +142,10 @@ class OpExecutor {
       case PendingOpType.taskCreate:
         final projectId =
             refs['projectId'] ?? (op.payload['project_id'] as num).toInt();
-        return _taskDataSource.add(projectId, _taskDto(op.payload, refs));
+        return _taskDataSource.add(
+          projectId,
+          _taskDto(_createPayload(op.payload), refs),
+        );
       case PendingOpType.taskUpdate:
         final payload = _resolveTaskPayload(op.payload, refs)
           ..['id'] = primaryId;
@@ -161,13 +164,15 @@ class OpExecutor {
         );
         return _taskLabelBulkDataSource.update(task, labels);
       case PendingOpType.labelCreate:
-        return _labelDataSource.create(LabelDto.fromJson(op.payload));
+        return _labelDataSource.create(
+          LabelDto.fromJson(_createPayload(op.payload)),
+        );
       case PendingOpType.commentCreate:
         final taskId =
             refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
         return _taskCommentDataSource.create(
           taskId,
-          TaskCommentDto.fromJson(op.payload),
+          TaskCommentDto.fromJson(_createPayload(op.payload)),
         );
       case PendingOpType.commentUpdate:
         final taskId =
@@ -182,7 +187,9 @@ class OpExecutor {
             refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
         return _taskCommentDataSource.delete(taskId, primaryId!);
       case PendingOpType.projectCreate:
-        return _projectDataSource.create(ProjectDto.fromJson(op.payload));
+        return _projectDataSource.create(
+          ProjectDto.fromJson(_createPayload(op.payload)),
+        );
       case PendingOpType.projectUpdate:
         final payload = Map<String, dynamic>.of(op.payload)..['id'] = primaryId;
         return _projectDataSource.update(ProjectDto.fromJson(payload));
@@ -194,7 +201,7 @@ class OpExecutor {
         return _bucketDataSource.add(
           projectId,
           viewId,
-          BucketDto.fromJSON(op.payload),
+          BucketDto.fromJSON(_createPayload(op.payload)),
         );
       case PendingOpType.bucketUpdate:
         final projectId =
@@ -252,6 +259,13 @@ class OpExecutor {
         return _taskDataSource.deleteAttachment(taskId, attachmentId);
     }
   }
+
+  /// Ein Create-Payload darf keine (negative Temp-)ID an den Server senden:
+  /// Vikunja deutet ein gesetztes/nicht-null `id` als bestehendes Objekt und
+  /// antwortet mit 404. Die Temp-ID bleibt daher rein lokal (DB-Zeile +
+  /// tempIdRefs-Mapping); im gesendeten Payload wird `id` auf 0 normalisiert.
+  Map<String, dynamic> _createPayload(Map<String, dynamic> payload) =>
+      Map<String, dynamic>.of(payload)..['id'] = 0;
 
   TaskDto _taskDto(Map<String, dynamic> payload, Map<String, int> refs) =>
       TaskDto.fromJson(_resolveTaskPayload(payload, refs));

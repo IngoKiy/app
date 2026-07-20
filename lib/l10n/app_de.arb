@@ -30,6 +30,7 @@
   "syncOpTaskMove": "Aufgabe verschieben",
   "syncOpComment": "Kommentar",
   "syncOpProject": "Projekt",
+  "projectCreateError": "Projekt konnte nicht erstellt werden!",
   "syncOpBucket": "Spalte",
   "syncOpLabel": "Label",
   "syncOpAssignees": "Zuständige",

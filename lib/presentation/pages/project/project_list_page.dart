@@ -111,10 +111,17 @@ class ProjectListPage extends ConsumerWidget {
 
   Future<void> _addProject(String name, WidgetRef ref) async {
     final currentUser = ref.read(currentUserProvider);
+    final messenger = ScaffoldMessenger.of(ref.context);
+    final l10n = AppLocalizations.of(ref.context);
 
-    ref
+    final result = await ref
         .read(projectsControllerProvider.notifier)
         .create(Project(title: name, owner: currentUser));
+
+    // Server-Ablehnung (Rollback der optimistischen Zeile) sichtbar melden.
+    if (!result.ok) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.projectCreateError)));
+    }
   }
 
   void _navigateToProject(WidgetRef ref, Project project) async {

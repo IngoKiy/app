@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
+import 'package:vikunja_app/core/offline/offline_writer.dart';
 import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/data/local/row_mappers.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
@@ -61,9 +62,10 @@ class ProjectsController extends _$ProjectsController {
   /// Pagination entfällt bei DB-Reads (alles lokal) — No-Op für API-Kompat.
   Future<void> loadNextPage() async {}
 
-  void create(Project project) async {
-    // Lokal anlegen + online versuchen; bei Netzwerkfehler in die Outbox. Der
-    // DB-Stream aktualisiert die UI (optimistisch).
-    await ref.read(offlineWriterProvider).createProject(project);
+  /// Legt ein Projekt an (lokal + online). Das [OfflineWriteResult] wird an die
+  /// UI zurückgegeben, damit eine Server-Ablehnung (Rollback der optimistischen
+  /// Zeile) sichtbar gemeldet werden kann.
+  Future<OfflineWriteResult> create(Project project) {
+    return ref.read(offlineWriterProvider).createProject(project);
   }
 }

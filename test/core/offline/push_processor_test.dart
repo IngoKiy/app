@@ -275,7 +275,8 @@ void main() {
     final result = await build().pushAll();
 
     expect(result.success, isTrue);
-    expect(log, ['add(project=10,id=-5)', 'comment.create(task=42)']);
+    // Create sendet id=0 (Temp-ID bleibt lokal), sonst 404 vom Server.
+    expect(log, ['add(project=10,id=0)', 'comment.create(task=42)']);
     expect(await db.pendingOpsDao.nextBatch(), isEmpty);
   });
 
@@ -320,8 +321,8 @@ void main() {
     final rows = await db.pendingOpsDao.nextBatch();
     expect(rows, hasLength(2));
     expect(rows.every((r) => r.lastError != null), isTrue);
-    // Kommentar wurde nie gesendet.
-    expect(log, ['add(project=10,id=-5)', 'update(id=9)']);
+    // Kommentar wurde nie gesendet. Create sendet id=0 (Temp-ID bleibt lokal).
+    expect(log, ['add(project=10,id=0)', 'update(id=9)']);
   });
 
   test('Offline mitten im Push: Abbruch, Rest pending, kein retryCount++', () async {

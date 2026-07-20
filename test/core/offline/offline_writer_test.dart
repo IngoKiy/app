@@ -5,9 +5,11 @@ import 'package:vikunja_app/core/network/response.dart';
 import 'package:vikunja_app/core/offline/offline_writer.dart';
 import 'package:vikunja_app/core/offline/pending_op.dart';
 import 'package:vikunja_app/data/local/database.dart';
+import 'package:vikunja_app/data/models/project_dto.dart';
 import 'package:vikunja_app/data/models/task_comment_dto.dart';
 import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/data/models/user_dto.dart';
+import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 
@@ -317,8 +319,76 @@ void main() {
     final result = await processor.pushAll();
 
     expect(result.success, isTrue);
-    expect(log, ['add(project=10,id=-1)', 'comment.create(task=42)']);
+    // Create-Payload trägt id=0 (nicht die Temp-ID -1), sonst 404 vom Server.
+    expect(log, ['add(project=10,id=0)', 'comment.create(task=42)']);
     expect(await ops(), isEmpty);
     expect(await db.tasksDao.getById(42), isNotNull);
+  });
+
+  // --- Create-Payload: Temp-ID darf NICHT an den Server (Vikunja: 404) -------
+
+  group('Create-Payload sendet id=0 statt Temp-ID', () {
+    test('taskCreate: gesendete DTO-id=0, Migration Temp→Server', () async {
+      int? sentId;
+      task.addStub = (p, t) {
+        sentId = t.id;
+        return SuccessResponse(_srvTask(42, title: t.title), 201, {});
+      };
+
+      final res = await writer.addTask(10, _task(title: 'neu'));
+
+      expect(res.status, OfflineWriteStatus.synced);
+      expect(sentId, 0, reason: 'Temp-ID -1 darf nicht gesendet werden');
+      expect(await db.tasksDao.getById(-1), isNull); // Temp umgezogen
+      expect(await db.tasksDao.getById(42), isNotNull); // Server-ID
+    });
+
+    test('commentCreate: gesendete DTO-id=0, Migration Temp→Server', () async {
+      await seedTask(id: 5, remoteId: 5);
+      final author = User(id: 1, username: 'u1', created: _t, updated: _t);
+      int? sentId;
+      comment.createStub = (t, c) {
+        sentId = c.id;
+        return SuccessResponse(_srvComment(99), 201, {});
+      };
+
+      final res = await writer.addComment(5, 'hallo', author);
+
+      expect(res.status, OfflineWriteStatus.synced);
+      expect(sentId, 0);
+      final rows = await db.taskCommentsDao.watchCommentsByTask(5).first;
+      expect(rows.map((r) => r.id), contains(99));
+      expect(rows.map((r) => r.id), isNot(contains(-1)));
+    });
+
+    test('projectCreate: gesendete DTO-id=0, Migration Temp→Server', () async {
+      final projectDs = FakeProjectDataSource();
+      int? sentId;
+      projectDs.createStub = (p) {
+        sentId = p.id;
+        return SuccessResponse<ProjectDto>(
+          ProjectDto(
+            id: 100,
+            title: p.title,
+            parentProjectId: p.parentProjectId,
+            created: _t,
+            updated: _t,
+          ),
+          201,
+          const {},
+        );
+      };
+      final projectWriter =
+          buildWriter(db, buildExecutor(db, project: projectDs));
+
+      final res = await projectWriter.createProject(
+        Project(title: 'Neu', owner: User(id: 1, username: 'u1')),
+      );
+
+      expect(res.status, OfflineWriteStatus.synced);
+      expect(sentId, 0, reason: 'Temp-ID -1 darf nicht gesendet werden');
+      expect(await db.projectsDao.getById(-1), isNull); // Temp umgezogen
+      expect(await db.projectsDao.getById(100), isNotNull); // Server-ID
+    });
   });
 }

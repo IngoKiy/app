@@ -148,6 +148,7 @@
   "editProjectTitle": "Edit Project",
   "projectUpdatedSuccess": "The project was updated successfully!",
   "projectUpdateError": "Error updating the project!",
+  "projectCreateError": "Error creating the project!",
   "projectsTitle": "Projects",
   "vikunjaLogoAlt": "Vikunja Logo",
   "pleaseEnterValidFrontendUrl": "Please enter a valid frontend url",

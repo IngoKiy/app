@@ -15,6 +15,7 @@ import 'package:vikunja_app/data/data_sources/user_data_source.dart';
 import 'package:vikunja_app/core/offline/local_file_storage.dart';
 import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/data/models/task_attachment_dto.dart';
+import 'package:vikunja_app/data/models/project_dto.dart';
 import 'package:vikunja_app/data/models/task_comment_dto.dart';
 import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/data/models/user_dto.dart';
@@ -27,6 +28,14 @@ import 'package:vikunja_app/data/models/user_dto.dart';
 
 Response<T> _offline<T>() =>
     ExceptionResponse<T>(Exception('offline'), StackTrace.empty);
+
+/// Bildet Vikunjas Server-Verhalten nach: ein Create-Payload mit gesetzter
+/// (nicht-null/nicht-0) `id` gilt als Verweis auf ein bestehendes Objekt und
+/// wird mit 404 abgelehnt. So schlägt das ungefixte Mitsenden der Temp-ID auch
+/// im Test fehl (roter Test statt falsch-grün).
+Response<T>? _rejectIfIdSet<T>(int id) => id != 0
+    ? ErrorResponse<T>(404, const {}, const {'message': 'does not exist'})
+    : null;
 
 class FakeTaskDataSource implements TaskDataSource {
   FakeTaskDataSource([List<String>? log]) : log = log ?? [];
@@ -44,7 +53,9 @@ class FakeTaskDataSource implements TaskDataSource {
   @override
   Future<Response<TaskDto>> add(int projectId, TaskDto task) async {
     log.add('add(project=$projectId,id=${task.id})');
-    return addStub?.call(projectId, task) ?? _offline();
+    return _rejectIfIdSet<TaskDto>(task.id) ??
+        addStub?.call(projectId, task) ??
+        _offline();
   }
 
   @override
@@ -96,7 +107,9 @@ class FakeCommentDataSource implements TaskCommentDataSource {
   @override
   Future<Response<TaskCommentDto>> create(int taskId, TaskCommentDto c) async {
     log.add('comment.create(task=$taskId)');
-    return createStub?.call(taskId, c) ?? _offline();
+    return _rejectIfIdSet<TaskCommentDto>(c.id) ??
+        createStub?.call(taskId, c) ??
+        _offline();
   }
 
   @override
@@ -116,7 +129,27 @@ class FakeCommentDataSource implements TaskCommentDataSource {
       throw UnimplementedError('${i.memberName}');
 }
 
-class _FakeProjectDataSource implements ProjectDataSource {
+class FakeProjectDataSource implements ProjectDataSource {
+  FakeProjectDataSource([List<String>? log]) : log = log ?? [];
+  final List<String> log;
+
+  Response<ProjectDto> Function(ProjectDto p)? createStub;
+  Response<ProjectDto> Function(ProjectDto p)? updateStub;
+
+  @override
+  Future<Response<ProjectDto>> create(ProjectDto p) async {
+    log.add('project.create(id=${p.id})');
+    return _rejectIfIdSet<ProjectDto>(p.id) ??
+        createStub?.call(p) ??
+        _offline();
+  }
+
+  @override
+  Future<Response<ProjectDto>> update(ProjectDto p) async {
+    log.add('project.update(id=${p.id})');
+    return updateStub?.call(p) ?? _offline();
+  }
+
   @override
   dynamic noSuchMethod(Invocation i) =>
       throw UnimplementedError('${i.memberName}');
@@ -158,13 +191,14 @@ OpExecutor buildExecutor(
   AppDatabase db, {
   FakeTaskDataSource? task,
   FakeCommentDataSource? comment,
+  FakeProjectDataSource? project,
   Future<void> Function(List<String> paths)? deleteUploadedFiles,
 }) => OpExecutor(
   deleteUploadedFiles: deleteUploadedFiles,
   db: db,
   taskDataSource: task ?? FakeTaskDataSource(),
   taskCommentDataSource: comment ?? FakeCommentDataSource(),
-  projectDataSource: _FakeProjectDataSource(),
+  projectDataSource: project ?? FakeProjectDataSource(),
   bucketDataSource: _FakeBucketDataSource(),
   taskLabelBulkDataSource: _FakeTaskLabelBulkDataSource(),
   labelDataSource: _FakeLabelDataSource(),
@@ -198,7 +232,7 @@ PushProcessor buildPushProcessor(
     db: db,
     taskDataSource: t,
     taskCommentDataSource: c,
-    projectDataSource: _FakeProjectDataSource(),
+    projectDataSource: FakeProjectDataSource(),
     bucketDataSource: _FakeBucketDataSource(),
     taskLabelBulkDataSource: _FakeTaskLabelBulkDataSource(),
     labelDataSource: _FakeLabelDataSource(),
