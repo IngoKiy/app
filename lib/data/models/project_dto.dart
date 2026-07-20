@@ -39,8 +39,8 @@ class ProjectDto extends Dto<Project> {
       description = json['description'],
       id = json['id'],
       position = (json['position'] ?? 0).toDouble(),
-      isArchived = json['is_archived'],
-      isFavourite = json['is_archived'],
+      isArchived = json['is_archived'] ?? false,
+      isFavourite = json['is_favorite'] ?? false,
       parentProjectId = json['parent_project_id'],
       views = (json['views'] is List)
           ? (json['views'] as List)
@@ -68,7 +68,7 @@ class ProjectDto extends Dto<Project> {
         .padLeft(8, '0')
         .substring(2),
     'is_archived': isArchived,
-    'is_favourite': isFavourite,
+    'is_favorite': isFavourite,
     'position': position,
   };
 

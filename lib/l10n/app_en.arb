@@ -150,6 +150,15 @@
   "projectUpdateError": "Error updating the project!",
   "projectCreateError": "Error creating the project!",
   "projectsTitle": "Projects",
+  "openTasksCount": "{count, plural, =1{1 open task} other{{count} open tasks}}",
+  "@openTasksCount": {
+    "description": "Subtitle on a project folder card: number of open tasks",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "savedFilterLabel": "Filter",
+  "savedFiltersSection": "Filters",
+  "expandSubprojects": "Show subprojects",
+  "collapseSubprojects": "Hide subprojects",
   "vikunjaLogoAlt": "Vikunja Logo",
   "pleaseEnterValidFrontendUrl": "Please enter a valid frontend url",
   "enterOtpTitle": "Enter One Time Passcode",

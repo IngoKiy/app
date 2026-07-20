@@ -12,6 +12,14 @@ import 'package:vikunja_app/domain/entities/project_list_model.dart';
 
 part 'projects_controller.g.dart';
 
+/// Offene-Aufgaben-Zähler je projectId, reaktiv aus der lokalen DB. Speist die
+/// Untertitel der Projekt-Ordnerkarten. Bewusst als separater Stream (statt im
+/// [ProjectListModel]), damit die Projektliste nicht auf den Zähl-Stream wartet
+/// und best-effort mit `{}` startet.
+final openTaskCountsProvider = StreamProvider.autoDispose<Map<int, int>>((ref) {
+  return ref.watch(tasksDaoProvider).watchOpenTaskCountsByProject();
+});
+
 /// Liest die Projektliste reaktiv aus der lokalen DB (watch-Stream). Schreib-
 /// Methoden laufen über den [OfflineWriter] (lokal anwenden + Outbox).
 @riverpod

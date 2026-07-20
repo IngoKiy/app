@@ -39,6 +39,22 @@ class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
     return query.watch();
   }
 
+  /// Anzahl offener (nicht erledigter, nicht gelöschter) Tasks je projectId.
+  /// Additive Query für die Untertitel der Projekt-Ordnerkarten. Liefert nur
+  /// Projekte mit mindestens einer offenen Aufgabe (GROUP BY).
+  Stream<Map<int, int>> watchOpenTaskCountsByProject() {
+    final count = tasks.id.count();
+    final query = selectOnly(tasks)
+      ..addColumns([tasks.projectId, count])
+      ..where(tasks.isDeleted.equals(false) & tasks.done.equals(false))
+      ..groupBy([tasks.projectId]);
+    return query.watch().map(
+      (rows) => {
+        for (final row in rows) row.read(tasks.projectId)!: row.read(count)!,
+      },
+    );
+  }
+
   /// Löscht eine einzelne Zeile (z.B. nach erfolgreichem Server-Delete).
   Future<int> deleteById(int id) =>
       (delete(tasks)..where((t) => t.id.equals(id))).go();

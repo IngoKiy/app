@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/theming/dimensions.dart';
+import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/presentation/widgets/due_date_card.dart';
@@ -129,13 +131,10 @@ class TaskListItemState extends State<TaskListItem> {
     }
 
     var project = task.project;
+    final projectChip = project != null ? _ProjectChip(project: project) : null;
 
     if (texts.isEmpty) {
-      if (project != null) {
-        return Text(project.title);
-      }
-
-      return null;
+      return projectChip;
     }
 
     return Padding(
@@ -143,11 +142,50 @@ class TaskListItemState extends State<TaskListItem> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (project != null)
-            Text(project.title, style: Theme.of(context).textTheme.bodyMedium),
+          ?projectChip,
           Padding(
             padding: const EdgeInsets.only(top: 4.0),
             child: Row(children: texts),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dezente Projekt-Herkunft für die (projektübergreifende) Home-Übersicht:
+/// ein kleiner Chip mit farbigem Punkt (Projektfarbe) und Projektname, damit
+/// erkennbar bleibt, aus welchem Projekt eine Aufgabe stammt.
+class _ProjectChip extends StatelessWidget {
+  final Project project;
+
+  const _ProjectChip({required this.project});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dotColor = project.color ?? theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2.0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: AppDimensions.xxs),
+          Flexible(
+            child: Text(
+              project.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
         ],
       ),

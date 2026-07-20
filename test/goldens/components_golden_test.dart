@@ -4,12 +4,14 @@ import 'package:vikunja_app/core/theming/app_colors.dart';
 import 'package:vikunja_app/core/theming/app_theme.dart';
 import 'package:vikunja_app/core/theming/theme.dart';
 import 'package:vikunja_app/domain/entities/label.dart';
+import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_task_item.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/priority_batch.dart';
+import 'package:vikunja_app/presentation/widgets/project/project_card.dart';
 import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 import 'package:vikunja_app/presentation/widgets/ui/app_card.dart';
 import 'package:vikunja_app/presentation/widgets/ui/app_text_field.dart';
@@ -100,6 +102,26 @@ GoldenTestGroup _componentScenarios() => GoldenTestGroup(
     GoldenTestScenario(
       name: 'empty state',
       child: const EmptyState(icon: Icons.list, title: 'No tasks yet'),
+    ),
+    GoldenTestScenario(
+      name: 'project card',
+      child: _localized(
+        ProjectCard(
+          project: Project(
+            id: 1,
+            title: 'Groceries',
+            color: const Color(0xFF3F51B5),
+            isFavourite: true,
+          ),
+          openTaskCount: 3,
+        ),
+      ),
+    ),
+    GoldenTestScenario(
+      name: 'saved filter card',
+      child: _localized(
+        ProjectCard(project: Project(id: -2, title: 'Due soon')),
+      ),
     ),
     GoldenTestScenario(
       name: 'kanban tile',

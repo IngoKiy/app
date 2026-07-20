@@ -17,6 +17,14 @@ class Project {
 
   Iterable<Project> subprojects = [];
 
+  /// Vikunja liefert gespeicherte Filter als Pseudo-Projekte mit negativer ID
+  /// (Formel: projectId = filterId * -1 - 1, also -2, -3, …). Die ID -1 ist das
+  /// Favoriten-Pseudo-Projekt, echte Projekte haben positive IDs. Wird in der
+  /// Projektliste genutzt, um Filter optisch von echten Projekten zu trennen.
+  /// Hinweis: Offline erzeugte Projekte tragen kurzzeitig ebenfalls negative
+  /// Temp-IDs; nach dem Sync erhalten sie ihre positive Server-ID.
+  bool get isSavedFilter => id < -1;
+
   Project({
     this.id = 0,
     this.owner,

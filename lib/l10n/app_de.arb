@@ -1,6 +1,15 @@
 {
   "ok": "OK",
   "cancel": "Abbrechen",
+  "openTasksCount": "{count, plural, =1{1 offene Aufgabe} other{{count} offene Aufgaben}}",
+  "@openTasksCount": {
+    "description": "Untertitel einer Projekt-Ordnerkarte: Anzahl offener Aufgaben",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "savedFilterLabel": "Filter",
+  "savedFiltersSection": "Filter",
+  "expandSubprojects": "Unterprojekte anzeigen",
+  "collapseSubprojects": "Unterprojekte ausblenden",
   "attachments": "Anhänge",
   "addAttachment": "Anhang hinzufügen",
   "attachmentCamera": "Kamera",
