@@ -11,6 +11,7 @@ import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/project/project_detail_page.dart';
 import 'package:vikunja_app/presentation/widgets/project/add_project_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_card.dart';
+import 'package:vikunja_app/presentation/widgets/task/smart_list_section.dart';
 
 class ProjectListPage extends ConsumerWidget {
   /// When set, tapping a project reports it to the parent (master-detail
@@ -18,7 +19,16 @@ class ProjectListPage extends ConsumerWidget {
   final ValueChanged<Project>? onProjectTap;
   final int? selectedProjectId;
 
-  const ProjectListPage({super.key, this.onProjectTap, this.selectedProjectId});
+  /// Listen-Übersicht im MS-To-Do-Stil: Smart-Lists über den Projekten und
+  /// „Listen" als Titel (Home-Tab). Ohne Flag die klassische Projektliste.
+  final bool showSmartLists;
+
+  const ProjectListPage({
+    super.key,
+    this.onProjectTap,
+    this.selectedProjectId,
+    this.showSmartLists = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,6 +46,7 @@ class ProjectListPage extends ConsumerWidget {
         final filters = model.projects.where((p) => p.isSavedFilter).toList();
 
         final items = <Widget>[
+          if (showSmartLists) const SmartListSection(),
           for (final p in projects)
             _ProjectTreeTile(
               project: p,
@@ -87,7 +98,11 @@ class ProjectListPage extends ConsumerWidget {
             ),
           ),
           appBar: AppBar(
-            title: Text(AppLocalizations.of(context).projectsTitle),
+            title: Text(
+              showSmartLists
+                  ? AppLocalizations.of(context).listsTitle
+                  : AppLocalizations.of(context).projectsTitle,
+            ),
             actions: [
               IconButton(
                 icon: Icon(Icons.add),

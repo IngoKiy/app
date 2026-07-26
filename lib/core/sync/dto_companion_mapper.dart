@@ -64,6 +64,7 @@ class DtoCompanionMapper {
       bucketId: Value(bucketId ?? dto.bucketId),
       description: Value(dto.description),
       done: Value(dto.done),
+      isFavorite: Value(dto.isFavorite),
       dueDate: Value(_isoDate(dto.dueDate)),
       startDate: Value(_isoDate(dto.startDate)),
       endDate: Value(_isoDate(dto.endDate)),

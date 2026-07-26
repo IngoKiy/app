@@ -1001,6 +1001,21 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _doneAtMeta = const VerificationMeta('doneAt');
   @override
   late final GeneratedColumn<String> doneAt = GeneratedColumn<String>(
@@ -1145,6 +1160,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     title,
     description,
     done,
+    isFavorite,
     doneAt,
     dueDate,
     startDate,
@@ -1241,6 +1257,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
       context.handle(
         _doneMeta,
         done.isAcceptableOrUnknown(data['done']!, _doneMeta),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
       );
     }
     if (data.containsKey('done_at')) {
@@ -1380,6 +1402,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         DriftSqlType.bool,
         data['${effectivePrefix}done'],
       )!,
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
       doneAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}done_at'],
@@ -1449,6 +1475,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
   final String title;
   final String description;
   final bool done;
+  final bool isFavorite;
   final String? doneAt;
   final String? dueDate;
   final String? startDate;
@@ -1476,6 +1503,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     required this.title,
     required this.description,
     required this.done,
+    required this.isFavorite,
     this.doneAt,
     this.dueDate,
     this.startDate,
@@ -1511,6 +1539,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     map['title'] = Variable<String>(title);
     map['description'] = Variable<String>(description);
     map['done'] = Variable<bool>(done);
+    map['is_favorite'] = Variable<bool>(isFavorite);
     if (!nullToAbsent || doneAt != null) {
       map['done_at'] = Variable<String>(doneAt);
     }
@@ -1563,6 +1592,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       title: Value(title),
       description: Value(description),
       done: Value(done),
+      isFavorite: Value(isFavorite),
       doneAt: doneAt == null && nullToAbsent
           ? const Value.absent()
           : Value(doneAt),
@@ -1611,6 +1641,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       title: serializer.fromJson<String>(json['title']),
       description: serializer.fromJson<String>(json['description']),
       done: serializer.fromJson<bool>(json['done']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       doneAt: serializer.fromJson<String?>(json['doneAt']),
       dueDate: serializer.fromJson<String?>(json['dueDate']),
       startDate: serializer.fromJson<String?>(json['startDate']),
@@ -1640,6 +1671,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       'title': serializer.toJson<String>(title),
       'description': serializer.toJson<String>(description),
       'done': serializer.toJson<bool>(done),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
       'doneAt': serializer.toJson<String?>(doneAt),
       'dueDate': serializer.toJson<String?>(dueDate),
       'startDate': serializer.toJson<String?>(startDate),
@@ -1667,6 +1699,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     String? title,
     String? description,
     bool? done,
+    bool? isFavorite,
     Value<String?> doneAt = const Value.absent(),
     Value<String?> dueDate = const Value.absent(),
     Value<String?> startDate = const Value.absent(),
@@ -1693,6 +1726,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     title: title ?? this.title,
     description: description ?? this.description,
     done: done ?? this.done,
+    isFavorite: isFavorite ?? this.isFavorite,
     doneAt: doneAt.present ? doneAt.value : this.doneAt,
     dueDate: dueDate.present ? dueDate.value : this.dueDate,
     startDate: startDate.present ? startDate.value : this.startDate,
@@ -1725,6 +1759,9 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           ? data.description.value
           : this.description,
       done: data.done.present ? data.done.value : this.done,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
       doneAt: data.doneAt.present ? data.doneAt.value : this.doneAt,
       dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
@@ -1760,6 +1797,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('done: $done, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('doneAt: $doneAt, ')
           ..write('dueDate: $dueDate, ')
           ..write('startDate: $startDate, ')
@@ -1789,6 +1827,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     title,
     description,
     done,
+    isFavorite,
     doneAt,
     dueDate,
     startDate,
@@ -1817,6 +1856,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           other.title == this.title &&
           other.description == this.description &&
           other.done == this.done &&
+          other.isFavorite == this.isFavorite &&
           other.doneAt == this.doneAt &&
           other.dueDate == this.dueDate &&
           other.startDate == this.startDate &&
@@ -1843,6 +1883,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
   final Value<String> title;
   final Value<String> description;
   final Value<bool> done;
+  final Value<bool> isFavorite;
   final Value<String?> doneAt;
   final Value<String?> dueDate;
   final Value<String?> startDate;
@@ -1867,6 +1908,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.title = const Value.absent(),
     this.description = const Value.absent(),
     this.done = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.doneAt = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.startDate = const Value.absent(),
@@ -1892,6 +1934,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     required String title,
     this.description = const Value.absent(),
     this.done = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.doneAt = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.startDate = const Value.absent(),
@@ -1921,6 +1964,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Expression<String>? title,
     Expression<String>? description,
     Expression<bool>? done,
+    Expression<bool>? isFavorite,
     Expression<String>? doneAt,
     Expression<String>? dueDate,
     Expression<String>? startDate,
@@ -1946,6 +1990,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (done != null) 'done': done,
+      if (isFavorite != null) 'is_favorite': isFavorite,
       if (doneAt != null) 'done_at': doneAt,
       if (dueDate != null) 'due_date': dueDate,
       if (startDate != null) 'start_date': startDate,
@@ -1973,6 +2018,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Value<String>? title,
     Value<String>? description,
     Value<bool>? done,
+    Value<bool>? isFavorite,
     Value<String?>? doneAt,
     Value<String?>? dueDate,
     Value<String?>? startDate,
@@ -1998,6 +2044,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       title: title ?? this.title,
       description: description ?? this.description,
       done: done ?? this.done,
+      isFavorite: isFavorite ?? this.isFavorite,
       doneAt: doneAt ?? this.doneAt,
       dueDate: dueDate ?? this.dueDate,
       startDate: startDate ?? this.startDate,
@@ -2048,6 +2095,9 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     }
     if (done.present) {
       map['done'] = Variable<bool>(done.value);
+    }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
     }
     if (doneAt.present) {
       map['done_at'] = Variable<String>(doneAt.value);
@@ -2102,6 +2152,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('done: $done, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('doneAt: $doneAt, ')
           ..write('dueDate: $dueDate, ')
           ..write('startDate: $startDate, ')
@@ -7285,6 +7336,7 @@ typedef $$TasksTableCreateCompanionBuilder =
       required String title,
       Value<String> description,
       Value<bool> done,
+      Value<bool> isFavorite,
       Value<String?> doneAt,
       Value<String?> dueDate,
       Value<String?> startDate,
@@ -7311,6 +7363,7 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String> description,
       Value<bool> done,
+      Value<bool> isFavorite,
       Value<String?> doneAt,
       Value<String?> dueDate,
       Value<String?> startDate,
@@ -7385,6 +7438,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<bool> get done => $composableBuilder(
     column: $table.done,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7513,6 +7571,11 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get doneAt => $composableBuilder(
     column: $table.doneAt,
     builder: (column) => ColumnOrderings(column),
@@ -7620,6 +7683,11 @@ class $$TasksTableAnnotationComposer
   GeneratedColumn<bool> get done =>
       $composableBuilder(column: $table.done, builder: (column) => column);
 
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get doneAt =>
       $composableBuilder(column: $table.doneAt, builder: (column) => column);
 
@@ -7702,6 +7770,7 @@ class $$TasksTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<bool> done = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<String?> doneAt = const Value.absent(),
                 Value<String?> dueDate = const Value.absent(),
                 Value<String?> startDate = const Value.absent(),
@@ -7726,6 +7795,7 @@ class $$TasksTableTableManager
                 title: title,
                 description: description,
                 done: done,
+                isFavorite: isFavorite,
                 doneAt: doneAt,
                 dueDate: dueDate,
                 startDate: startDate,
@@ -7752,6 +7822,7 @@ class $$TasksTableTableManager
                 required String title,
                 Value<String> description = const Value.absent(),
                 Value<bool> done = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<String?> doneAt = const Value.absent(),
                 Value<String?> dueDate = const Value.absent(),
                 Value<String?> startDate = const Value.absent(),
@@ -7776,6 +7847,7 @@ class $$TasksTableTableManager
                 title: title,
                 description: description,
                 done: done,
+                isFavorite: isFavorite,
                 doneAt: doneAt,
                 dueDate: dueDate,
                 startDate: startDate,

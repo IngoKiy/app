@@ -12,6 +12,7 @@ class Tasks extends Table with SyncColumns {
   TextColumn get title => text()();
   TextColumn get description => text().withDefault(const Constant(''))();
   BoolColumn get done => boolean().withDefault(const Constant(false))();
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
   TextColumn get doneAt => text().nullable()();
   TextColumn get dueDate => text().nullable()();
   TextColumn get startDate => text().nullable()();

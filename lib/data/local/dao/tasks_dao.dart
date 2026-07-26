@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/data/local/tables/tasks_table.dart';
+import 'package:vikunja_app/domain/entities/smart_list.dart';
 
 part 'tasks_dao.g.dart';
 
@@ -37,6 +38,68 @@ class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
       (t) => OrderingTerm(expression: t.id),
     ]);
     return query.watch();
+  }
+
+  /// Filterbedingung einer [SmartList]. [endOfTodayIso] ist die (UTC-ISO-)
+  /// Grenze für „Mein Tag" — heute fällig oder überfällig; die Spalte
+  /// `dueDate` ist null, wenn keine echte Fälligkeit gesetzt ist.
+  Expression<bool> _smartListPredicate(
+    $TasksTable t,
+    SmartList list,
+    String endOfTodayIso,
+  ) {
+    final visible = t.isDeleted.equals(false);
+    switch (list) {
+      case SmartList.today:
+        return visible &
+            t.done.equals(false) &
+            t.dueDate.isNotNull() &
+            t.dueDate.isSmallerThanValue(endOfTodayIso);
+      case SmartList.important:
+        return visible & t.done.equals(false) & t.isFavorite.equals(true);
+      case SmartList.planned:
+        return visible & t.done.equals(false) & t.dueDate.isNotNull();
+      case SmartList.all:
+        return visible & t.done.equals(false);
+      case SmartList.completed:
+        return visible & t.done.equals(true);
+    }
+  }
+
+  /// Reaktive Smart-List (MS-To-Do-Stil). Offene Listen sortieren nach
+  /// Fälligkeit (ohne Fälligkeit ans Ende), „Erledigt" nach letzter Änderung.
+  Stream<List<TaskRow>> watchSmartList(
+    SmartList list, {
+    required String endOfTodayIso,
+  }) {
+    final query = select(tasks)
+      ..where((t) => _smartListPredicate(t, list, endOfTodayIso));
+    if (list == SmartList.completed) {
+      query.orderBy([
+        (t) =>
+            OrderingTerm(expression: t.updatedAt, mode: OrderingMode.desc),
+      ]);
+    } else {
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.dueDate.isNull()),
+        (t) => OrderingTerm(expression: t.dueDate),
+        (t) => OrderingTerm(expression: t.id),
+      ]);
+    }
+    return query.watch();
+  }
+
+  /// Zähler einer Smart-List für die Listen-Übersicht.
+  Stream<int> watchSmartListCount(
+    SmartList list, {
+    required String endOfTodayIso,
+  }) {
+    final count = countAll();
+    return (selectOnly(tasks)
+          ..addColumns([count])
+          ..where(_smartListPredicate(tasks, list, endOfTodayIso)))
+        .map((row) => row.read(count) ?? 0)
+        .watchSingle();
   }
 
   /// Anzahl offener (nicht erledigter, nicht gelöschter) Tasks je projectId.

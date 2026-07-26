@@ -16,9 +16,9 @@ import 'package:vikunja_app/main.dart';
 import 'package:vikunja_app/presentation/manager/notifications.dart';
 import 'package:vikunja_app/presentation/manager/settings_controller.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
+import 'package:vikunja_app/presentation/pages/project/project_list_page.dart';
 import 'package:vikunja_app/presentation/pages/project/project_split_page.dart';
 import 'package:vikunja_app/presentation/pages/settings_page.dart';
-import 'package:vikunja_app/presentation/pages/task/task_list_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 
@@ -36,7 +36,14 @@ class HomePageState extends ConsumerState<HomePage> {
   Widget? drawerItem;
   NotificationHandler? _notificationHandler;
 
-  List<Widget> widgets = [TaskListPage(), ProjectSplitPage(), SettingsPage()];
+  // Home-Tab ist die Listen-Übersicht im MS-To-Do-Stil (Smart-Lists +
+  // Projekte); die klassische Aufgaben-Übersicht steckt in der Smart-List
+  // "Alle".
+  List<Widget> widgets = [
+    ProjectListPage(showSmartLists: true),
+    ProjectSplitPage(),
+    SettingsPage(),
+  ];
 
   List<NavigationDestination> navbarItems(BuildContext context) => [
     NavigationDestination(
@@ -56,6 +63,11 @@ class HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
+
+    // Der TaskPageController plant beim ersten Aufbau Home-Widget- und
+    // Notification-Updates. Seit die Listen-Übersicht der Home-Tab ist, baut
+    // ihn keine Seite mehr automatisch auf — daher hier einmal anstoßen.
+    ref.read(taskPageControllerProvider);
 
     Future.delayed(Duration.zero, () {
       scheduleIntent();
