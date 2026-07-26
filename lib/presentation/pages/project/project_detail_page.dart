@@ -210,8 +210,9 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     return showDialog(
       context: context,
       builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate) =>
+        onAddTask: (title, dueDate, _) =>
             _addItem(context, project, title, dueDate),
+        defaultProjectId: project.id,
       ),
     );
   }

@@ -60,6 +60,8 @@
   "showDoneTasks": "Show done tasks",
   "title": "Title",
   "project": "Project",
+  "selectProject": "Select a project",
+  "noProjectsAvailable": "No projects available",
   "newTaskName": "New Task Name",
   "newTaskExample": "eg. Milk",
   "enterTitle": "Enter title",

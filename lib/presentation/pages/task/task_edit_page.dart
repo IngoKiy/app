@@ -20,6 +20,7 @@ import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/edit_description.dart';
 import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
+import 'package:vikunja_app/presentation/widgets/project/project_picker.dart';
 import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
@@ -44,6 +45,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   int _repeatAfterValue = 0;
   RepeatAfterUnit _repeatAfterUnit = RepeatAfterUnit.days;
   int? _priority;
+  int? _projectId;
   List<TaskReminder>? _reminderDates;
   List<Label>? _labels;
   Color? _color;
@@ -64,6 +66,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     _labels = List.of(widget.task.labels);
 
     _priority = widget.task.priority;
+    _projectId = widget.task.projectId;
     _description = widget.task.description;
     _color = widget.task.color;
 
@@ -177,6 +180,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         children: <Widget>[
           _buildTitle(),
           _buildDescription(context),
+          _buildProject(),
           _buildDueDate(),
           _buildStartDate(),
           _buildEndDate(),
@@ -268,6 +272,20 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           ],
         ),
       ),
+    );
+  }
+
+  // Projektauswahl: bei Änderung wird beim Speichern über updateTask die
+  // project_id mitgesendet (= Verschieben in ein anderes Projekt).
+  Widget _buildProject() {
+    return ProjectPickerField(
+      selectedProjectId: _projectId,
+      onChanged: (projectId) {
+        setState(() {
+          _projectId = projectId;
+          _checkChanged();
+        });
+      },
     );
   }
 
@@ -740,6 +758,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           widget.task.endDate != _endDate ||
           widget.task.repeatAfter != repeatAfter ||
           widget.task.priority != _priority ||
+          widget.task.projectId != _projectId ||
           widget.task.reminderDates != _reminderDates ||
           widget.task.labels != _labels ||
           widget.task.color != _color;
@@ -761,6 +780,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
               description: _description,
               reminderDates: _reminderDates,
               priority: _priority,
+              projectId: _projectId,
               labels: _labels,
               repeatAfter: _repeatAfterUnit.getDuration(_repeatAfterValue),
             )

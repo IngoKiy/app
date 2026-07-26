@@ -23,7 +23,6 @@ class TaskListPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
     var pageModel = ref.watch(taskPageControllerProvider);
 
     return pageModel.when(
@@ -49,15 +48,10 @@ class TaskListPage extends ConsumerWidget {
             ),
           ),
           floatingActionButton: FloatingActionButton(
-            onPressed: () {
-              if (model.defaultProjectId == 0) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.selectDefaultProject)),
-                );
-              } else {
-                _addItemDialog(ref, context, model.defaultProjectId);
-              }
-            },
+            // Zielprojekt wird im Dialog gewählt (Default = defaultProjectId);
+            // ist keins gesetzt (0), verlangt der Dialog eine Pflichtauswahl.
+            onPressed: () =>
+                _addItemDialog(ref, context, model.defaultProjectId),
             child: const Icon(Icons.add),
           ),
         );
@@ -150,8 +144,10 @@ class TaskListPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate) =>
-            _addTask(ref, title, dueDate, defaultProjectId),
+        onAddTask: (title, dueDate, projectId) =>
+            _addTask(ref, title, dueDate, projectId),
+        defaultProjectId: defaultProjectId,
+        selectableProject: true,
       ),
     );
   }
@@ -160,7 +156,7 @@ class TaskListPage extends ConsumerWidget {
     WidgetRef ref,
     String title,
     DateTime? dueDate,
-    int defaultProjectId,
+    int projectId,
   ) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -171,12 +167,12 @@ class TaskListPage extends ConsumerWidget {
       title: title,
       dueDate: dueDate,
       createdBy: currentUser,
-      projectId: defaultProjectId,
+      projectId: projectId,
     );
 
     var success = await ref
         .read(taskPageControllerProvider.notifier)
-        .addTask(defaultProjectId, task);
+        .addTask(projectId, task);
 
     if (ref.context.mounted) {
       if (success) {

@@ -331,7 +331,8 @@ class _BucketColumnState extends ConsumerState<BucketColumn> {
     return showDialog(
       context: context,
       builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate) => _addItem(title, context),
+        onAddTask: (title, dueDate, _) => _addItem(title, context),
+        defaultProjectId: widget.project.id,
       ),
     );
   }

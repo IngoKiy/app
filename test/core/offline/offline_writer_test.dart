@@ -167,6 +167,42 @@ void main() {
     });
   });
 
+  // --- Task project move (über updateTask) -----------------------------------
+
+  group('updateTask: Projektwechsel (Verschieben)', () {
+    test('online-Erfolg: project_id im Payload, DB-Zeile trägt neues Projekt',
+        () async {
+      await seedTask(id: 5, remoteId: 5, projectId: 10);
+      task.updateStub =
+          (t) => SuccessResponse(_srvTask(5, projectId: 20), 200, {});
+
+      final res = await writer.updateTask(
+        _task(id: 5)..projectId = 20,
+      );
+
+      expect(res.status, OfflineWriteStatus.synced);
+      expect(await ops(), isEmpty);
+      // Lokale Zeile trägt das neue Projekt -> Listen-Streams aktualisieren.
+      expect((await db.tasksDao.getById(5))!.projectId, 20);
+    });
+
+    test('offline: Move landet als taskUpdate mit project_id in der Outbox',
+        () async {
+      await seedTask(id: 5, remoteId: 5, projectId: 10);
+
+      final res = await writer.updateTask(_task(id: 5)..projectId = 20);
+
+      expect(res.status, OfflineWriteStatus.queued);
+      final queued = await ops();
+      expect(queued.single.type, PendingOpType.taskUpdate);
+      expect(queued.single.payload['project_id'], 20);
+      // Optimistisch lokal verschoben (dirty).
+      final row = await db.tasksDao.getById(5);
+      expect(row!.projectId, 20);
+      expect(row.isDirty, isTrue);
+    });
+  });
+
   // --- Task delete -----------------------------------------------------------
 
   group('deleteTask', () {

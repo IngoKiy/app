@@ -2,14 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:vikunja_app/core/utils/date_extensions.dart';
 import 'package:vikunja_app/domain/entities/new_task_due.dart';
 import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
+import 'package:vikunja_app/presentation/widgets/project/project_picker.dart';
 import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 
 class AddTaskDialog extends StatefulWidget {
-  final void Function(String title, DateTime? dueDate) onAddTask;
+  final void Function(String title, DateTime? dueDate, int projectId) onAddTask;
   final String? title;
 
-  const AddTaskDialog({super.key, required this.onAddTask, this.title});
+  /// Vorbelegtes Zielprojekt (0 = keins). Bei [selectableProject] änderbar.
+  final int defaultProjectId;
+
+  /// Zeigt einen Projekt-Picker (Schnell-Add ohne festes Projekt). In
+  /// projektgebundenen Kontexten (Projektdetail/Kanban) `false` lassen.
+  final bool selectableProject;
+
+  const AddTaskDialog({
+    super.key,
+    required this.onAddTask,
+    this.title,
+    this.defaultProjectId = 0,
+    this.selectableProject = false,
+  });
 
   @override
   State<StatefulWidget> createState() => AddTaskDialogState();
@@ -18,11 +32,14 @@ class AddTaskDialog extends StatefulWidget {
 class AddTaskDialogState extends State<AddTaskDialog> {
   NewTaskDue newTaskDue = NewTaskDue.none;
   DateTime? dueDate;
+  int _projectId = 0;
   var textController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+
+    _projectId = widget.defaultProjectId;
 
     var title = widget.title;
     if (title != null) {
@@ -51,6 +68,11 @@ class AddTaskDialogState extends State<AddTaskDialog> {
             ),
             controller: textController,
           ),
+          if (widget.selectableProject)
+            ProjectPickerField(
+              selectedProjectId: _projectId == 0 ? null : _projectId,
+              onChanged: (projectId) => setState(() => _projectId = projectId),
+            ),
           Padding(
             padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
             child: Text(AppLocalizations.of(context).dueDate),
@@ -134,12 +156,15 @@ class AddTaskDialogState extends State<AddTaskDialog> {
         ),
         AppButton(
           label: AppLocalizations.of(context).add,
-          onPressed: () {
-            if (textController.text.isNotEmpty) {
-              widget.onAddTask(textController.text, dueDate);
-            }
-            Navigator.pop(context);
-          },
+          // Ohne gültiges Zielprojekt (0) kann nicht angelegt werden.
+          onPressed: _projectId == 0
+              ? null
+              : () {
+                  if (textController.text.isNotEmpty) {
+                    widget.onAddTask(textController.text, dueDate, _projectId);
+                  }
+                  Navigator.pop(context);
+                },
         ),
       ],
     );

@@ -157,23 +157,12 @@ class HomePageState extends ConsumerState<HomePage> {
     var response = await ref.read(userRepositoryProvider).getCurrentUser();
     var buildContext = context;
     if (response.isSuccessful && buildContext.mounted) {
-      var defaultProjectId = response
-          .toSuccess()
-          .body
-          .settings
-          ?.defaultProjectId;
-      if (defaultProjectId == null || defaultProjectId == 0) {
-        ScaffoldMessenger.of(buildContext).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(buildContext).selectDefaultProject,
-            ),
-          ),
-        );
-      } else {
-        _addItemDialog(buildContext, defaultProjectId, title);
-        return Future.value();
-      }
+      // Standard-Zielprojekt vorbelegen; der Nutzer kann es im Dialog ändern.
+      // 0/null = keins vorbelegt -> im Dialog muss ein Projekt gewählt werden.
+      var defaultProjectId =
+          response.toSuccess().body.settings?.defaultProjectId ?? 0;
+      _addItemDialog(buildContext, defaultProjectId, title);
+      return Future.value();
     }
   }
 
@@ -185,9 +174,11 @@ class HomePageState extends ConsumerState<HomePage> {
     showDialog(
       context: context,
       builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate) =>
-            _addTask(title, dueDate, defaultProjectId, context),
+        onAddTask: (title, dueDate, projectId) =>
+            _addTask(title, dueDate, projectId, context),
         title: title,
+        defaultProjectId: defaultProjectId,
+        selectableProject: true,
       ),
     );
   }
@@ -195,7 +186,7 @@ class HomePageState extends ConsumerState<HomePage> {
   Future<void> _addTask(
     String title,
     DateTime? dueDate,
-    int defaultProjectId,
+    int projectId,
     BuildContext context,
   ) async {
     final currentUser = ref.read(currentUserProvider);
@@ -207,12 +198,12 @@ class HomePageState extends ConsumerState<HomePage> {
       title: title,
       dueDate: dueDate,
       createdBy: currentUser,
-      projectId: defaultProjectId,
+      projectId: projectId,
     );
 
     var success = await ref
         .read(taskPageControllerProvider.notifier)
-        .addTask(defaultProjectId, task);
+        .addTask(projectId, task);
 
     if (context.mounted) {
       if (success) {

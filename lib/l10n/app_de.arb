@@ -6,6 +6,9 @@
     "description": "Untertitel einer Projekt-Ordnerkarte: Anzahl offener Aufgaben",
     "placeholders": { "count": { "type": "int" } }
   },
+  "project": "Projekt",
+  "selectProject": "Projekt auswählen",
+  "noProjectsAvailable": "Keine Projekte vorhanden",
   "savedFilterLabel": "Filter",
   "savedFiltersSection": "Filter",
   "expandSubprojects": "Unterprojekte anzeigen",
