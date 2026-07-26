@@ -31,6 +31,12 @@ import 'package:vikunja_app/presentation/pages/task/smart_list_page.dart';
         icon: Icons.calendar_today_outlined,
         color: Colors.teal.shade600,
       );
+    case SmartList.assignedToMe:
+      return (
+        title: l10n.smartListAssigned,
+        icon: Icons.person_outline,
+        color: Colors.deepOrange.shade400,
+      );
     case SmartList.all:
       return (
         title: l10n.smartListAll,

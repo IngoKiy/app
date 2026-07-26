@@ -60,7 +60,10 @@ class SmartListPage extends ConsumerWidget {
         ),
         loading: () => const LoadingWidget(),
       ),
-      bottomNavigationBar: list == SmartList.completed
+      // Kein Hinzufügen in "Erledigt" und "Mir zugewiesen" (dort würde eine
+      // neue, noch niemandem zugewiesene Aufgabe sofort wieder verschwinden).
+      bottomNavigationBar:
+          (list == SmartList.completed || list == SmartList.assignedToMe)
           ? null
           : AddTaskBar(onTap: () => _addItemDialog(ref, context)),
     );

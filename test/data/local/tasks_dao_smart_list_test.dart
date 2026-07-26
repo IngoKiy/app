@@ -17,6 +17,8 @@ void main() {
 
   Future<void> seed({
     required int id,
+    String? title,
+    String description = '',
     String? dueDate,
     bool done = false,
     bool favorite = false,
@@ -28,11 +30,13 @@ void main() {
         TasksCompanion.insert(
           id: Value(id),
           projectId: 1,
-          title: 'T$id',
+          title: title ?? 'T$id',
+          description: Value(description),
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: updatedAt,
           rawJson:
-              '{"id":$id,"title":"T$id","project_id":1,"description":"",'
+              '{"id":$id,"title":"${title ?? 'T$id'}","project_id":1,'
+              '"description":"$description",'
               '"done":$done,"updated":"$updatedAt",'
               '"created":"2026-01-01T00:00:00.000Z"}',
           done: Value(done),
@@ -42,14 +46,28 @@ void main() {
         ),
       );
 
-  Future<List<int>> ids(SmartList list) async => (await db.tasksDao
-          .watchSmartList(list, endOfTodayIso: endOfToday)
-          .first)
-      .map((r) => r.id)
-      .toList();
+  final dayKey = localDayKey(now);
 
-  Future<int> count(SmartList list) =>
-      db.tasksDao.watchSmartListCount(list, endOfTodayIso: endOfToday).first;
+  Future<List<int>> ids(SmartList list, {int? userId}) async =>
+      (await db.tasksDao
+              .watchSmartList(
+                list,
+                endOfTodayIso: endOfToday,
+                dayKey: dayKey,
+                userId: userId,
+              )
+              .first)
+          .map((r) => r.id)
+          .toList();
+
+  Future<int> count(SmartList list, {int? userId}) => db.tasksDao
+      .watchSmartListCount(
+        list,
+        endOfTodayIso: endOfToday,
+        dayKey: dayKey,
+        userId: userId,
+      )
+      .first;
 
   test('Mein Tag: heute fällig + überfällig, ohne erledigte/gelöschte',
       () async {
@@ -97,5 +115,61 @@ void main() {
     await seed(id: 3);
 
     expect(await ids(SmartList.completed), [2, 1]);
+  });
+
+  test('Mein Tag Hybrid: manuell Hinzugefügtes erscheint zusätzlich', () async {
+    await seed(id: 1); // ohne Fälligkeit
+    await seed(id: 2, dueDate: iso(now));
+
+    await db.tasksDao.addToMyDay(1, dayKey);
+    expect(await ids(SmartList.today), [2, 1]);
+    expect(await count(SmartList.today), 2);
+
+    await db.tasksDao.removeFromMyDay(1, dayKey);
+    expect(await ids(SmartList.today), [2]);
+  });
+
+  test('Mein Tag: Einträge früherer Tage verfallen beim nächsten Hinzufügen',
+      () async {
+    await seed(id: 1);
+    await seed(id: 2);
+
+    await db.tasksDao.addToMyDay(1, '2020-01-01');
+    expect(await ids(SmartList.today), isEmpty); // alter Tag zählt nicht
+
+    await db.tasksDao.addToMyDay(2, dayKey); // räumt alte Einträge weg
+    expect(await ids(SmartList.today), [2]);
+    expect(
+      await db.tasksDao.watchInMyDay(1, '2020-01-01').first,
+      isFalse,
+    );
+  });
+
+  test('Mir zugewiesen: nur offene Aufgaben mit eigener Zuweisung', () async {
+    await seed(id: 1);
+    await seed(id: 2);
+    await seed(id: 3, done: true);
+    await db
+        .into(db.taskAssignees)
+        .insert(TaskAssigneesCompanion.insert(taskId: 1, userId: 7));
+    await db
+        .into(db.taskAssignees)
+        .insert(TaskAssigneesCompanion.insert(taskId: 3, userId: 7));
+
+    expect(await ids(SmartList.assignedToMe, userId: 7), [1]);
+    expect(await count(SmartList.assignedToMe, userId: 7), 1);
+    // Ohne bekannten Benutzer (offline vor erstem Login): leer.
+    expect(await ids(SmartList.assignedToMe), isEmpty);
+  });
+
+  test('Suche: Titel + Beschreibung, case-insensitiv, Offene zuerst',
+      () async {
+    await seed(id: 1, title: 'Dach reparieren');
+    await seed(id: 2, title: 'Einkaufen', description: 'Dachrinne besorgen');
+    await seed(id: 3, title: 'DACH prüfen', done: true);
+    await seed(id: 4, title: 'Unrelated');
+
+    final rows = await db.tasksDao.watchSearch('dach').first;
+    expect(rows.map((r) => r.id).toList(), [1, 2, 3]);
   });
 }

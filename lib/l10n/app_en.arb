@@ -144,6 +144,34 @@
   "@taskCreatedOn": {
     "placeholders": { "date": { "type": "String" } }
   },
+  "smartListAssigned": "Assigned to me",
+  "myDayAdd": "Add to My Day",
+  "myDayRemove": "Remove from My Day",
+  "stepAdd": "Next step",
+  "stepsProgress": "{done} of {total}",
+  "@stepsProgress": {
+    "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "sortByLabel": "Sort",
+  "sortedByLabel": "Sorted by {mode}",
+  "@sortedByLabel": {
+    "placeholders": { "mode": { "type": "String" } }
+  },
+  "sortDueDate": "Due date",
+  "sortImportance": "Importance",
+  "sortAlphabetical": "Alphabetically",
+  "sortCreated": "Creation date",
+  "searchHint": "Search",
+  "searchNoResults": "No results",
+  "newListButton": "New list",
+  "listColor": "List colour",
+  "repeatNone": "Never",
+  "repeatDaily": "Daily",
+  "repeatWeekdays": "Weekdays",
+  "repeatWeekly": "Weekly",
+  "repeatMonthly": "Monthly",
+  "repeatYearly": "Yearly",
+  "repeatCustom": "Custom",
   "autosaveSaving": "Saving…",
   "autosaveSaved": "Saved",
   "autosaveError": "Not saved",
