@@ -1,19 +1,31 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
 
-Widget _wrap(Widget child) => MaterialApp(
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
-  supportedLocales: AppLocalizations.supportedLocales,
-  locale: const Locale('en'),
-  home: Scaffold(body: child),
+Widget _wrap(Widget child, AppDatabase db) => ProviderScope(
+  overrides: [appDatabaseProvider.overrideWithValue(db)],
+  child: MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('en'),
+    home: Scaffold(body: child),
+  ),
 );
 
 void main() {
+  late AppDatabase db;
+
+  setUp(() => db = AppDatabase.forTesting(NativeDatabase.memory()));
+  tearDown(() => db.close());
+
   testWidgets('shows the originating project as a coloured chip', (
     WidgetTester tester,
   ) async {
@@ -34,6 +46,7 @@ void main() {
           onEdit: () {},
           onCheckedChanged: (_) {},
         ),
+        db,
       ),
     );
 
@@ -72,6 +85,7 @@ void main() {
           onCheckedChanged: (_) {},
           onShowDetails: () => detailsShown = true,
         ),
+        db,
       ),
     );
 
@@ -104,6 +118,7 @@ void main() {
           onCheckedChanged: (_) {},
           onFavoriteToggle: () => toggled = true,
         ),
+        db,
       ),
     );
 
@@ -113,5 +128,69 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.star));
     expect(toggled, isTrue);
+  });
+
+  testWidgets('Wischen nach rechts hakt die Aufgabe ab', (
+    WidgetTester tester,
+  ) async {
+    bool? checkedValue;
+    final task = Task(
+      id: 1,
+      title: 'Water the plants',
+      createdBy: User(username: 'demo'),
+      projectId: 5,
+      done: false,
+    );
+
+    await tester.pumpWidget(
+      _wrap(
+        TaskListItem(
+          task: task,
+          onTap: () {},
+          onEdit: () {},
+          onCheckedChanged: (value) => checkedValue = value,
+        ),
+        db,
+      ),
+    );
+
+    // Nach rechts wischen (startToEnd) löst das Abhaken aus; die Zeile bleibt
+    // bestehen (confirmDismiss liefert false, Dismissible federt zurück).
+    await tester.drag(find.byType(Dismissible), const Offset(500, 0));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(checkedValue, isTrue);
+    expect(find.byType(Dismissible), findsOneWidget);
+  });
+
+  testWidgets('zeigt den Schritte-Fortschritt "x von y" in der Metazeile', (
+    WidgetTester tester,
+  ) async {
+    final task = Task(
+      id: 1,
+      title: 'Water the plants',
+      createdBy: User(username: 'demo'),
+      projectId: 5,
+      description:
+          '<ul data-type="taskList">'
+          '<li data-checked="true" data-type="taskItem"><p>Fill can</p></li>'
+          '<li data-checked="false" data-type="taskItem"><p>Water</p></li>'
+          '</ul>',
+    );
+
+    await tester.pumpWidget(
+      _wrap(
+        TaskListItem(
+          task: task,
+          onTap: () {},
+          onEdit: () {},
+          onCheckedChanged: (_) {},
+        ),
+        db,
+      ),
+    );
+
+    expect(find.text('1 of 2'), findsOneWidget);
   });
 }
