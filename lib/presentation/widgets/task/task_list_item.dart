@@ -5,16 +5,24 @@ import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/presentation/widgets/due_date_card.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/priority_batch.dart';
-import 'package:vikunja_app/presentation/widgets/task/task_actions.dart';
+import 'package:vikunja_app/presentation/widgets/task/round_checkbox.dart';
 import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 
+/// Aufgabenzeile im Stil von Microsoft To Do: Karte mit runder Checkbox,
+/// Titel + Metazeile (Projekt, Fälligkeit, Priorität) und Stern-Toggle für
+/// Favoriten ("Wichtig"). Eine eigene Aufgabenfarbe erscheint als schmaler
+/// Balken am linken Kartenrand.
 class TaskListItem extends StatefulWidget {
   final Task task;
   final Function onTap;
   final Function onEdit;
   final Function(bool value) onCheckedChanged;
 
-  /// Öffnet die Schnellvorschau (Long-Press auf die Zeile + "Details"-Menü).
+  /// Stern-Toggle: Favorit setzen/entfernen. Ohne Callback wird kein Stern
+  /// angezeigt.
+  final VoidCallback? onFavoriteToggle;
+
+  /// Öffnet die Schnellvorschau (Long-Press auf die Karte).
   final VoidCallback? onShowDetails;
 
   const TaskListItem({
@@ -23,6 +31,7 @@ class TaskListItem extends StatefulWidget {
     required this.onTap,
     required this.onEdit,
     required this.onCheckedChanged,
+    this.onFavoriteToggle,
     this.onShowDetails,
   });
 
@@ -35,55 +44,84 @@ class TaskListItemState extends State<TaskListItem> {
 
   @override
   Widget build(BuildContext context) {
-    var isThreeLine =
-        widget.task.hasDueDate ||
-        widget.task.priority != null && widget.task.priority != 0;
+    final theme = Theme.of(context);
+    final task = widget.task;
 
-    return Stack(
-      fit: StackFit.loose,
-      children: [
-        ListTile(
-          onTap: () {
-            widget.onTap();
-          },
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
+      child: Material(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => widget.onTap(),
           onLongPress: widget.onShowDetails,
-          contentPadding: const EdgeInsetsDirectional.only(
-            start: 16.0,
-            end: 8.0,
-          ),
-          title: Text(
-            widget.task.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: _buildTaskSubtitle(widget.task, context),
-          leading: Checkbox(
-            value: widget.task.done,
-            onChanged: (bool? newValue) {
-              if (newValue != null) {
-                widget.onCheckedChanged(newValue);
-              }
-            },
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.task.assignees.isNotEmpty)
-                _buildAssigneeAvatars(widget.task.assignees),
-              TaskActions(
-                task: widget.task,
-                onEdit: () => widget.onEdit(),
-                variant: TaskActionsVariant.menu,
-                onShowDetails: widget.onShowDetails,
-              ),
-            ],
+          // IntrinsicHeight, damit der Farbbalken (stretch) die volle
+          // Kartenhöhe bekommt, ohne feste Zeilenhöhen vorzugeben.
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+              if (task.hasCustomColor)
+                Container(width: 4.0, color: task.color),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8.0,
+                      vertical: 10.0,
+                    ),
+                    child: Row(
+                      children: [
+                        RoundCheckbox(
+                          value: task.done,
+                          onChanged: (newValue) =>
+                              widget.onCheckedChanged(newValue),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(child: _buildContent(task, theme)),
+                        if (task.assignees.isNotEmpty)
+                          _buildAssigneeAvatars(task.assignees),
+                        if (widget.onFavoriteToggle != null)
+                          IconButton(
+                            onPressed: widget.onFavoriteToggle,
+                            icon: Icon(
+                              task.isFavorite
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: task.isFavorite
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        Container(
-          width: 4.0,
-          height: isThreeLine ? 86.0 : 72.0,
-          color: widget.task.color,
+      ),
+    );
+  }
+
+  Widget _buildContent(Task task, ThemeData theme) {
+    final subtitle = _buildTaskSubtitle(task, context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          task.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            decoration: task.done ? TextDecoration.lineThrough : null,
+            color: task.done ? theme.colorScheme.onSurfaceVariant : null,
+          ),
         ),
+        if (subtitle != null)
+          Padding(padding: const EdgeInsets.only(top: 2.0), child: subtitle),
       ],
     );
   }
@@ -122,46 +160,35 @@ class TaskListItemState extends State<TaskListItem> {
   }
 
   Widget? _buildTaskSubtitle(Task task, BuildContext context) {
-    List<Widget> texts = [];
+    final chips = <Widget>[];
 
+    final project = task.project;
+    if (project != null) {
+      chips.add(_ProjectChip(project: project));
+    }
     if (task.hasDueDate) {
-      texts.add(
-        Padding(
-          padding: const EdgeInsets.only(right: 8.0),
-          child: DueDateCard(task.dueDate!),
-        ),
-      );
+      chips.add(DueDateCard(task.dueDate!));
     }
     if (task.priority != null && task.priority != 0) {
-      texts.add(PriorityBatch(task.priority!));
+      chips.add(PriorityBatch(task.priority!));
     }
 
-    var project = task.project;
-    final projectChip = project != null ? _ProjectChip(project: project) : null;
-
-    if (texts.isEmpty) {
-      return projectChip;
+    if (chips.isEmpty) {
+      return null;
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 2.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ?projectChip,
-          Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: Row(children: texts),
-          ),
-        ],
-      ),
+    return Wrap(
+      spacing: 8,
+      runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: chips,
     );
   }
 }
 
-/// Dezente Projekt-Herkunft für die (projektübergreifende) Home-Übersicht:
-/// ein kleiner Chip mit farbigem Punkt (Projektfarbe) und Projektname, damit
-/// erkennbar bleibt, aus welchem Projekt eine Aufgabe stammt.
+/// Dezente Projekt-Herkunft für projektübergreifende Listen: ein kleiner Chip
+/// mit farbigem Punkt (Projektfarbe) und Projektname, damit erkennbar bleibt,
+/// aus welchem Projekt eine Aufgabe stammt.
 class _ProjectChip extends StatelessWidget {
   final Project project;
 
@@ -172,29 +199,26 @@ class _ProjectChip extends StatelessWidget {
     final theme = Theme.of(context);
     final dotColor = project.color ?? theme.colorScheme.primary;
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 2.0),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: AppDimensions.xxs),
-          Flexible(
-            child: Text(
-              project.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: AppDimensions.xxs),
+        Flexible(
+          child: Text(
+            project.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

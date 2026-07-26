@@ -140,6 +140,10 @@
   "smartListAll": "All",
   "smartListCompleted": "Completed",
   "addTaskBar": "Add a task",
+  "taskCreatedOn": "Created {date}",
+  "@taskCreatedOn": {
+    "placeholders": { "date": { "type": "String" } }
+  },
   "autosaveSaving": "Saving…",
   "autosaveSaved": "Saved",
   "autosaveError": "Not saved",

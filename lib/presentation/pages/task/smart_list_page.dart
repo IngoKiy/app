@@ -85,11 +85,9 @@ class SmartListPage extends ConsumerWidget {
   }
 
   Widget _buildList(WidgetRef ref, BuildContext context, List<Task> tasks) {
-    return ListView.separated(
+    return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: tasks.length,
-      separatorBuilder: (BuildContext context, int index) =>
-          const Divider(height: 8),
       itemBuilder: (context, index) {
         final task = tasks[index];
         return TaskListItem(
@@ -98,6 +96,12 @@ class SmartListPage extends ConsumerWidget {
           onTap: () => _onEdit(context, task),
           onShowDetails: () => _showTaskBottomSheet(context, task),
           onEdit: () => _onEdit(context, task),
+          onFavoriteToggle: () {
+            task.isFavorite = !task.isFavorite;
+            // Optimistisch; bei Server-Ablehnung rollt der OfflineWriter die
+            // Zeile zurück und der Stream korrigiert die Anzeige.
+            ref.read(taskPageControllerProvider.notifier).updateTask(task);
+          },
           onCheckedChanged: (value) async {
             task.done = value;
             final success = await ref

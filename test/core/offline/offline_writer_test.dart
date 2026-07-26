@@ -155,6 +155,15 @@ void main() {
       expect(row.isDirty, isTrue);
     });
 
+    test('offline: Favoriten-Toggle wandert in Payload und Spalte', () async {
+      await seedTask(id: 5, remoteId: 5);
+
+      await writer.updateTask(_task(id: 5)..isFavorite = true);
+
+      expect((await ops()).single.payload['is_favorite'], isTrue);
+      expect((await db.tasksDao.getById(5))!.isFavorite, isTrue);
+    });
+
     test('4xx: Rollback auf Server-Stand, kein Enqueue', () async {
       await seedTask(id: 5, remoteId: 5, title: 'alt');
       task.updateStub = (t) => ErrorResponse(400, {}, {'message': 'bad'});

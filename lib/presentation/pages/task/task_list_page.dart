@@ -72,10 +72,8 @@ class TaskListPage extends ConsumerWidget {
       );
     } else {
       final itemCount = model.tasks.length + (model.isLoadingNextPage ? 1 : 0);
-      return ListView.separated(
+      return ListView.builder(
         itemCount: itemCount,
-        separatorBuilder: (BuildContext context, int index) =>
-            const Divider(height: 8),
         itemBuilder: (context, index) {
           if (index == model.tasks.length) {
             return Padding(
@@ -200,6 +198,10 @@ class TaskListPage extends ConsumerWidget {
       onTap: () => _onEdit(context, task),
       onShowDetails: () => _showTaskBottomSheet(context, task),
       onEdit: () => _onEdit(context, task),
+      onFavoriteToggle: () {
+        task.isFavorite = !task.isFavorite;
+        ref.read(taskPageControllerProvider.notifier).updateTask(task);
+      },
       onCheckedChanged: (value) async {
         var success = await ref
             .read(taskPageControllerProvider.notifier)

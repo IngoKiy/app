@@ -10,10 +10,9 @@ import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/project/project_detail_page.dart';
 import 'package:vikunja_app/presentation/pages/task/task_edit_page.dart';
-import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 import 'package:vikunja_app/presentation/widgets/ui/empty_state.dart';
-import 'package:vikunja_app/presentation/widgets/project/project_task_list_item.dart';
-import 'package:vikunja_app/presentation/widgets/task_bottom_sheet.dart';
+import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
+import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
 
 class ProjectTaskList extends ConsumerWidget {
   final Project project;
@@ -122,12 +121,7 @@ class ProjectTaskList extends ConsumerWidget {
           index: index,
           child: Material(
             color: Colors.transparent,
-            child: Column(
-              children: [
-                _buildTile(ref, task),
-                if (index < tasks.length - 1) Divider(height: 1),
-              ],
-            ),
+            child: _buildTile(ref, task),
           ),
         );
       },
@@ -178,14 +172,17 @@ class ProjectTaskList extends ConsumerWidget {
   }
 
   Widget _buildTile(WidgetRef ref, Task task) {
-    return ProjectTaskListItem(
+    return TaskListItem(
       key: Key(task.id.toString()),
       task: task,
-      // Tipp öffnet direkt die Bearbeiten-Seite; die Schnellvorschau liegt im
-      // Drei-Punkte-Menü (Long-Press startet hier das Umsortieren).
+      // Tipp öffnet direkt die Bearbeiten-Seite. Kein Long-Press für die
+      // Schnellvorschau — der startet hier das Umsortieren (Drag).
       onTap: () => _onEdit(ref, task),
-      onShowDetails: () => _showTaskBottomSheet(ref, task),
       onEdit: () => _onEdit(ref, task),
+      onFavoriteToggle: () {
+        task.isFavorite = !task.isFavorite;
+        ref.read(taskPageControllerProvider.notifier).updateTask(task);
+      },
       onCheckedChanged: (value) async {
         var success = await ref
             .read(projectControllerProvider(project).notifier)
@@ -197,18 +194,6 @@ class ProjectTaskList extends ConsumerWidget {
             ),
           );
         }
-      },
-    );
-  }
-
-  void _showTaskBottomSheet(WidgetRef ref, Task task) {
-    showModalBottomSheet<void>(
-      context: ref.context,
-      constraints: ref.context.isCompact
-          ? null
-          : const BoxConstraints(maxWidth: 640),
-      builder: (BuildContext context) {
-        return TaskBottomSheet(task: task, onEdit: () => _onEdit(ref, task));
       },
     );
   }

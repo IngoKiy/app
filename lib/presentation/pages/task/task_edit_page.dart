@@ -10,6 +10,7 @@ import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/offline/offline_writer.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/theming/color_utils.dart';
+import 'package:vikunja_app/core/utils/date_extensions.dart';
 import 'package:vikunja_app/core/utils/priority.dart';
 import 'package:vikunja_app/core/utils/repeat_after_parse.dart';
 import 'package:vikunja_app/core/utils/repeat_after_unit.dart';
@@ -27,6 +28,7 @@ import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/task/round_checkbox.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_delete_dialog.dart';
 
 /// Zustand der Autosave-Anzeige in der AppBar.
@@ -45,6 +47,8 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   final _formKey = GlobalKey<FormState>();
 
   String? _title, _description;
+  bool _done = false;
+  bool _isFavorite = false;
   DateTime? _dueDate, _startDate, _endDate;
   int _repeatAfterValue = 0;
   RepeatAfterUnit _repeatAfterUnit = RepeatAfterUnit.days;
@@ -87,6 +91,8 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     _priority = widget.task.priority;
     _projectId = widget.task.projectId;
     _description = widget.task.description;
+    _done = widget.task.done;
+    _isFavorite = widget.task.isFavorite;
     _color = widget.task.color;
 
     _dueDate = widget.task.dueDate;
@@ -144,7 +150,6 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
             );
           },
         ),
-        IconButton(icon: Icon(Icons.delete), onPressed: showDeleteConfirmDialog),
       ],
     );
   }
@@ -224,6 +229,9 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
+  // Aufbau im Stil von Microsoft To Do: Titelzeile mit Abhaken + Stern,
+  // dann Termine/Wiederholen/Projekt, Labels/Farbe, Personen, Anhänge,
+  // die Beschreibung als Notiz und der Footer mit Erstelldatum + Löschen.
   Form _buildForm(BuildContext context) {
     return Form(
       key: _formKey,
@@ -231,15 +239,16 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         padding: EdgeInsets.fromLTRB(16, 16, 16, 50),
         children: <Widget>[
           _buildTitle(),
-          _buildDescription(context),
-          _buildProject(),
+          Divider(),
           _buildDueDate(),
-          _buildStartDate(),
-          _buildEndDate(),
-          _buildRepeatAfter(),
           _buildReminderList(),
           _buildAddReminderButton(context),
+          _buildRepeatAfter(),
+          _buildProject(),
           _buildPriority(),
+          _buildStartDate(),
+          _buildEndDate(),
+          Divider(),
           _buildAddLabel(context),
           _buildLabelList(),
           _buildColor(),
@@ -251,26 +260,88 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
             padding: EdgeInsets.symmetric(vertical: 8.0),
             child: TaskAttachmentsSection(task: widget.task),
           ),
+          Divider(),
+          _buildDescription(context),
+          _buildFooter(context),
         ],
       ),
     );
   }
 
   Widget _buildTitle() {
+    final theme = Theme.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: TextFormField(
-        maxLines: null,
-        keyboardType: TextInputType.multiline,
-        initialValue: widget.task.title,
-        onChanged: (title) {
-          _title = title;
-          _scheduleAutosave();
-        },
-        decoration: InputDecoration(
-          labelText: AppLocalizations.of(context).title,
-          border: OutlineInputBorder(),
-        ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: RoundCheckbox(
+              value: _done,
+              onChanged: (newValue) {
+                setState(() => _done = newValue);
+                _scheduleAutosave(immediate: true);
+              },
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: TextFormField(
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              initialValue: widget.task.title,
+              style: theme.textTheme.headlineSmall,
+              onChanged: (title) {
+                _title = title;
+                _scheduleAutosave();
+              },
+              decoration: InputDecoration(
+                hintText: AppLocalizations.of(context).title,
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              setState(() => _isFavorite = !_isFavorite);
+              _scheduleAutosave(immediate: true);
+            },
+            icon: Icon(
+              _isFavorite ? Icons.star : Icons.star_border,
+              color: _isFavorite
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              AppLocalizations.of(context).taskCreatedOn(
+                widget.task.created.toLocal().formatShort(),
+              ),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline),
+            tooltip: AppLocalizations.of(context).delete,
+            onPressed: showDeleteConfirmDialog,
+          ),
+        ],
       ),
     );
   }
@@ -817,6 +888,8 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           widget.task.copyWith(
               title: _title,
               description: _description,
+              done: _done,
+              isFavorite: _isFavorite,
               reminderDates: _reminderDates,
               priority: _priority,
               projectId: _projectId,

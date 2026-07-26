@@ -1,6 +1,7 @@
 {
   "ok": "OK",
   "cancel": "Abbrechen",
+  "delete": "Löschen",
   "openTasksCount": "{count, plural, =1{1 offene Aufgabe} other{{count} offene Aufgaben}}",
   "@openTasksCount": {
     "description": "Untertitel einer Projekt-Ordnerkarte: Anzahl offener Aufgaben",
@@ -16,6 +17,10 @@
   "smartListAll": "Alle",
   "smartListCompleted": "Erledigt",
   "addTaskBar": "Aufgabe hinzufügen",
+  "taskCreatedOn": "Erstellt am {date}",
+  "@taskCreatedOn": {
+    "placeholders": { "date": { "type": "String" } }
+  },
   "autosaveSaving": "Speichert …",
   "autosaveSaved": "Gespeichert",
   "autosaveError": "Nicht gespeichert",

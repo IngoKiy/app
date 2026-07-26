@@ -40,11 +40,13 @@ void main() {
     // Herkunft ist als Projektname sichtbar.
     expect(find.text('Balcony'), findsOneWidget);
 
-    // Der farbige Punkt trägt die Projektfarbe.
+    // Der farbige Punkt trägt die Projektfarbe. (Gefüllter Kreis — der leere
+    // Kreis der runden Checkbox hat keine Füllfarbe.)
     final dot = tester.widgetList<Container>(find.byType(Container)).firstWhere(
       (c) =>
           c.decoration is BoxDecoration &&
-          (c.decoration as BoxDecoration).shape == BoxShape.circle,
+          (c.decoration as BoxDecoration).shape == BoxShape.circle &&
+          (c.decoration as BoxDecoration).color != null,
     );
     expect((dot.decoration as BoxDecoration).color, projectColor);
   });
@@ -79,5 +81,37 @@ void main() {
 
     await tester.longPress(find.text('Water the plants'));
     expect(detailsShown, isTrue);
+  });
+
+  testWidgets('Stern zeigt Favoritenstatus und feuert den Toggle', (
+    WidgetTester tester,
+  ) async {
+    var toggled = false;
+    final task = Task(
+      id: 1,
+      title: 'Water the plants',
+      createdBy: User(username: 'demo'),
+      projectId: 5,
+      isFavorite: true,
+    );
+
+    await tester.pumpWidget(
+      _wrap(
+        TaskListItem(
+          task: task,
+          onTap: () {},
+          onEdit: () {},
+          onCheckedChanged: (_) {},
+          onFavoriteToggle: () => toggled = true,
+        ),
+      ),
+    );
+
+    // Favorit → gefüllter Stern.
+    expect(find.byIcon(Icons.star), findsOneWidget);
+    expect(find.byIcon(Icons.star_border), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.star));
+    expect(toggled, isTrue);
   });
 }
