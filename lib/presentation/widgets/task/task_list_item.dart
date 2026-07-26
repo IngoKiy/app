@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/theming/dimensions.dart';
+import 'package:vikunja_app/core/utils/task_steps.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
+import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
+import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
+import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/widgets/due_date_card.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/priority_batch.dart';
 import 'package:vikunja_app/presentation/widgets/task/round_checkbox.dart';
+import 'package:vikunja_app/presentation/widgets/task/task_delete_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 
 /// Aufgabenzeile im Stil von Microsoft To Do: Karte mit runder Checkbox,
-/// Titel + Metazeile (Projekt, Fälligkeit, Priorität) und Stern-Toggle für
-/// Favoriten ("Wichtig"). Eine eigene Aufgabenfarbe erscheint als schmaler
-/// Balken am linken Kartenrand.
-class TaskListItem extends StatefulWidget {
+/// Titel + Metazeile (Schritte, Mein-Tag, Projekt, Fälligkeit, Priorität) und
+/// Stern-Toggle für Favoriten ("Wichtig"). Eine eigene Aufgabenfarbe erscheint
+/// als schmaler Balken am linken Kartenrand.
+///
+/// Wischen nach rechts hakt die Aufgabe ab (bzw. öffnet sie wieder), Wischen
+/// nach links öffnet ein kleines Aktions-Sheet ("Mein Tag" / Löschen). Beide
+/// Gesten schließen die Zeile nie endgültig — die Liste aktualisiert sich
+/// über die DB-Streams von selbst.
+class TaskListItem extends ConsumerStatefulWidget {
   final Task task;
   final Function onTap;
   final Function onEdit;
@@ -36,68 +49,78 @@ class TaskListItem extends StatefulWidget {
   });
 
   @override
-  TaskListItemState createState() => TaskListItemState();
+  ConsumerState<TaskListItem> createState() => TaskListItemState();
 }
 
-class TaskListItemState extends State<TaskListItem> {
+class TaskListItemState extends ConsumerState<TaskListItem> {
   TaskListItemState();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final task = widget.task;
+    final inMyDay =
+        ref.watch(taskInMyDayProvider(task.id)).value ?? false;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
-      child: Material(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(10),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => widget.onTap(),
-          onLongPress: widget.onShowDetails,
-          // IntrinsicHeight, damit der Farbbalken (stretch) die volle
-          // Kartenhöhe bekommt, ohne feste Zeilenhöhen vorzugeben.
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              if (task.hasCustomColor)
-                Container(width: 4.0, color: task.color),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8.0,
-                      vertical: 10.0,
-                    ),
-                    child: Row(
-                      children: [
-                        RoundCheckbox(
-                          value: task.done,
-                          onChanged: (newValue) =>
-                              widget.onCheckedChanged(newValue),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(child: _buildContent(task, theme)),
-                        if (task.assignees.isNotEmpty)
-                          _buildAssigneeAvatars(task.assignees),
-                        if (widget.onFavoriteToggle != null)
-                          IconButton(
-                            onPressed: widget.onFavoriteToggle,
-                            icon: Icon(
-                              task.isFavorite
-                                  ? Icons.star
-                                  : Icons.star_border,
-                              color: task.isFavorite
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
+    return Dismissible(
+      key: ValueKey('task-list-item-dismissible-${task.id}'),
+      // Beide Richtungen führen eine Aktion aus, entfernen die Zeile aber nie
+      // selbst — false lässt Dismissible in die Ausgangslage zurückfedern.
+      confirmDismiss: (direction) => _confirmDismiss(direction, inMyDay),
+      background: _buildCheckBackground(theme, task),
+      secondaryBackground: _buildSwipeActionsBackground(theme, inMyDay),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
+        child: Material(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => widget.onTap(),
+            onLongPress: widget.onShowDetails,
+            // IntrinsicHeight, damit der Farbbalken (stretch) die volle
+            // Kartenhöhe bekommt, ohne feste Zeilenhöhen vorzugeben.
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (task.hasCustomColor)
+                    Container(width: 4.0, color: task.color),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0,
+                        vertical: 10.0,
+                      ),
+                      child: Row(
+                        children: [
+                          RoundCheckbox(
+                            value: task.done,
+                            onChanged: (newValue) =>
+                                widget.onCheckedChanged(newValue),
                           ),
-                      ],
+                          const SizedBox(width: 4),
+                          Expanded(child: _buildContent(task, theme, inMyDay)),
+                          if (task.assignees.isNotEmpty)
+                            _buildAssigneeAvatars(task.assignees),
+                          if (widget.onFavoriteToggle != null)
+                            IconButton(
+                              onPressed: widget.onFavoriteToggle,
+                              icon: Icon(
+                                task.isFavorite
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                color: task.isFavorite
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -105,8 +128,149 @@ class TaskListItemState extends State<TaskListItem> {
     );
   }
 
-  Widget _buildContent(Task task, ThemeData theme) {
-    final subtitle = _buildTaskSubtitle(task, context);
+  // ---------------------------------------------------------------------
+  // Swipe-Aktionen
+  // ---------------------------------------------------------------------
+
+  Future<bool> _confirmDismiss(
+    DismissDirection direction,
+    bool inMyDay,
+  ) async {
+    switch (direction) {
+      case DismissDirection.startToEnd:
+        // Rechts wischen: abhaken bzw. (bei bereits erledigten Aufgaben)
+        // wieder öffnen.
+        widget.onCheckedChanged(!widget.task.done);
+        return false;
+      case DismissDirection.endToStart:
+        // Links wischen: kleines Aktions-Sheet ("Mein Tag" / Löschen).
+        await _showSwipeActionsSheet(inMyDay);
+        return false;
+      default:
+        return false;
+    }
+  }
+
+  Widget _buildCheckBackground(ThemeData theme, Task task) {
+    return Container(
+      color: Colors.green,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Icon(
+        task.done ? Icons.replay : Icons.check_circle,
+        color: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildSwipeActionsBackground(ThemeData theme, bool inMyDay) {
+    return Row(
+      children: [
+        const Spacer(),
+        Container(
+          width: 72,
+          color: theme.colorScheme.tertiaryContainer,
+          alignment: Alignment.center,
+          child: Icon(
+            inMyDay ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+            color: theme.colorScheme.onTertiaryContainer,
+          ),
+        ),
+        Container(
+          width: 72,
+          color: theme.colorScheme.errorContainer,
+          alignment: Alignment.center,
+          child: Icon(
+            Icons.delete_outline,
+            color: theme.colorScheme.onErrorContainer,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Aktions-Sheet für die Links-Wisch-Geste: "Mein Tag" hinzufügen/entfernen
+  /// und Löschen (mit Bestätigungs-Dialog).
+  Future<void> _showSwipeActionsSheet(bool inMyDay) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  inMyDay ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+                ),
+                title: Text(inMyDay ? l10n.myDayRemove : l10n.myDayAdd),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _toggleMyDay(inMyDay);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                title: Text(
+                  l10n.delete,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _confirmAndDelete();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Mein-Tag-Toggle: rein lokal (kein Server-Sync), siehe `my_day_entries`.
+  Future<void> _toggleMyDay(bool currentlyInMyDay) async {
+    final dao = ref.read(tasksDaoProvider);
+    final dayKey = localDayKey(DateTime.now());
+    if (currentlyInMyDay) {
+      await dao.removeFromMyDay(widget.task.id, dayKey);
+    } else {
+      await dao.addToMyDay(widget.task.id, dayKey);
+    }
+  }
+
+  Future<void> _confirmAndDelete() {
+    final l10n = AppLocalizations.of(context);
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return TaskDeleteDialog(
+          widget.task.id,
+          onConfirm: () async {
+            Navigator.of(dialogContext).pop();
+            final ok = await ref
+                .read(taskPageControllerProvider.notifier)
+                .deleteTask(widget.task.id);
+            if (!ok && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.taskDeleteError)),
+              );
+            }
+          },
+          onCancel: () => Navigator.of(dialogContext).pop(),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Inhalt der Karte
+  // ---------------------------------------------------------------------
+
+  Widget _buildContent(Task task, ThemeData theme, bool inMyDay) {
+    final subtitle = _buildTaskSubtitle(task, context, inMyDay);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -159,8 +323,23 @@ class TaskListItemState extends State<TaskListItem> {
     );
   }
 
-  Widget? _buildTaskSubtitle(Task task, BuildContext context) {
+  Widget? _buildTaskSubtitle(Task task, BuildContext context, bool inMyDay) {
     final chips = <Widget>[];
+
+    final progress = stepProgress(task.description);
+    if (progress.total > 0) {
+      chips.add(
+        _MetaText(
+          AppLocalizations.of(
+            context,
+          ).stepsProgress(progress.done, progress.total),
+        ),
+      );
+    }
+
+    if (inMyDay) {
+      chips.add(_MyDayBadge(label: AppLocalizations.of(context).smartListMyDay));
+    }
 
     final project = task.project;
     if (project != null) {
@@ -182,6 +361,47 @@ class TaskListItemState extends State<TaskListItem> {
       runSpacing: 2,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: chips,
+    );
+  }
+}
+
+/// Dezenter Metadaten-Text in der Zeile (Stil wie der Projekt-Chip): z. B.
+/// der Schritte-Fortschritt "x von y".
+class _MetaText extends StatelessWidget {
+  final String text;
+
+  const _MetaText(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      text,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+/// Dezentes Mein-Tag-Kennzeichen: kleines Sonnen-Icon + Beschriftung, wenn
+/// eine Aufgabe heute manuell in "Mein Tag" ist.
+class _MyDayBadge extends StatelessWidget {
+  final String label;
+
+  const _MyDayBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurfaceVariant;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.wb_sunny_outlined, size: 14, color: color),
+        const SizedBox(width: AppDimensions.xxs),
+        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: color)),
+      ],
     );
   }
 }
