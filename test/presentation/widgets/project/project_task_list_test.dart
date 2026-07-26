@@ -1,6 +1,9 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/project_page_model.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
@@ -56,10 +59,13 @@ void main() {
     parentProject.views = [view];
 
     final model = ProjectPageModel(parentProject, 0, tasks, [], false, false);
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appDatabaseProvider.overrideWithValue(db),
           projectControllerProvider(
             parentProject,
           ).overrideWith(() => MockProjectController(model)),

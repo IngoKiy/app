@@ -13,6 +13,7 @@ import 'package:vikunja_app/presentation/manager/project_controller.dart';
 import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/project/project_edit.dart';
+import 'package:vikunja_app/presentation/widgets/list_accent_scaffold.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_widget.dart';
 import 'package:vikunja_app/presentation/widgets/project_members_section.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_task_list.dart';
@@ -54,6 +55,17 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     return projectController.when(
       data: (data) {
         final isCompact = context.isCompact;
+        // Akzent-Theming nur in der Listen-Ansicht (wie in Microsoft To Do);
+        // Kanban bleibt bewusst unverändert im Standard-Theme.
+        final currentView =
+            (data.project.views.isNotEmpty &&
+                _viewIndex < data.project.views.length)
+            ? data.project.views[_viewIndex]
+            : null;
+        final isListView = currentView?.viewKind == ViewKind.list;
+        final accentColor = isListView
+            ? (data.project.color ?? Theme.of(context).colorScheme.primary)
+            : null;
         final scrollBody = NotificationListener<ScrollNotification>(
           onNotification: (ScrollNotification scrollInfo) {
             if (scrollInfo.metrics.pixels ==
@@ -78,7 +90,13 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
         );
 
         return Scaffold(
-          appBar: _buildAppBar(context, data.project, data.displayDoneTask),
+          backgroundColor: accentColor,
+          appBar: _buildAppBar(
+            context,
+            data.project,
+            data.displayDoneTask,
+            accentColor,
+          ),
           body: isCompact
               ? scrollBody
               : Column(
@@ -122,38 +140,44 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     }
   }
 
-  AppBar _buildAppBar(
+  PreferredSizeWidget _buildAppBar(
     BuildContext context,
     Project project,
     bool displayDoneTask,
+    Color? accentColor,
   ) {
-    return AppBar(
-      title: Text(project.title),
-      actions: <Widget>[
-        IconButton(
-          icon: const Icon(Icons.people_alt_outlined),
-          tooltip: AppLocalizations.of(context).projectMembers,
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProjectMembersPage(projectId: project.id),
+    final actions = <Widget>[
+      IconButton(
+        icon: const Icon(Icons.people_alt_outlined),
+        tooltip: AppLocalizations.of(context).projectMembers,
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProjectMembersPage(projectId: project.id),
+          ),
+        ),
+      ),
+      IconButton(
+        icon: Icon(Icons.edit),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProjectEditPage(
+              project: project,
+              displayDoneTask: displayDoneTask,
             ),
           ),
         ),
-        IconButton(
-          icon: Icon(Icons.edit),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProjectEditPage(
-                project: project,
-                displayDoneTask: displayDoneTask,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+      ),
+    ];
+
+    // Listen-Ansicht: Akzentfarbe + Zurück-Button „Listen" (wie To Do); die
+    // Kanban-Ansicht behält die normale AppBar.
+    if (accentColor != null) {
+      return AccentAppBar(accentColor: accentColor, actions: actions);
+    }
+
+    return AppBar(title: Text(project.title), actions: actions);
   }
 
   Builder? _buildFab(Project project) {
