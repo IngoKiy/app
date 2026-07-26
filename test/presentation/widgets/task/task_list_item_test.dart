@@ -10,6 +10,13 @@ import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
 
+/// Baut den Widget-Baum ab, bevor tearDown die DB schließt — sonst hält der
+/// noch abonnierte Drift-Stream (taskInMyDayProvider) db.close() endlos auf.
+Future<void> _unmount(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pumpAndSettle();
+}
+
 Widget _wrap(Widget child, AppDatabase db) => ProviderScope(
   overrides: [appDatabaseProvider.overrideWithValue(db)],
   child: MaterialApp(
@@ -62,6 +69,8 @@ void main() {
           (c.decoration as BoxDecoration).color != null,
     );
     expect((dot.decoration as BoxDecoration).color, projectColor);
+
+    await _unmount(tester);
   });
 
   testWidgets('Tipp öffnet Bearbeiten, Long-Press die Schnellvorschau', (
@@ -95,6 +104,8 @@ void main() {
 
     await tester.longPress(find.text('Water the plants'));
     expect(detailsShown, isTrue);
+
+    await _unmount(tester);
   });
 
   testWidgets('Stern zeigt Favoritenstatus und feuert den Toggle', (
@@ -128,6 +139,8 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.star));
     expect(toggled, isTrue);
+
+    await _unmount(tester);
   });
 
   testWidgets('Wischen nach rechts hakt die Aufgabe ab', (
@@ -162,6 +175,8 @@ void main() {
 
     expect(checkedValue, isTrue);
     expect(find.byType(Dismissible), findsOneWidget);
+
+    await _unmount(tester);
   });
 
   testWidgets('zeigt den Schritte-Fortschritt "x von y" in der Metazeile', (
@@ -192,5 +207,7 @@ void main() {
     );
 
     expect(find.text('1 of 2'), findsOneWidget);
+
+    await _unmount(tester);
   });
 }
