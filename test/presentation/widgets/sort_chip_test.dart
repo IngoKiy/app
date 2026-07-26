@@ -7,6 +7,13 @@ import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/widgets/sort_chip.dart';
 
+/// Baut den Widget-Baum ab, bevor tearDown die DB schließt — sonst hält der
+/// noch abonnierte Drift-Stream (listSortModeProvider) db.close() endlos auf.
+Future<void> _unmount(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pumpAndSettle();
+}
+
 Widget _wrap(AppDatabase db, Widget child) => ProviderScope(
   overrides: [appDatabaseProvider.overrideWithValue(db)],
   child: MaterialApp(
@@ -32,6 +39,8 @@ void main() {
       await tester.pump();
 
       expect(find.text('Sorted by Due date'), findsOneWidget);
+
+      await _unmount(tester);
     },
   );
 
@@ -47,6 +56,8 @@ void main() {
       await tester.pump();
 
       expect(find.text('Sort'), findsOneWidget);
+
+      await _unmount(tester);
     },
   );
 
@@ -73,6 +84,8 @@ void main() {
       // Persistiert im KeyValue-Store unter dem erwarteten Schlüssel.
       final stored = await db.keyValueDao.get('sort_mode/project/1');
       expect(stored, 'alphabetical');
+
+      await _unmount(tester);
     },
   );
 }

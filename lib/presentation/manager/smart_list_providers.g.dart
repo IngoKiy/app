@@ -6,7 +6,7 @@ part of 'smart_list_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$listSortModeHash() => r'b9e41942e938343d5da584767dbf00e2aa01b137';
+String _$listSortModeHash() => r'7db6d98bb921890a351acdc807936917e9d78d5a';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -29,26 +29,30 @@ class _SystemHash {
   }
 }
 
-/// Persistierter Sortier-Modus einer Liste. [listKey] ist `smart/<name>` für
-/// Smart-Lists bzw. `project/<id>` für Projekte.
+/// Persistierter Sortier-Modus einer Liste; `null` = kein Modus gespeichert
+/// (Smart-Lists: Standard Fälligkeit, Projektlisten: manuelle Reihenfolge).
+/// [listKey] ist `smart/<name>` für Smart-Lists bzw. `project/<id>`.
 ///
 /// Copied from [listSortMode].
 @ProviderFor(listSortMode)
 const listSortModeProvider = ListSortModeFamily();
 
-/// Persistierter Sortier-Modus einer Liste. [listKey] ist `smart/<name>` für
-/// Smart-Lists bzw. `project/<id>` für Projekte.
+/// Persistierter Sortier-Modus einer Liste; `null` = kein Modus gespeichert
+/// (Smart-Lists: Standard Fälligkeit, Projektlisten: manuelle Reihenfolge).
+/// [listKey] ist `smart/<name>` für Smart-Lists bzw. `project/<id>`.
 ///
 /// Copied from [listSortMode].
-class ListSortModeFamily extends Family<AsyncValue<TaskSortMode>> {
-  /// Persistierter Sortier-Modus einer Liste. [listKey] ist `smart/<name>` für
-  /// Smart-Lists bzw. `project/<id>` für Projekte.
+class ListSortModeFamily extends Family<AsyncValue<TaskSortMode?>> {
+  /// Persistierter Sortier-Modus einer Liste; `null` = kein Modus gespeichert
+  /// (Smart-Lists: Standard Fälligkeit, Projektlisten: manuelle Reihenfolge).
+  /// [listKey] ist `smart/<name>` für Smart-Lists bzw. `project/<id>`.
   ///
   /// Copied from [listSortMode].
   const ListSortModeFamily();
 
-  /// Persistierter Sortier-Modus einer Liste. [listKey] ist `smart/<name>` für
-  /// Smart-Lists bzw. `project/<id>` für Projekte.
+  /// Persistierter Sortier-Modus einer Liste; `null` = kein Modus gespeichert
+  /// (Smart-Lists: Standard Fälligkeit, Projektlisten: manuelle Reihenfolge).
+  /// [listKey] ist `smart/<name>` für Smart-Lists bzw. `project/<id>`.
   ///
   /// Copied from [listSortMode].
   ListSortModeProvider call(String listKey) {
@@ -77,13 +81,15 @@ class ListSortModeFamily extends Family<AsyncValue<TaskSortMode>> {
   String? get name => r'listSortModeProvider';
 }
 
-/// Persistierter Sortier-Modus einer Liste. [listKey] ist `smart/<name>` für
-/// Smart-Lists bzw. `project/<id>` für Projekte.
+/// Persistierter Sortier-Modus einer Liste; `null` = kein Modus gespeichert
+/// (Smart-Lists: Standard Fälligkeit, Projektlisten: manuelle Reihenfolge).
+/// [listKey] ist `smart/<name>` für Smart-Lists bzw. `project/<id>`.
 ///
 /// Copied from [listSortMode].
-class ListSortModeProvider extends AutoDisposeStreamProvider<TaskSortMode> {
-  /// Persistierter Sortier-Modus einer Liste. [listKey] ist `smart/<name>` für
-  /// Smart-Lists bzw. `project/<id>` für Projekte.
+class ListSortModeProvider extends AutoDisposeStreamProvider<TaskSortMode?> {
+  /// Persistierter Sortier-Modus einer Liste; `null` = kein Modus gespeichert
+  /// (Smart-Lists: Standard Fälligkeit, Projektlisten: manuelle Reihenfolge).
+  /// [listKey] ist `smart/<name>` für Smart-Lists bzw. `project/<id>`.
   ///
   /// Copied from [listSortMode].
   ListSortModeProvider(String listKey)
@@ -114,7 +120,7 @@ class ListSortModeProvider extends AutoDisposeStreamProvider<TaskSortMode> {
 
   @override
   Override overrideWith(
-    Stream<TaskSortMode> Function(ListSortModeRef provider) create,
+    Stream<TaskSortMode?> Function(ListSortModeRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
@@ -131,7 +137,7 @@ class ListSortModeProvider extends AutoDisposeStreamProvider<TaskSortMode> {
   }
 
   @override
-  AutoDisposeStreamProviderElement<TaskSortMode> createElement() {
+  AutoDisposeStreamProviderElement<TaskSortMode?> createElement() {
     return _ListSortModeProviderElement(this);
   }
 
@@ -151,13 +157,13 @@ class ListSortModeProvider extends AutoDisposeStreamProvider<TaskSortMode> {
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin ListSortModeRef on AutoDisposeStreamProviderRef<TaskSortMode> {
+mixin ListSortModeRef on AutoDisposeStreamProviderRef<TaskSortMode?> {
   /// The parameter `listKey` of this provider.
   String get listKey;
 }
 
 class _ListSortModeProviderElement
-    extends AutoDisposeStreamProviderElement<TaskSortMode>
+    extends AutoDisposeStreamProviderElement<TaskSortMode?>
     with ListSortModeRef {
   _ListSortModeProviderElement(super.provider);
 

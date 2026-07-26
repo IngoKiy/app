@@ -17,7 +17,7 @@ import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/ui/empty_state.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_bar.dart';
-import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/task/add_task_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/task/smart_list_section.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
 import 'package:vikunja_app/presentation/widgets/task_bottom_sheet.dart';
@@ -139,14 +139,12 @@ class SmartListPage extends ConsumerWidget {
   void _addItemDialog(WidgetRef ref, BuildContext context) {
     final defaultProjectId =
         ref.read(currentUserProvider)?.settings?.defaultProjectId ?? 0;
-    showDialog(
-      context: context,
-      builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate, projectId) =>
-            _addTask(ref, title, dueDate, projectId),
-        defaultProjectId: defaultProjectId,
-        selectableProject: true,
-      ),
+    showAddTaskSheet(
+      context,
+      onAddTask: (title, dueDate, projectId) =>
+          _addTask(ref, title, dueDate, projectId),
+      defaultProjectId: defaultProjectId,
+      selectableProject: true,
     );
   }
 

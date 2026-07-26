@@ -19,7 +19,7 @@ import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/project/project_list_page.dart';
 import 'package:vikunja_app/presentation/pages/project/project_split_page.dart';
 import 'package:vikunja_app/presentation/pages/settings_page.dart';
-import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/task/add_task_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -183,15 +183,13 @@ class HomePageState extends ConsumerState<HomePage> {
     int defaultProjectId, [
     String? title,
   ]) {
-    showDialog(
-      context: context,
-      builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate, projectId) =>
-            _addTask(title, dueDate, projectId, context),
-        title: title,
-        defaultProjectId: defaultProjectId,
-        selectableProject: true,
-      ),
+    showAddTaskSheet(
+      context,
+      onAddTask: (title, dueDate, projectId) =>
+          _addTask(title, dueDate, projectId, context),
+      initialTitle: title,
+      defaultProjectId: defaultProjectId,
+      selectableProject: true,
     );
   }
 

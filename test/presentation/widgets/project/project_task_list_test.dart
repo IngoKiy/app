@@ -93,5 +93,10 @@ void main() {
     // We expect "Projects" and "Tasks" based on Vikunja's typical English l10n
     expect(find.text('Projects'), findsOneWidget);
     expect(find.text('Tasks'), findsOneWidget);
+
+    // Widget-Baum abbauen, bevor tearDown die DB schließt — sonst hält der
+    // Drift-Stream der Zeilen (taskInMyDayProvider) db.close() endlos auf.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 }

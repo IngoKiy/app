@@ -10,14 +10,15 @@ import 'package:vikunja_app/domain/entities/task_sort.dart';
 
 part 'smart_list_providers.g.dart';
 
-/// Persistierter Sortier-Modus einer Liste. [listKey] ist `smart/<name>` für
-/// Smart-Lists bzw. `project/<id>` für Projekte.
+/// Persistierter Sortier-Modus einer Liste; `null` = kein Modus gespeichert
+/// (Smart-Lists: Standard Fälligkeit, Projektlisten: manuelle Reihenfolge).
+/// [listKey] ist `smart/<name>` für Smart-Lists bzw. `project/<id>`.
 @riverpod
-Stream<TaskSortMode> listSortMode(Ref ref, String listKey) {
+Stream<TaskSortMode?> listSortMode(Ref ref, String listKey) {
   final kv = ref.watch(keyValueDaoProvider);
   return kv
       .watch('sort_mode/$listKey')
-      .map(taskSortModeFromName)
+      .map((name) => name == null ? null : taskSortModeFromName(name))
       .distinct();
 }
 

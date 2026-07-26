@@ -112,6 +112,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Done task'), findsNothing);
+
+      // Widget-Baum vor dem DB-Close abbauen (Drift-Stream der Zeilen).
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
     },
   );
 }

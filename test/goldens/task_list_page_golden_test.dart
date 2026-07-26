@@ -7,6 +7,7 @@ import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_page_model.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/task_list_page.dart';
 
@@ -39,6 +40,10 @@ Widget _buildPage() {
 
   return ProviderScope(
     overrides: [
+      // Kein Drift im Golden: der Mein-Tag-Stream der Zeilen wird direkt
+      // überschrieben (keine DB, keine offenen Timer beim Abbau).
+      for (final t in tasks)
+        taskInMyDayProvider(t.id).overrideWith((ref) => Stream.value(false)),
       taskPageControllerProvider.overrideWith(
         () => _MockTaskPageController(model),
       ),

@@ -15,6 +15,7 @@ Future<void> showAddTaskSheet(
   onAddTask,
   int defaultProjectId = 0,
   bool selectableProject = false,
+  String? initialTitle,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -24,6 +25,7 @@ Future<void> showAddTaskSheet(
       onAddTask: onAddTask,
       defaultProjectId: defaultProjectId,
       selectableProject: selectableProject,
+      initialTitle: initialTitle,
     ),
   );
 }
@@ -39,11 +41,15 @@ class AddTaskSheet extends StatefulWidget {
   /// projektgebundenen Kontexten (Projektdetail/Kanban) `false` lassen.
   final bool selectableProject;
 
+  /// Vorbelegter Titel (z.B. aus dem App-Shortcut).
+  final String? initialTitle;
+
   const AddTaskSheet({
     super.key,
     required this.onAddTask,
     this.defaultProjectId = 0,
     this.selectableProject = false,
+    this.initialTitle,
   });
 
   @override
@@ -62,6 +68,11 @@ class AddTaskSheetState extends State<AddTaskSheet> {
   void initState() {
     super.initState();
     _projectId = widget.defaultProjectId;
+    final initialTitle = widget.initialTitle;
+    if (initialTitle != null && initialTitle.isNotEmpty) {
+      _controller.text = initialTitle;
+      _hasText = true;
+    }
     _controller.addListener(() {
       final hasText = _controller.text.trim().isNotEmpty;
       if (hasText != _hasText) setState(() => _hasText = hasText);

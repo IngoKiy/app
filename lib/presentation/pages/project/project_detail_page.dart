@@ -17,7 +17,7 @@ import 'package:vikunja_app/presentation/widgets/list_accent_scaffold.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_widget.dart';
 import 'package:vikunja_app/presentation/widgets/project_members_section.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_task_list.dart';
-import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/task/add_task_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 
 class ProjectDetailPage extends ConsumerStatefulWidget {
@@ -231,13 +231,11 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
   }
 
   Future<void> _addITaskDialog(BuildContext context, Project project) {
-    return showDialog(
-      context: context,
-      builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate, _) =>
-            _addItem(context, project, title, dueDate),
-        defaultProjectId: project.id,
-      ),
+    return showAddTaskSheet(
+      context,
+      onAddTask: (title, dueDate, _) =>
+          _addItem(context, project, title, dueDate),
+      defaultProjectId: project.id,
     );
   }
 
