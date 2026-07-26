@@ -9,9 +9,11 @@ import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/project/project_detail_page.dart';
+import 'package:vikunja_app/presentation/pages/task/search_page.dart';
 import 'package:vikunja_app/presentation/widgets/project/add_project_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_card.dart';
 import 'package:vikunja_app/presentation/widgets/task/smart_list_section.dart';
+import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 
 class ProjectListPage extends ConsumerWidget {
   /// When set, tapping a project reports it to the parent (master-detail
@@ -76,33 +78,50 @@ class ProjectListPage extends ConsumerWidget {
             ),
         ];
 
-        return Scaffold(
-          body: NotificationListener<ScrollNotification>(
-            onNotification: (ScrollNotification scrollInfo) {
-              if (scrollInfo.metrics.pixels ==
-                  scrollInfo.metrics.maxScrollExtent) {
-                ref.read(projectsControllerProvider.notifier).loadNextPage();
-              }
-              return false;
-            },
-            child: RefreshIndicator(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.xs,
-                  vertical: AppDimensions.xs,
-                ),
-                children: items,
+        final content = NotificationListener<ScrollNotification>(
+          onNotification: (ScrollNotification scrollInfo) {
+            if (scrollInfo.metrics.pixels ==
+                scrollInfo.metrics.maxScrollExtent) {
+              ref.read(projectsControllerProvider.notifier).loadNextPage();
+            }
+            return false;
+          },
+          child: RefreshIndicator(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.xs,
+                vertical: AppDimensions.xs,
               ),
-              onRefresh: () =>
-                  ref.read(projectsControllerProvider.notifier).reload(),
+              children: items,
             ),
+            onRefresh: () =>
+                ref.read(projectsControllerProvider.notifier).reload(),
           ),
-          appBar: AppBar(
-            title: Text(
-              showSmartLists
-                  ? AppLocalizations.of(context).listsTitle
-                  : AppLocalizations.of(context).projectsTitle,
+        );
+
+        // Home-Tab (Listen-Übersicht) im MS-To-Do-Stil: eigener Kopf statt
+        // AppBar (Avatar + Name + Suche) und unten fixiert "+ Neue Liste"
+        // statt Plus-Button.
+        if (showSmartLists) {
+          return Scaffold(
+            body: SafeArea(
+              child: Column(
+                children: [
+                  const _HomeHeader(),
+                  Expanded(child: content),
+                ],
+              ),
             ),
+            bottomNavigationBar: _NewListBar(
+              onTap: () => _addProjectDialog(ref),
+            ),
+          );
+        }
+
+        return Scaffold(
+          body: content,
+          appBar: AppBar(
+            title: Text(AppLocalizations.of(context).projectsTitle),
             actions: [
               IconButton(
                 icon: Icon(Icons.add),
@@ -156,6 +175,98 @@ class ProjectListPage extends ConsumerWidget {
             project: project,
           );
         },
+      ),
+    );
+  }
+}
+
+/// Kopfzeile der Listen-Übersicht (Home-Tab) im MS-To-Do-Stil: Avatar +
+/// Benutzername links, Such-Symbol rechts (öffnet die globale Suche).
+class _HomeHeader extends ConsumerWidget {
+  const _HomeHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimensions.md,
+        AppDimensions.xs,
+        AppDimensions.sm,
+        AppDimensions.xs,
+      ),
+      child: Row(
+        children: [
+          if (user != null) ...[
+            UserAvatar(user: user, radius: 18),
+            const SizedBox(width: AppDimensions.sm),
+            Expanded(
+              child: Text(
+                user.name.isNotEmpty ? user.name : user.username,
+                style: theme.textTheme.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ] else
+            const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: AppLocalizations.of(context).searchHint,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SearchPage()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Unten fixierte „+ Neue Liste"-Leiste der Listen-Übersicht (Home-Tab),
+/// optisch angelehnt an [AddTaskBar]: eigenes Widget, da die Aufgabenzeilen-
+/// Leiste dediziert für Aufgabenlisten bleibt.
+class _NewListBar extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _NewListBar({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        child: Material(
+          color: theme.colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.add, color: theme.colorScheme.onPrimaryContainer),
+                  const SizedBox(width: 12),
+                  Text(
+                    AppLocalizations.of(context).newListButton,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
