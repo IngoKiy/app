@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/offline/offline_writer.dart';
@@ -14,10 +15,13 @@ import 'package:vikunja_app/core/utils/date_extensions.dart';
 import 'package:vikunja_app/core/utils/priority.dart';
 import 'package:vikunja_app/core/utils/repeat_after_parse.dart';
 import 'package:vikunja_app/core/utils/repeat_after_unit.dart';
+import 'package:vikunja_app/core/utils/task_steps.dart';
 import 'package:vikunja_app/domain/entities/label.dart';
+import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/edit_description.dart';
 import 'package:vikunja_app/presentation/pages/task/task_comments_page.dart';
@@ -29,7 +33,48 @@ import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/round_checkbox.dart';
+import 'package:vikunja_app/presentation/widgets/task/steps_editor.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_delete_dialog.dart';
+
+/// Wiederholen-Presets im Stil von Microsoft To Do. „Werktags" ist bewusst
+/// weggelassen: Vikunjas `repeat_after` kennt nur eine feste Dauer, kein
+/// Wochentagsmuster.
+enum _RepeatPreset { none, daily, weekly, monthly, yearly, custom }
+
+/// Erkennt beim Laden einer Aufgabe das passende Preset aus Wert+Einheit;
+/// alles ohne exakte Entsprechung (z.B. „alle 3 Tage") wird „Benutzerdefiniert“.
+_RepeatPreset _presetFromRepeatAfter(int value, RepeatAfterUnit unit) {
+  if (value == 0) return _RepeatPreset.none;
+  switch (unit) {
+    case RepeatAfterUnit.days:
+      return value == 1 ? _RepeatPreset.daily : _RepeatPreset.custom;
+    case RepeatAfterUnit.weeks:
+      return value == 1 ? _RepeatPreset.weekly : _RepeatPreset.custom;
+    case RepeatAfterUnit.months:
+      return value == 1 ? _RepeatPreset.monthly : _RepeatPreset.custom;
+    case RepeatAfterUnit.years:
+      return value == 1 ? _RepeatPreset.yearly : _RepeatPreset.custom;
+    case RepeatAfterUnit.hours:
+      return _RepeatPreset.custom;
+  }
+}
+
+String _repeatPresetLabel(AppLocalizations l, _RepeatPreset preset) {
+  switch (preset) {
+    case _RepeatPreset.none:
+      return l.repeatNone;
+    case _RepeatPreset.daily:
+      return l.repeatDaily;
+    case _RepeatPreset.weekly:
+      return l.repeatWeekly;
+    case _RepeatPreset.monthly:
+      return l.repeatMonthly;
+    case _RepeatPreset.yearly:
+      return l.repeatYearly;
+    case _RepeatPreset.custom:
+      return l.repeatCustom;
+  }
+}
 
 /// Zustand der Autosave-Anzeige in der AppBar.
 enum _SaveState { idle, saving, saved, error }
@@ -52,7 +97,15 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   DateTime? _dueDate, _startDate, _endDate;
   int _repeatAfterValue = 0;
   RepeatAfterUnit _repeatAfterUnit = RepeatAfterUnit.days;
+  _RepeatPreset _repeatPreset = _RepeatPreset.none;
   int? _priority;
+
+  // Schritte („Nächster Schritt"): als TipTap-Checkliste in der Beschreibung
+  // codiert (siehe task_steps.dart). _note ist die Beschreibung ohne die
+  // Schritt-Listen; _description wird aus beidem zusammengesetzt und ist,
+  // wie bisher, das Feld, das tatsächlich gespeichert wird.
+  List<TaskStep> _steps = [];
+  String _note = '';
   int? _projectId;
   List<TaskReminder>? _reminderDates;
   List<Label>? _labels;
@@ -99,10 +152,14 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     _startDate = widget.task.startDate;
     _endDate = widget.task.endDate;
 
+    _steps = parseSteps(_description ?? '');
+    _note = stripSteps(_description ?? '');
+
     _repeatAfterValue = getRepeatAfterValueFromDuration(
       widget.task.repeatAfter,
     );
     _repeatAfterUnit = getRepeatAfterTypeFromDuration(widget.task.repeatAfter);
+    _repeatPreset = _presetFromRepeatAfter(_repeatAfterValue, _repeatAfterUnit);
 
     super.initState();
   }
@@ -239,11 +296,13 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         padding: EdgeInsets.fromLTRB(16, 16, 16, 50),
         children: <Widget>[
           _buildTitle(),
+          _buildSteps(),
+          _buildMyDayRow(context),
           Divider(),
           _buildDueDate(),
           _buildReminderList(),
           _buildAddReminderButton(context),
-          _buildRepeatAfter(),
+          _buildRepeatPreset(),
           _buildProject(),
           _buildPriority(),
           _buildStartDate(),
@@ -346,24 +405,28 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
+  // Die Kachel zeigt nur noch die Notiz (ohne Schritte — die stehen im
+  // eigenen Editor darüber); beim Bearbeiten via EditDescription wird das
+  // Ergebnis als neue Notiz übernommen und mit den Schritten neu
+  // zusammengesetzt, damit sie erhalten bleiben.
   Widget _buildDescription(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8.0),
       child: InkWell(
         onTap: () async {
-          var description = await Navigator.push<String>(
+          var note = await Navigator.push<String>(
             context,
             MaterialPageRoute(
-              builder: (buildContext) =>
-                  EditDescription(initialText: _description),
+              builder: (buildContext) => EditDescription(initialText: _note),
             ),
           );
-          setState(() {
-            if (description != null) {
-              _description = description;
-              _scheduleAutosave(immediate: true);
-            }
-          });
+          if (note != null) {
+            setState(() {
+              _note = note;
+              _description = buildDescription(note: _note, steps: _steps);
+            });
+            _scheduleAutosave(immediate: true);
+          }
         },
         child: Row(
           mainAxisSize: MainAxisSize.max,
@@ -384,8 +447,8 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
                       ),
                     ),
                     HtmlWidget(
-                      _description != null && _description?.isNotEmpty == true
-                          ? _description!
+                      _note.isNotEmpty
+                          ? _note
                           : AppLocalizations.of(context).noDescription,
                     ),
                   ],
@@ -396,6 +459,97 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         ),
       ),
     );
+  }
+
+  // --- Schritte („Nächster Schritt") ----------------------------------------
+
+  Widget _buildSteps() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: StepsEditor(
+        steps: _steps,
+        onTextChanged: _onStepTextChanged,
+        onToggle: _onStepToggle,
+        onRemove: _onStepRemove,
+        onAdd: _onStepAdd,
+      ),
+    );
+  }
+
+  void _onStepTextChanged(int index, String text) {
+    // Nur der Text ändert sich; kein setState nötig — das TextFormField hält
+    // seinen eigenen Zustand, nichts anderes muss sofort neu gezeichnet
+    // werden (analog zu den Erinnerungen weiter unten).
+    _steps[index] = _steps[index].copyWith(text: text);
+    _description = buildDescription(note: _note, steps: _steps);
+    _scheduleAutosave();
+  }
+
+  void _onStepToggle(int index, bool done) {
+    setState(() {
+      _steps[index] = _steps[index].copyWith(done: done);
+      _description = buildDescription(note: _note, steps: _steps);
+    });
+    _scheduleAutosave(immediate: true);
+  }
+
+  void _onStepRemove(int index) {
+    setState(() {
+      _steps.removeAt(index);
+      _description = buildDescription(note: _note, steps: _steps);
+    });
+    _scheduleAutosave(immediate: true);
+  }
+
+  void _onStepAdd() {
+    setState(() {
+      _steps.add(const TaskStep(''));
+      _description = buildDescription(note: _note, steps: _steps);
+    });
+    // Kein Autosave hier: eine noch leere Zeile wird von parseSteps beim
+    // nächsten Laden ohnehin verworfen; die erste Texteingabe löst den
+    // (debounced) Save aus.
+  }
+
+  // --- Mein Tag (rein lokal, kein Server-Sync) ------------------------------
+
+  Widget _buildMyDayRow(BuildContext context) {
+    final theme = Theme.of(context);
+    final inMyDay =
+        ref.watch(taskInMyDayProvider(widget.task.id)).value ?? false;
+    final color = inMyDay
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: InkWell(
+        onTap: () => _toggleMyDay(inMyDay),
+        child: Row(
+          children: [
+            Icon(Icons.wb_sunny_outlined, color: color),
+            const SizedBox(width: 16),
+            Text(
+              inMyDay
+                  ? AppLocalizations.of(context).myDayRemove
+                  : AppLocalizations.of(context).myDayAdd,
+              style: TextStyle(color: color, fontSize: 16),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Rein lokaler Zustand (Tabelle my_day_entries) — kein updateTask/Autosave,
+  // die UI reagiert über den Drift-Stream von taskInMyDayProvider von selbst.
+  Future<void> _toggleMyDay(bool currentlyInMyDay) async {
+    final dao = ref.read(tasksDaoProvider);
+    final dayKey = localDayKey(DateTime.now());
+    if (currentlyInMyDay) {
+      await dao.removeFromMyDay(widget.task.id, dayKey);
+    } else {
+      await dao.addToMyDay(widget.task.id, dayKey);
+    }
   }
 
   // Projektauswahl: bei Änderung wird über updateTask die project_id
@@ -455,20 +609,82 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
-  Widget _buildRepeatAfter() {
+  // Wiederholen als Preset-Dropdown im Stil von Microsoft To Do; „Benutzer-
+  // definiert" klappt die bisherigen zwei Felder (Wert + Einheit) darunter
+  // aus. Mapping: Nie=0, Täglich=1 Tag, Wöchentlich=1 Woche, Monatlich=1
+  // Monat (=30 Tage), Jährlich=1 Jahr (=365 Tage).
+  Widget _buildRepeatPreset() {
+    final localizations = AppLocalizations.of(context);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<_RepeatPreset>(
+            decoration: InputDecoration(
+              icon: Icon(Icons.repeat),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
+            isExpanded: true,
+            initialValue: _repeatPreset,
+            onChanged: (preset) {
+              if (preset == null) return;
+              setState(() {
+                _repeatPreset = preset;
+                switch (preset) {
+                  case _RepeatPreset.none:
+                    _repeatAfterValue = 0;
+                    _repeatAfterUnit = RepeatAfterUnit.days;
+                    break;
+                  case _RepeatPreset.daily:
+                    _repeatAfterValue = 1;
+                    _repeatAfterUnit = RepeatAfterUnit.days;
+                    break;
+                  case _RepeatPreset.weekly:
+                    _repeatAfterValue = 1;
+                    _repeatAfterUnit = RepeatAfterUnit.weeks;
+                    break;
+                  case _RepeatPreset.monthly:
+                    _repeatAfterValue = 1;
+                    _repeatAfterUnit = RepeatAfterUnit.months;
+                    break;
+                  case _RepeatPreset.yearly:
+                    _repeatAfterValue = 1;
+                    _repeatAfterUnit = RepeatAfterUnit.years;
+                    break;
+                  case _RepeatPreset.custom:
+                    // Werte bleiben unverändert, die Felder klappen aus.
+                    break;
+                }
+              });
+              _scheduleAutosave(immediate: true);
+            },
+            items: _RepeatPreset.values.map((preset) {
+              return DropdownMenuItem<_RepeatPreset>(
+                value: preset,
+                child: Text(_repeatPresetLabel(localizations, preset)),
+              );
+            }).toList(),
+          ),
+          if (_repeatPreset == _RepeatPreset.custom) _buildCustomRepeat(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomRepeat() {
     var localizations = AppLocalizations.of(context);
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(top: 8.0, left: 32.0),
       child: Row(
         children: [
           Flexible(
             flex: 65,
             child: TextFormField(
               keyboardType: TextInputType.number,
-              initialValue: getRepeatAfterValueFromDuration(
-                widget.task.repeatAfter,
-              ).toString(),
+              initialValue: _repeatAfterValue.toString(),
               onChanged: (newValue) {
                 _repeatAfterValue = int.tryParse(newValue) ?? 0;
                 _scheduleAutosave();
@@ -476,7 +692,6 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
               decoration: InputDecoration(
                 labelText: localizations.repeatAfter,
                 border: InputBorder.none,
-                icon: Icon(Icons.repeat),
                 contentPadding: EdgeInsets.fromLTRB(0, 0, 0, 0),
               ),
             ),
