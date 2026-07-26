@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
+import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
@@ -10,6 +11,8 @@ import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/task/task_edit_page.dart';
+import 'package:vikunja_app/presentation/widgets/list_accent_scaffold.dart';
+import 'package:vikunja_app/presentation/widgets/sort_chip.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/ui/empty_state.dart';
@@ -31,34 +34,44 @@ class SmartListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final look = smartListLook(context, list);
     final tasks = ref.watch(smartListTasksProvider(list));
+    final accent = look.color;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(look.icon, color: look.color),
-            const SizedBox(width: 12),
-            Text(look.title),
-          ],
-        ),
-      ),
-      body: tasks.when(
-        data: (tasks) => ConstrainedPage(
-          child: RefreshIndicator(
-            onRefresh: () => ref
-                .read(syncServiceProvider)
-                .syncNow(userInitiated: true),
-            child: tasks.isEmpty
-                ? _buildEmptyState(context, look)
-                : _buildList(ref, context, tasks),
+      backgroundColor: accent,
+      appBar: AccentAppBar(accentColor: accent),
+      body: Column(
+        children: [
+          accentListTitle(context, look.title, accent, icon: look.icon),
+          // "Erledigt" bleibt ohne Sortier-Chip (sie hat eine feste
+          // Reihenfolge, siehe smartListTasksProvider).
+          if (list != SmartList.completed)
+            SortChip(
+              listKey: 'smart/${list.name}',
+              foregroundColor: contrastingTextColor(accent),
+            ),
+          Expanded(
+            child: withCardSurface(
+              context: context,
+              child: tasks.when(
+                data: (tasks) => ConstrainedPage(
+                  child: RefreshIndicator(
+                    onRefresh: () => ref
+                        .read(syncServiceProvider)
+                        .syncNow(userInitiated: true),
+                    child: tasks.isEmpty
+                        ? _buildEmptyState(context, look)
+                        : _buildList(ref, context, tasks),
+                  ),
+                ),
+                error: (err, _) => VikunjaErrorWidget(
+                  error: err,
+                  onRetry: () => ref.invalidate(smartListTasksProvider(list)),
+                ),
+                loading: () => const LoadingWidget(),
+              ),
+            ),
           ),
-        ),
-        error: (err, _) => VikunjaErrorWidget(
-          error: err,
-          onRetry: () => ref.invalidate(smartListTasksProvider(list)),
-        ),
-        loading: () => const LoadingWidget(),
+        ],
       ),
       // Kein Hinzufügen in "Erledigt" und "Mir zugewiesen" (dort würde eine
       // neue, noch niemandem zugewiesene Aufgabe sofort wieder verschwinden).

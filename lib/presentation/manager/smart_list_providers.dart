@@ -28,6 +28,12 @@ Future<void> setListSortMode(
   TaskSortMode mode,
 ) => kv.set('sort_mode/$listKey', mode.name);
 
+/// Setzt eine Liste auf die Standard-Reihenfolge zurück (löscht den
+/// gespeicherten Sortier-Modus). Für Projektlisten bedeutet das: zurück zur
+/// manuellen Positionsreihenfolge (Drag & Drop).
+Future<void> clearListSortMode(KeyValueDao kv, String listKey) =>
+    kv.remove('sort_mode/$listKey');
+
 /// Reaktive Aufgaben einer [SmartList] aus der lokalen DB, mit zugeordnetem
 /// Projekt (für die Herkunfts-Zeile in der Liste). Offline-fähig; Änderungen
 /// über den OfflineWriter tauchen über die Drift-Streams von selbst auf.
