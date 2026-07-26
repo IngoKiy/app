@@ -105,16 +105,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Kein Speichern-Button mehr — Änderungen werden automatisch gesichert.
+      expect(find.byIcon(Icons.save), findsNothing);
+
       // Aktuelles Projekt wird angezeigt; Feld antippen öffnet die Auswahl.
       expect(find.text('Projekt Eins'), findsOneWidget);
       await tester.tap(find.text('Projekt Eins'));
       await tester.pumpAndSettle();
 
+      // Diskretes Feld: Autosave feuert sofort, ohne Speichern-Button.
       await tester.tap(find.text('Projekt Zwei').last);
-      await tester.pumpAndSettle();
-
-      // Speichern.
-      await tester.tap(find.byIcon(Icons.save));
       await tester.pumpAndSettle();
 
       expect(mock.captured, isNotNull);
@@ -127,4 +127,64 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('Titeländerung speichert automatisch nach Tipppause', (
+    tester,
+  ) async {
+    await _seedProject(db, id: 1, title: 'Projekt Eins');
+
+    final task = Task(
+      id: 5,
+      title: 'Aufgabe',
+      createdBy: null,
+      projectId: 1,
+      priority: 0,
+      created: _t,
+      updated: _t,
+    );
+
+    final mock = _MockTaskPageController();
+    final navKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          offlineWriterProvider.overrideWithValue(
+            buildWriter(db, buildExecutor(db)),
+          ),
+          taskRepositoryProvider.overrideWithValue(_FakeTaskRepository()),
+          taskPageControllerProvider.overrideWith(() => mock),
+        ],
+        child: MaterialApp(
+          navigatorKey: navKey,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          home: const Scaffold(body: SizedBox()),
+        ),
+      ),
+    );
+
+    navKey.currentState!.push(
+      MaterialPageRoute(builder: (_) => TaskEditPage(task: task)),
+    );
+    await tester.pumpAndSettle();
+
+    // Erstes Textfeld ist der Titel.
+    await tester.enterText(find.byType(TextFormField).first, 'Neuer Titel');
+
+    // Debounce (1,5 s) noch nicht abgelaufen: noch kein Save.
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(mock.captured, isNull);
+
+    // Nach der Tipppause wird automatisch gespeichert.
+    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pumpAndSettle();
+    expect(mock.captured, isNotNull);
+    expect(mock.captured!.title, 'Neuer Titel');
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
 }

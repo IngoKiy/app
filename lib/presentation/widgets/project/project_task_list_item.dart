@@ -10,12 +10,17 @@ class ProjectTaskListItem extends StatefulWidget {
   final Function onEdit;
   final Function(bool value) onCheckedChanged;
 
+  /// Öffnet die Schnellvorschau über das Menü. Kein Long-Press hier —
+  /// der startet in der Projektliste das Umsortieren (Drag).
+  final VoidCallback? onShowDetails;
+
   const ProjectTaskListItem({
     super.key,
     required this.task,
     required this.onTap,
     required this.onEdit,
     required this.onCheckedChanged,
+    this.onShowDetails,
   });
 
   @override
@@ -61,6 +66,7 @@ class ProjectTaskListItemState extends State<ProjectTaskListItem> {
                 task: widget.task,
                 onEdit: () => widget.onEdit(),
                 variant: TaskActionsVariant.menu,
+                onShowDetails: widget.onShowDetails,
               ),
             ],
           ),

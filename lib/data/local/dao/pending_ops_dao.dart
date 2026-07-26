@@ -26,6 +26,21 @@ class PendingOpsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(t) => OrderingTerm(expression: t.opId)]))
           .watch();
 
+  /// Jüngste wartende Op derselben Entität (höchste [opId]) — Grundlage der
+  /// Enqueue-Koaleszierung von Voll-Updates.
+  Future<PendingOpRow?> latestForEntity(String entityType, int localId) {
+    return (select(pendingOps)
+          ..where(
+            (t) => t.entityType.equals(entityType) & t.localId.equals(localId),
+          )
+          ..orderBy([
+            (t) =>
+                OrderingTerm(expression: t.opId, mode: OrderingMode.desc),
+          ])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   /// Nächste Charge in FIFO-Reihenfolge (aufsteigend nach [opId]).
   Future<List<PendingOpRow>> nextBatch({int limit = 20}) {
     return (select(pendingOps)

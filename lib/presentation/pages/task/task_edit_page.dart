@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
+import 'package:vikunja_app/core/offline/offline_writer.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/utils/priority.dart';
@@ -18,6 +19,7 @@ import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/edit_description.dart';
+import 'package:vikunja_app/presentation/pages/task/task_comments_page.dart';
 import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_picker.dart';
@@ -26,7 +28,9 @@ import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_delete_dialog.dart';
-import 'package:vikunja_app/presentation/widgets/task/task_save_dialog.dart';
+
+/// Zustand der Autosave-Anzeige in der AppBar.
+enum _SaveState { idle, saving, saved, error }
 
 class TaskEditPage extends ConsumerStatefulWidget {
   final Task task;
@@ -57,13 +61,28 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   Timer? _debounce;
   Completer<Iterable<String>>? _lastCompleter;
 
-  bool changed = false;
-  bool _isLoading = false;
+  // Autosave: Änderungen werden ohne Speichern-Button persistiert — diskrete
+  // Felder sofort, Textfelder mit Tipppausen-Debounce. Der lokale Write ist
+  // durch die Offline-First-Architektur immer schnell (DB + Outbox).
+  static const _autosaveDebounce = Duration(milliseconds: 1500);
+  Timer? _autosaveTimer;
+  bool _dirty = false;
+  bool _saving = false;
+  _SaveState _saveState = _SaveState.idle;
+
+  /// Labels-Stand des letzten erfolgreichen Saves — setLabels läuft nur bei
+  /// tatsächlicher Änderung (eigener Endpoint, nicht Teil von updateTask).
+  List<Label> _savedLabels = const [];
+
+  /// Beim Schedulen gecapturte Abhängigkeiten (siehe [_scheduleAutosave]).
+  OfflineWriter? _offlineWriter;
+  TaskPageController? _taskPageController;
 
   @override
   void initState() {
     _reminderDates = List.of(widget.task.reminderDates);
     _labels = List.of(widget.task.labels);
+    _savedLabels = List.of(widget.task.labels);
 
     _priority = widget.task.priority;
     _projectId = widget.task.projectId;
@@ -85,46 +104,23 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _autosaveTimer?.cancel();
+    // Noch nicht weggeschriebene Änderung beim Verlassen flushen. _autosave
+    // greift nur auf die in _scheduleAutosave gecapturten Abhängigkeiten zu
+    // (nie auf ref), daher ist der Aufruf hier sicher; der Write läuft im
+    // Hintergrund weiter.
+    if (_dirty) {
+      _autosave();
+    }
     _labelTypeAheadController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext ctx) {
-    return PopScope(
-      canPop: !changed,
-      onPopInvokedWithResult: (bool didPop, dynamic result) {
-        if (!didPop) {
-          _showConfirmationDialog();
-        }
-      },
-      child: Scaffold(
-        appBar: _buildAppBar(),
-        body: Stack(
-          children: [
-            ConstrainedPage(child: _buildForm(context)),
-            if (_isLoading)
-              Opacity(
-                opacity: 0.5,
-                child: ModalBarrier(
-                  dismissible: false,
-                  color: Theme.of(context).colorScheme.scrim,
-                ),
-              ),
-            if (_isLoading) const Center(child: CircularProgressIndicator()),
-          ],
-        ),
-        floatingActionButton: _isLoading
-            ? null
-            : FloatingActionButton(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() == true) {
-                    _saveTask(ctx);
-                  }
-                },
-                child: Icon(Icons.save),
-              ),
-      ),
+    return Scaffold(
+      appBar: _buildAppBar(),
+      body: ConstrainedPage(child: _buildForm(context)),
     );
   }
 
@@ -132,12 +128,68 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     return AppBar(
       title: Text(AppLocalizations.of(context).editTaskTitle),
       actions: [
+        _buildSaveIndicator(),
         IconButton(
-          icon: Icon(Icons.delete),
-          onPressed: _isLoading ? null : showDeleteConfirmDialog,
+          icon: Icon(Icons.comment_outlined),
+          tooltip: AppLocalizations.of(context).comments,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TaskCommentsPage(
+                  taskId: widget.task.id,
+                  taskTitle: _title ?? widget.task.title,
+                ),
+              ),
+            );
+          },
         ),
+        IconButton(icon: Icon(Icons.delete), onPressed: showDeleteConfirmDialog),
       ],
     );
+  }
+
+  Widget _buildSaveIndicator() {
+    final localizations = AppLocalizations.of(context);
+    switch (_saveState) {
+      case _SaveState.idle:
+        return const SizedBox.shrink();
+      case _SaveState.saving:
+        return Tooltip(
+          message: localizations.autosaveSaving,
+          child: const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12.0),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+        );
+      case _SaveState.saved:
+        return Tooltip(
+          message: localizations.autosaveSaved,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.0),
+            child: Center(child: Icon(Icons.cloud_done_outlined)),
+          ),
+        );
+      case _SaveState.error:
+        return Tooltip(
+          message: localizations.autosaveError,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Center(
+              child: Icon(
+                Icons.cloud_off_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ),
+        );
+    }
   }
 
   void showDeleteConfirmDialog() {
@@ -213,7 +265,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         initialValue: widget.task.title,
         onChanged: (title) {
           _title = title;
-          _checkChanged();
+          _scheduleAutosave();
         },
         decoration: InputDecoration(
           labelText: AppLocalizations.of(context).title,
@@ -238,7 +290,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           setState(() {
             if (description != null) {
               _description = description;
-              _checkChanged();
+              _scheduleAutosave(immediate: true);
             }
           });
         },
@@ -275,15 +327,15 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
-  // Projektauswahl: bei Änderung wird beim Speichern über updateTask die
-  // project_id mitgesendet (= Verschieben in ein anderes Projekt).
+  // Projektauswahl: bei Änderung wird über updateTask die project_id
+  // mitgesendet (= Verschieben in ein anderes Projekt).
   Widget _buildProject() {
     return ProjectPickerField(
       selectedProjectId: _projectId,
       onChanged: (projectId) {
         setState(() {
           _projectId = projectId;
-          _checkChanged();
+          _scheduleAutosave(immediate: true);
         });
       },
     );
@@ -298,7 +350,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         initialValue: widget.task.dueDate,
         onChanged: (duedate) {
           _dueDate = duedate;
-          _checkChanged();
+          _scheduleAutosave(immediate: true);
         },
       ),
     );
@@ -312,7 +364,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         initialValue: widget.task.startDate,
         onChanged: (startDate) {
           _startDate = startDate;
-          _checkChanged();
+          _scheduleAutosave(immediate: true);
         },
       ),
     );
@@ -326,7 +378,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         initialValue: widget.task.endDate,
         onChanged: (endDate) {
           _endDate = endDate;
-          _checkChanged();
+          _scheduleAutosave(immediate: true);
         },
       ),
     );
@@ -348,7 +400,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
               ).toString(),
               onChanged: (newValue) {
                 _repeatAfterValue = int.tryParse(newValue) ?? 0;
-                _checkChanged();
+                _scheduleAutosave();
               },
               decoration: InputDecoration(
                 labelText: localizations.repeatAfter,
@@ -372,7 +424,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
                 if (newType != null) {
                   _repeatAfterUnit = newType;
                 }
-                _checkChanged();
+                _scheduleAutosave(immediate: true);
               },
               items: RepeatAfterUnit.values
                   .map<DropdownMenuItem<RepeatAfterUnit>>((
@@ -406,6 +458,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
                   } else {
                     _reminderDates?.remove(e);
                   }
+                  _scheduleAutosave(immediate: true);
                 },
               );
             }).toList() ??
@@ -452,7 +505,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
       isExpanded: true,
       onChanged: (String? newValue) {
         _priority = priorityFromString(AppLocalizations.of(context), newValue);
-        _checkChanged();
+        _scheduleAutosave(immediate: true);
       },
       items:
           [
@@ -617,15 +670,15 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         _labels?.add(label);
         _labelTypeAheadController.clear();
       });
+      _scheduleAutosave(immediate: true);
     }
-
-    _checkChanged();
   }
 
   void _removeLabel(Label label) {
     setState(() {
       _labels?.removeWhere((l) => l.id == label.id);
     });
+    _scheduleAutosave(immediate: true);
   }
 
   void _createAndAddLabel(String labelTitle) async {
@@ -653,9 +706,8 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           _labels?.add(created);
           _labelTypeAheadController.clear();
         });
+        _scheduleAutosave(immediate: true);
       }
-
-      _checkChanged();
     }
   }
 
@@ -687,9 +739,8 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
               ),
             ),
           );
-
-          _checkChanged();
         });
+        _scheduleAutosave(immediate: true);
       }
     }
   }
@@ -712,7 +763,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           }
           Navigator.of(context).pop();
 
-          _checkChanged();
+          _scheduleAutosave(immediate: true);
         },
         () {
           Navigator.of(context).pop();
@@ -721,55 +772,43 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
-  Future<void> _showConfirmationDialog() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return TaskSaveDialog(
-          onConfirm: () {
-            Navigator.pop(context);
-            Navigator.pop(context);
-          },
-          onCancel: () {
-            Navigator.pop(context);
-          },
-        );
-      },
-    );
+  /// Merkt eine Änderung vor und stößt das Speichern an — diskrete Felder
+  /// sofort ([immediate]), Textfelder nach [_autosaveDebounce] Tipppause.
+  ///
+  /// Die Provider werden hier (immer mounted) gecaptured, damit _autosave als
+  /// Dispose-Flush oder Nachzügler-Re-Run nie mehr auf [ref] zugreifen muss.
+  void _scheduleAutosave({bool immediate = false}) {
+    _offlineWriter = ref.read(offlineWriterProvider);
+    _taskPageController = ref.read(taskPageControllerProvider.notifier);
+    _dirty = true;
+    _autosaveTimer?.cancel();
+    if (immediate) {
+      _autosave();
+    } else {
+      _autosaveTimer = Timer(_autosaveDebounce, _autosave);
+    }
   }
 
-  void _checkChanged() {
-    setState(() {
-      var repeatAfterValue = getRepeatAfterValueFromDuration(
-        widget.task.repeatAfter,
-      );
-      var repeatAfterType = getRepeatAfterTypeFromDuration(
-        widget.task.repeatAfter,
-      );
+  bool _sameLabels(List<Label> a, List<Label> b) =>
+      a.length == b.length &&
+      a.map((l) => l.id).toSet().containsAll(b.map((l) => l.id));
 
-      var repeatAfter = repeatAfterType.getDuration(repeatAfterValue);
+  Future<void> _autosave() async {
+    _autosaveTimer?.cancel();
+    if (!_dirty || _saving) return;
+    // Leeren Titel nicht persistieren — es wird gespeichert, sobald wieder
+    // ein Titel dasteht (der nächste onChanged triggert erneut).
+    if (_title != null && _title!.trim().isEmpty) return;
 
-      changed =
-          widget.task.title != _title ||
-          widget.task.description != _description ||
-          widget.task.dueDate != _dueDate ||
-          widget.task.startDate != _startDate ||
-          widget.task.endDate != _endDate ||
-          widget.task.repeatAfter != repeatAfter ||
-          widget.task.priority != _priority ||
-          widget.task.projectId != _projectId ||
-          widget.task.reminderDates != _reminderDates ||
-          widget.task.labels != _labels ||
-          widget.task.color != _color;
-    });
-  }
+    final offlineWriter = _offlineWriter;
+    final taskPageController = _taskPageController;
+    if (offlineWriter == null || taskPageController == null) return;
 
-  Future<void> _saveTask(BuildContext context) async {
-    setState(() {
-      _isLoading = true;
-    });
+    _saving = true;
+    _dirty = false;
+    if (mounted) setState(() => _saveState = _SaveState.saving);
 
+    var success = true;
     try {
       // Removes all reminders with no value set.
       _reminderDates?.removeWhere((d) => d.reminder == DateTime(0));
@@ -790,46 +829,40 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
             ..endDate = _endDate
             ..color = _color;
 
-      // update the labels (lokal + Outbox über den OfflineWriter)
-      if (_labels != null) {
-        final labelResult = await ref
-            .read(offlineWriterProvider)
-            .setLabels(updatedTask.id, _labels!);
-
-        if (!labelResult.ok && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context).taskSaveError)),
-          );
-          return;
+      // Labels nur bei tatsächlicher Änderung (eigener Endpoint).
+      final labels = _labels;
+      if (labels != null && !_sameLabels(labels, _savedLabels)) {
+        final labelResult = await offlineWriter.setLabels(
+          updatedTask.id,
+          labels,
+        );
+        success = labelResult.ok;
+        if (success) {
+          _savedLabels = List.of(labels);
         }
       }
 
-      var saveSuccess = await ref
-          .read(taskPageControllerProvider.notifier)
-          .updateTask(updatedTask);
-
-      if (context.mounted) {
-        if (saveSuccess) {
-          if (ModalRoute.of(context)?.isCurrent == true) {
-            Navigator.of(context).pop(updatedTask);
-          }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context).taskUpdatedSuccess),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context).taskSaveError)),
-          );
-        }
+      if (success) {
+        success = await taskPageController.updateTask(updatedTask);
       }
+    } catch (_) {
+      success = false;
     } finally {
+      _saving = false;
+      final newState = success ? _SaveState.saved : _SaveState.error;
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _saveState = newState);
+        if (!success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context).taskSaveError)),
+          );
+        }
+      } else {
+        _saveState = newState;
+      }
+      // Während des Speicherns eingegangene Änderungen direkt nachziehen.
+      if (_dirty) {
+        _autosave();
       }
     }
   }

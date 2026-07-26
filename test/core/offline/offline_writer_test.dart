@@ -203,6 +203,49 @@ void main() {
     });
   });
 
+  // --- Outbox-Koaleszierung (Autosave) ---------------------------------------
+
+  group('updateTask: Outbox-Koaleszierung', () {
+    test('zwei Offline-Updates derselben Aufgabe → eine Op mit letztem Stand',
+        () async {
+      await seedTask(id: 5, remoteId: 5, title: 'alt');
+
+      await writer.updateTask(_task(id: 5, title: 'Zwischenstand'));
+      await writer.updateTask(_task(id: 5, title: 'final'));
+
+      final queued = await ops();
+      expect(queued, hasLength(1));
+      expect(queued.single.type, PendingOpType.taskUpdate);
+      expect(queued.single.payload['title'], 'final');
+    });
+
+    test('Updates verschiedener Aufgaben werden nicht koalesziert', () async {
+      await seedTask(id: 5, remoteId: 5);
+      await seedTask(id: 6, remoteId: 6);
+
+      await writer.updateTask(_task(id: 5, title: 'a'));
+      await writer.updateTask(_task(id: 6, title: 'b'));
+
+      expect(await ops(), hasLength(2));
+    });
+
+    test('andersartige Op dazwischen: FIFO bleibt, kein Ersetzen', () async {
+      await seedTask(id: 5, remoteId: 5);
+
+      await writer.updateTask(_task(id: 5, title: 'a'));
+      await writer.setAssignees(5, [User(id: 7, username: 'a')]);
+      await writer.updateTask(_task(id: 5, title: 'b'));
+
+      final queued = await ops();
+      expect(queued, hasLength(3));
+      expect(queued[0].type, PendingOpType.taskUpdate);
+      expect(queued[0].payload['title'], 'a');
+      expect(queued[1].type, PendingOpType.taskSetAssignees);
+      expect(queued[2].type, PendingOpType.taskUpdate);
+      expect(queued[2].payload['title'], 'b');
+    });
+  });
+
   // --- Task delete -----------------------------------------------------------
 
   group('deleteTask', () {

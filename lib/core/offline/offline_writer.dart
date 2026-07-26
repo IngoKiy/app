@@ -170,8 +170,14 @@ class OfflineWriter {
     Map<String, int> onlineRefs = const {},
     int? onlinePrimaryId,
     bool forceQueue = false,
+    bool coalesce = false,
   }) async {
     await applyLocal();
+
+    // Idempotente Voll-Updates (Autosave) ersetzen beim Einreihen ihren noch
+    // wartenden Vorgänger (Last-Write-Wins), statt die Queue wachsen zu lassen.
+    Future<int> enqueue(PendingOp op) =>
+        coalesce ? _outbox.enqueueCoalesced(op) : _outbox.enqueue(op);
 
     // Nicht online adressierbar: Update/Delete auf einer Temp-Entität, eine
     // Temp-Referenz oder explizit erzwungen (z.B. Bulk mit Temp-Label).
@@ -179,7 +185,7 @@ class OfflineWriter {
     if (forceQueue ||
         hasTempRef ||
         (!op.type.isCreate && op.localId < 0)) {
-      await _outbox.enqueue(op);
+      await enqueue(op);
       return const OfflineWriteResult(OfflineWriteStatus.queued);
     }
 
@@ -187,13 +193,13 @@ class OfflineWriter {
     try {
       resp = await _executor.dispatch(op, onlineRefs, onlinePrimaryId);
     } catch (_) {
-      await _outbox.enqueue(op);
+      await enqueue(op);
       return const OfflineWriteResult(OfflineWriteStatus.queued);
     }
 
     switch (resp) {
       case ExceptionResponse():
-        await _outbox.enqueue(op);
+        await enqueue(op);
         return const OfflineWriteResult(OfflineWriteStatus.queued);
       case ErrorResponse():
         if (rollback != null) await rollback();
@@ -270,6 +276,7 @@ class OfflineWriter {
       onlinePrimaryId: task.id,
       applyLocal: () => _patchTaskLocal(dto, backup),
       rollback: () => _restoreTask(task.id, backup),
+      coalesce: true,
     );
   }
 

@@ -5,7 +5,7 @@ import 'package:vikunja_app/presentation/pages/task/task_comments_page.dart';
 
 enum TaskActionsVariant { menu, icons }
 
-enum _TaskAction { comments, edit }
+enum _TaskAction { details, comments, edit }
 
 class TaskActions extends StatelessWidget {
   final Task task;
@@ -13,12 +13,17 @@ class TaskActions extends StatelessWidget {
   final TaskActionsVariant variant;
   final VoidCallback? onBeforeAction;
 
+  /// Öffnet die Schnellvorschau (Bottom-Sheet). Nur wenn gesetzt, erscheint
+  /// der "Details"-Menüpunkt — im Sheet selbst bleibt er weg.
+  final VoidCallback? onShowDetails;
+
   const TaskActions({
     super.key,
     required this.task,
     required this.onEdit,
     required this.variant,
     this.onBeforeAction,
+    this.onShowDetails,
   });
 
   void _openComments(BuildContext context) {
@@ -37,8 +42,16 @@ class TaskActions extends StatelessWidget {
     onEdit();
   }
 
+  void _showDetails() {
+    onBeforeAction?.call();
+    onShowDetails?.call();
+  }
+
   void _handleMenuAction(BuildContext context, _TaskAction action) {
     switch (action) {
+      case _TaskAction.details:
+        _showDetails();
+        break;
       case _TaskAction.comments:
         _openComments(context);
         break;
@@ -51,6 +64,11 @@ class TaskActions extends StatelessWidget {
   List<PopupMenuEntry<_TaskAction>> _menuItems(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     return [
+      if (onShowDetails != null)
+        PopupMenuItem(
+          value: _TaskAction.details,
+          child: Text(localizations.taskDetails),
+        ),
       PopupMenuItem(
         value: _TaskAction.comments,
         child: Text(localizations.comments),

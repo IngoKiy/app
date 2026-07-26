@@ -195,9 +195,10 @@ class TaskListPage extends ConsumerWidget {
     return TaskListItem(
       key: Key(task.id.toString()),
       task: task,
-      onTap: () {
-        _showTaskBottomSheet(context, task);
-      },
+      // Tipp öffnet direkt die Bearbeiten-Seite (konsistent mit Kanban und
+      // Vikunja-Web); die Schnellvorschau bleibt per Long-Press erreichbar.
+      onTap: () => _onEdit(context, task),
+      onShowDetails: () => _showTaskBottomSheet(context, task),
       onEdit: () => _onEdit(context, task),
       onCheckedChanged: (value) async {
         var success = await ref

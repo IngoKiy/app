@@ -181,7 +181,10 @@ class ProjectTaskList extends ConsumerWidget {
     return ProjectTaskListItem(
       key: Key(task.id.toString()),
       task: task,
-      onTap: () => _showTaskBottomSheet(ref, task),
+      // Tipp öffnet direkt die Bearbeiten-Seite; die Schnellvorschau liegt im
+      // Drei-Punkte-Menü (Long-Press startet hier das Umsortieren).
+      onTap: () => _onEdit(ref, task),
+      onShowDetails: () => _showTaskBottomSheet(ref, task),
       onEdit: () => _onEdit(ref, task),
       onCheckedChanged: (value) async {
         var success = await ref
@@ -210,15 +213,13 @@ class ProjectTaskList extends ConsumerWidget {
     );
   }
 
-  void _onEdit(WidgetRef ref, Task task) async {
-    var editedTask = await Navigator.push<Task?>(
+  void _onEdit(WidgetRef ref, Task task) {
+    // Kein Reload nötig: die Liste hängt an Drift-watch-Streams und zieht
+    // Autosave-Änderungen der Edit-Seite von selbst nach.
+    Navigator.push<Task?>(
       ref.context,
       MaterialPageRoute(builder: (buildContext) => TaskEditPage(task: task)),
     );
-
-    if (editedTask != null) {
-      ref.read(projectControllerProvider(project).notifier).reload();
-    }
   }
 
   void _navigateToDetail(BuildContext context, Project project) {

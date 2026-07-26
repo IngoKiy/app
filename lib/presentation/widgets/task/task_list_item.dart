@@ -14,12 +14,16 @@ class TaskListItem extends StatefulWidget {
   final Function onEdit;
   final Function(bool value) onCheckedChanged;
 
+  /// Öffnet die Schnellvorschau (Long-Press auf die Zeile + "Details"-Menü).
+  final VoidCallback? onShowDetails;
+
   const TaskListItem({
     super.key,
     required this.task,
     required this.onTap,
     required this.onEdit,
     required this.onCheckedChanged,
+    this.onShowDetails,
   });
 
   @override
@@ -42,6 +46,7 @@ class TaskListItemState extends State<TaskListItem> {
           onTap: () {
             widget.onTap();
           },
+          onLongPress: widget.onShowDetails,
           contentPadding: const EdgeInsetsDirectional.only(
             start: 16.0,
             end: 8.0,
@@ -69,6 +74,7 @@ class TaskListItemState extends State<TaskListItem> {
                 task: widget.task,
                 onEdit: () => widget.onEdit(),
                 variant: TaskActionsVariant.menu,
+                onShowDetails: widget.onShowDetails,
               ),
             ],
           ),

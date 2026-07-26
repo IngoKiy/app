@@ -48,4 +48,36 @@ void main() {
     );
     expect((dot.decoration as BoxDecoration).color, projectColor);
   });
+
+  testWidgets('Tipp öffnet Bearbeiten, Long-Press die Schnellvorschau', (
+    WidgetTester tester,
+  ) async {
+    var tapped = false;
+    var detailsShown = false;
+    final task = Task(
+      id: 1,
+      title: 'Water the plants',
+      createdBy: User(username: 'demo'),
+      projectId: 5,
+    );
+
+    await tester.pumpWidget(
+      _wrap(
+        TaskListItem(
+          task: task,
+          onTap: () => tapped = true,
+          onEdit: () {},
+          onCheckedChanged: (_) {},
+          onShowDetails: () => detailsShown = true,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Water the plants'));
+    expect(tapped, isTrue);
+    expect(detailsShown, isFalse);
+
+    await tester.longPress(find.text('Water the plants'));
+    expect(detailsShown, isTrue);
+  });
 }
