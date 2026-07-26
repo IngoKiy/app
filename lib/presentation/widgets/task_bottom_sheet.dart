@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:vikunja_app/core/utils/date_extensions.dart';
+import 'package:vikunja_app/core/utils/priority.dart';
+import 'package:vikunja_app/core/utils/task_steps.dart';
 import 'package:vikunja_app/domain/entities/label.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
-import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_actions.dart';
 import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 
+/// Schnellvorschau einer Aufgabe (Long-Press) im Stil der Microsoft-To-Do-
+/// Detailansicht: Titelzeile mit Erledigt-Kreis und Stern, Schritte,
+/// aufgeräumte Icon-Zeilen (nur gesetzte Werte), Notiz, Footer mit
+/// Erstelldatum. Bearbeitet wird auf der Edit-Seite ([onEdit]).
 class TaskBottomSheet extends StatefulWidget {
   final Task task;
   final bool showInfo;
@@ -29,179 +34,201 @@ class TaskBottomSheet extends StatefulWidget {
 }
 
 class TaskBottomSheetState extends State<TaskBottomSheet> {
-  final double propertyPadding = 10.0;
-
-  TaskBottomSheetState();
-
-  String priorityToStringLocalized(BuildContext context, int? priority) {
-    if (priority == null) return AppLocalizations.of(context).priorityUnset;
-    switch (priority) {
-      case 0:
-        return AppLocalizations.of(context).priorityUnset;
-      case 1:
-        return AppLocalizations.of(context).priorityLow;
-      case 2:
-        return AppLocalizations.of(context).priorityMedium;
-      case 3:
-        return AppLocalizations.of(context).priorityHigh;
-      case 4:
-        return AppLocalizations.of(context).priorityUrgent;
-      case 5:
-        return AppLocalizations.of(context).priorityDoNow;
-      default:
-        return '';
-    }
-  }
+  static const double _rowGap = 14.0;
 
   @override
   Widget build(BuildContext context) {
-    ThemeData theme = Theme.of(context);
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final task = widget.task;
+    final steps = parseSteps(task.description);
+    final note = stripSteps(task.description);
+
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.9,
       child: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.fromLTRB(20, 10, 10, 20),
+          padding: const EdgeInsets.fromLTRB(20, 8, 12, 20),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
             mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Titelzeile wie in To Do: Erledigt-Kreis, Titel, Stern.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      widget.task.title,
-                      style: theme.textTheme.headlineSmall,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6.0),
+                    child: Icon(
+                      task.done
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: task.done
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TaskActions(
-                        task: widget.task,
-                        onEdit: () => widget.onEdit(),
-                        variant: TaskActionsVariant.icons,
-                        onBeforeAction: () => Navigator.of(context).pop(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      task.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        decoration: task.done
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
-                    ],
+                    ),
+                  ),
+                  Icon(
+                    task.isFavorite ? Icons.star : Icons.star_border,
+                    color: task.isFavorite
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  TaskActions(
+                    task: task,
+                    onEdit: () => widget.onEdit(),
+                    variant: TaskActionsVariant.icons,
+                    onBeforeAction: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
-              SizedBox(height: propertyPadding),
-              Wrap(
-                spacing: 10,
-                children: widget.task.labels.map((Label label) {
-                  return LabelWidget(label: label);
-                }).toList(),
-              ),
-
-              // description with html rendering
-              Text(
-                AppLocalizations.of(context).description,
-                style: theme.textTheme.titleMedium,
-              ),
-              SizedBox(height: propertyPadding),
-              Padding(
-                padding: EdgeInsets.fromLTRB(10, 0, 0, 0),
-                child: HtmlWidget(
-                  widget.task.description.isNotEmpty
-                      ? widget.task.description
-                      : AppLocalizations.of(context).noDescription,
+              const SizedBox(height: _rowGap),
+              // Schritte (read-only) mit Fortschritt.
+              if (steps.isNotEmpty) ...[
+                Text(
+                  l10n.stepsProgress(
+                    steps.where((s) => s.done).length,
+                    steps.length,
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                for (final step in steps)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          step.done
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          size: 18,
+                          color: step.done
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            step.text,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              decoration: step.done
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: step.done
+                                  ? theme.colorScheme.onSurfaceVariant
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: _rowGap),
+              ],
+              if (task.labels.isNotEmpty) ...[
+                Wrap(
+                  spacing: 10,
+                  children: task.labels
+                      .map((Label label) => LabelWidget(label: label))
+                      .toList(),
+                ),
+                const SizedBox(height: _rowGap),
+              ],
+              // Nur gesetzte Werte zeigen (To-Do-Stil).
+              if (task.hasDueDate)
+                _iconRow(
+                  Icons.calendar_today_outlined,
+                  task.dueDate!.toLocal().formatShort(),
+                ),
+              for (final reminder in task.reminderDates)
+                _iconRow(
+                  Icons.notifications_none,
+                  reminder.reminder.toLocal().formatShort(),
+                ),
+              if (task.hasStartDate)
+                _iconRow(
+                  Icons.play_arrow_rounded,
+                  task.startDate!.toLocal().formatShort(),
+                ),
+              if (task.hasEndDate)
+                _iconRow(
+                  Icons.stop_rounded,
+                  task.endDate!.toLocal().formatShort(),
+                ),
+              if (task.priority != null && task.priority != 0)
+                _iconRow(
+                  Icons.flag_outlined,
+                  priorityToString(l10n, task.priority),
+                ),
+              if (task.percentDone != null && task.percentDone! > 0)
+                _iconRow(
+                  Icons.percent,
+                  '${(task.percentDone! * 100).toInt()}%',
+                ),
+              // Notiz (Beschreibung ohne Schritte).
+              if (note.isNotEmpty) ...[
+                const SizedBox(height: _rowGap),
+                Padding(
+                  padding: const EdgeInsets.only(left: 2.0),
+                  child: HtmlWidget(note),
+                ),
+              ],
+              const SizedBox(height: _rowGap),
+              TaskAssigneesSection(task: task),
+              const SizedBox(height: _rowGap),
+              TaskAttachmentsSection(task: task),
+              const SizedBox(height: _rowGap),
+              Center(
+                child: Text(
+                  l10n.taskCreatedOn(task.created.toLocal().formatShort()),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              SizedBox(height: propertyPadding),
-              // Due date
-              Row(
-                children: [
-                  Icon(Icons.access_time),
-                  Padding(padding: EdgeInsets.fromLTRB(10, 0, 0, 0)),
-                  Text(
-                    widget.task.hasDueDate
-                        ? widget.task.dueDate!.toLocal().formatShort()
-                        : AppLocalizations.of(context).noDueDate,
-                  ),
-                ],
-              ),
-              //Reminders
-              ...widget.task.reminderDates.map((TaskReminder reminder) {
-                return Padding(
-                  padding: EdgeInsets.only(top: propertyPadding),
-                  child: Row(
-                    children: [
-                      Icon(Icons.share_arrival_time_outlined),
-                      Padding(padding: EdgeInsets.fromLTRB(10, 0, 0, 0)),
-                      Text(reminder.reminder.toLocal().formatShort()),
-                    ],
-                  ),
-                );
-              }),
-              SizedBox(height: propertyPadding),
-              // start date
-              Row(
-                children: [
-                  Icon(Icons.play_arrow_rounded),
-                  Padding(padding: EdgeInsets.fromLTRB(10, 0, 0, 0)),
-                  Text(
-                    widget.task.hasStartDate
-                        ? widget.task.startDate!.toLocal().formatShort()
-                        : AppLocalizations.of(context).noStartDate,
-                  ),
-                ],
-              ),
-              SizedBox(height: propertyPadding),
-              // end date
-              Row(
-                children: [
-                  Icon(Icons.stop_rounded),
-                  Padding(padding: EdgeInsets.fromLTRB(10, 0, 0, 0)),
-                  Text(
-                    widget.task.hasEndDate
-                        ? widget.task.endDate!.toLocal().formatShort()
-                        : AppLocalizations.of(context).noEndDate,
-                  ),
-                ],
-              ),
-              SizedBox(height: propertyPadding),
-              // priority
-              Row(
-                children: [
-                  Icon(Icons.priority_high),
-                  Padding(padding: EdgeInsets.fromLTRB(10, 0, 0, 0)),
-                  Text(
-                    widget.task.priority != null
-                        ? priorityToStringLocalized(
-                            context,
-                            widget.task.priority,
-                          )
-                        : AppLocalizations.of(context).noPriority,
-                  ),
-                ],
-              ),
-              SizedBox(height: propertyPadding),
-              // progress
-              Row(
-                children: [
-                  Icon(Icons.percent),
-                  Padding(padding: EdgeInsets.fromLTRB(10, 0, 0, 0)),
-                  Text(
-                    widget.task.percentDone != null
-                        ? "${(widget.task.percentDone! * 100).toInt()}%"
-                        : AppLocalizations.of(context).percentUnset,
-                  ),
-                ],
-              ),
-              SizedBox(height: propertyPadding),
-              // assignees
-              TaskAssigneesSection(task: widget.task),
-              SizedBox(height: propertyPadding),
-              // attachments
-              TaskAttachmentsSection(task: widget.task),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _iconRow(IconData icon, String text) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 14),
+          Text(text, style: theme.textTheme.bodyMedium),
+        ],
       ),
     );
   }
