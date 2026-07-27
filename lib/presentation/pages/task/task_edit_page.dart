@@ -1207,7 +1207,10 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
                         decoration: InputDecoration(
                           hintText: AppLocalizations.of(context).addNewLabel,
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
                           filled: false,
+                          contentPadding: EdgeInsets.zero,
                         ),
                       ),
               onSelected: (String selection) {
