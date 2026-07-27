@@ -314,17 +314,23 @@ Verschieben orange / Löschen rot, kein Abhaken per Swipe); Composer mit
 Erinnerung/Fälligkeit/Notiz; Listenoptionen-Sheet mit Farb-Design-Wahl;
 „+ Neue Liste" legt sofort an; System-Schrift statt Quicksand.
 
-**Noch offen (bewusst):**
-- Scroll-Kollaps des Großtitels in die Navbar.
-- „Liste löschen": im Datenlayer fehlt Projekt-Delete (Repository/Offline-
-  Writer) — erst API-Ausbau, dann Menüpunkt.
-- Foto-/benutzerdefinierte Listen-Hintergründe, Liste drucken/duplizieren/
-  Kopie senden.
-- Composer: „Mein Tag"-Icon (braucht Task-ID direkt aus addTask zurück).
-- Erledigen-Sound, Datumserkennung im Titel, Heute-fällig-Push (vikunja-push),
-  Einstellungs-Sheet-Optik (aktuell eigene Seite mit App-Einstellungen).
-- Quicksand-Schrift liegt weiter im Bundle, falls die Markenschrift zurück
-  gewünscht wird.
+**Zweite Runde (27.07. nachmittags) — ebenfalls umgesetzt:**
+Titel-Kollaps in die Navbar (Smart-Lists + Projekte); „Liste löschen" durch
+den ganzen Stack (PendingOp projectDelete, DataSource, OpExecutor,
+OfflineWriter) mit To-Do-Bestätigungsdialog; Datumserkennung in Titeln
+(heute/morgen/übermorgen/nächste Woche/Wochentage/31.12., Entfernen-Option,
+beides abschaltbar); Erledigen-Sound (abschaltbar); drei neue
+Einstellungs-Toggles; Einstellungen als hochgezogenes Sheet; Liste
+duplizieren (inkl. offener Aufgaben); Kopie senden über das
+System-Share-Sheet (Drucken über dessen Ziele); Foto-Listenhintergründe
+(6 gebündelte Verläufe, je Liste wählbar, KeyValue-persistiert).
+
+**Bekannte bewusste Näherungen:**
+- Erledigen-Sound nutzt den System-Klick (kein eigenes Chime-Asset).
+- Foto-Hintergründe sind generierte Verläufe statt lizenzierter Fotos.
+- Composer ohne „Mein Tag"-Icon (braucht die Task-ID synchron aus addTask).
+- Heute-fällig-Push läuft weiter über vikunja-push serverseitig.
+- Quicksand-Schrift liegt im Bundle, falls die Markenschrift zurück soll.
 
 ## 7. Bewusst NICHT übernommen aus To Do
 
