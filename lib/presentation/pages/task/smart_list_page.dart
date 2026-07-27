@@ -91,7 +91,10 @@ class SmartListPage extends ConsumerWidget {
       bottomNavigationBar:
           (list == SmartList.completed || list == SmartList.assignedToMe)
           ? null
-          : AddTaskBar(onTap: () => _addItemDialog(ref, context)),
+          : AddTaskBar(
+              accentColor: accent,
+              onTap: () => _addItemDialog(ref, context),
+            ),
     );
   }
 

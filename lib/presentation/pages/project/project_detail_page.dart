@@ -116,7 +116,10 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
                 ),
           floatingActionButton: (!isListView) ? _buildFab(data.project) : null,
           bottomNavigationBar: showAddBar
-              ? AddTaskBar(onTap: () => _addITaskDialog(context, data.project))
+              ? AddTaskBar(
+                  accentColor: accentColor,
+                  onTap: () => _addITaskDialog(context, data.project),
+                )
               : null,
         );
       },
