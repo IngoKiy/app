@@ -60,7 +60,7 @@ class _ProjectTaskListState extends ConsumerState<ProjectTaskList> {
             child: SortChip(
               listKey: sortKey,
               allowManualOrder: true,
-              foregroundColor: theme.colorScheme.onSurfaceVariant,
+              accentColor: accentColor,
             ),
           ),
         ];
@@ -251,7 +251,11 @@ class _ProjectTaskListState extends ConsumerState<ProjectTaskList> {
             .then((success) {
               if (!success && ref.context.mounted) {
                 ScaffoldMessenger.of(ref.context).showSnackBar(
-                  const SnackBar(content: Text('Failed to reorder task')),
+                  SnackBar(
+                    content: Text(
+                      AppLocalizations.of(ref.context).taskMoveError,
+                    ),
+                  ),
                 );
               }
             });

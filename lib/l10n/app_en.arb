@@ -85,13 +85,21 @@
   "currentVersionPrefix": "Current version: {version}",
   "@currentVersionPrefix": {
     "description": "Label showing the current app version.",
-    "placeholders": { "version": { "type": "String" } }
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   },
   "currentVersionUnknown": "Current version: -",
   "latestVersionPrefix": "Latest version: {version}",
   "@latestVersionPrefix": {
     "description": "Label showing the latest available version.",
-    "placeholders": { "version": { "type": "String" } }
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   },
   "noNotificationPermission": "No notification permission!",
   "onlyShowTasksWithDueDate": "Only show tasks with due date",
@@ -105,7 +113,11 @@
   "newVersionAvailable": "New version available: {version}",
   "@newVersionAvailable": {
     "description": "Snackbar text notifying the user about a new version.",
-    "placeholders": { "version": { "type": "String" } }
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   },
   "unsavedChangesTitle": "You have unsaved changes!",
   "unsavedChangesMessage": "Would you like to dismiss those changes?",
@@ -142,7 +154,11 @@
   "addTaskBar": "Add a task",
   "taskCreatedOn": "Created {date}",
   "@taskCreatedOn": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "smartListAssigned": "Assigned to me",
   "myDayAdd": "Add to My Day",
@@ -150,12 +166,23 @@
   "stepAdd": "Next step",
   "stepsProgress": "{done} of {total}",
   "@stepsProgress": {
-    "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } }
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   },
   "sortByLabel": "Sort",
   "sortedByLabel": "Sorted by {mode}",
   "@sortedByLabel": {
-    "placeholders": { "mode": { "type": "String" } }
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
   },
   "sortDueDate": "Due date",
   "sortImportance": "Importance",
@@ -198,7 +225,11 @@
   "openTasksCount": "{count, plural, =1{1 open task} other{{count} open tasks}}",
   "@openTasksCount": {
     "description": "Subtitle on a project folder card: number of open tasks",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "savedFilterLabel": "Filter",
   "savedFiltersSection": "Filters",
@@ -213,19 +244,31 @@
   "registrationFailedLong": "Registration failed! Please check your server url and credentials. {error}",
   "@registrationFailedLong": {
     "description": "Registration dialog title including an error message",
-    "placeholders": { "error": { "type": "String" } }
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "downloading": "Downloading",
   "downloadFinished": "Download finished",
   "changeBucketTitle": "Change the title of '{title}'",
   "@changeBucketTitle": {
     "description": "Dialog title for changing a Kanban bucket title.",
-    "placeholders": { "title": { "type": "String" } }
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
   },
   "bucketLimitTitle": "Limit for '{title}'",
   "@bucketLimitTitle": {
     "description": "Dialog title for setting Kanban bucket limit.",
-    "placeholders": { "title": { "type": "String" } }
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
   },
   "removeLimit": "Remove Limit",
   "projectSection": "Projects",
@@ -274,11 +317,19 @@
   "versionDialogDescription": "The server version is not compatible with this version of the app.\nUse at your own risk!",
   "versionDialogSupported": "Minimum required server version: {versionString}",
   "@versionDialogSupported": {
-    "placeholders": { "versionString": { "type": "String" } }
+    "placeholders": {
+      "versionString": {
+        "type": "String"
+      }
+    }
   },
   "versionDialogUsed": "Your server version: {versionString}",
   "@versionDialogUsed": {
-    "placeholders": { "versionString": { "type": "String" } }
+    "placeholders": {
+      "versionString": {
+        "type": "String"
+      }
+    }
   },
   "attachments": "Attachments",
   "addAttachment": "Add attachment",
@@ -304,7 +355,11 @@
   "removeMemberConfirmTitle": "Remove member?",
   "removeMemberConfirm": "{name} will lose access to this project.",
   "@removeMemberConfirm": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "membersOnlineOnly": "Member management is only available online",
   "membersLoadFailed": "Could not load members",
@@ -316,11 +371,19 @@
   "syncingBanner": "Syncing…",
   "pendingChangesBanner": "{count} changes pending",
   "@pendingChangesBanner": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "syncErrorBanner": "Sync failed: {message}",
   "@syncErrorBanner": {
-    "placeholders": { "message": { "type": "String" } }
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
   },
   "syncSheetTitle": "Sync status",
   "syncSheetEmpty": "Everything is up to date",
@@ -342,14 +405,30 @@
   "syncTimeJustNow": "just now",
   "syncTimeMinutes": "{n} min ago",
   "@syncTimeMinutes": {
-    "placeholders": { "n": { "type": "int" } }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "syncTimeHours": "{n} h ago",
   "@syncTimeHours": {
-    "placeholders": { "n": { "type": "int" } }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "syncTimeDays": "{n} d ago",
   "@syncTimeDays": {
-    "placeholders": { "n": { "type": "int" } }
-  }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "dueYesterday": "Yesterday",
+  "dueToday": "Today",
+  "dueTomorrow": "Tomorrow",
+  "versionCheckError": "Couldn't check for the latest version!"
 }

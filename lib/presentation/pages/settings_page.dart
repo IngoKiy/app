@@ -230,7 +230,7 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                         .getLatestVersionTag();
                     if (newestVersion == null && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Couldn't get latest version!")),
+                        SnackBar(content: Text(l10n.versionCheckError)),
                       );
                     } else {
                       setState(() {

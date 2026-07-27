@@ -73,7 +73,7 @@ void main() {
       await tester.pump();
       expect(find.text('Sort'), findsOneWidget);
 
-      await tester.tap(find.byType(Chip));
+      await tester.tap(find.text('Sort'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Alphabetically').last);

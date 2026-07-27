@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
-import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
@@ -45,10 +44,7 @@ class SmartListPage extends ConsumerWidget {
           // "Erledigt" bleibt ohne Sortier-Chip (sie hat eine feste
           // Reihenfolge, siehe smartListTasksProvider).
           if (list != SmartList.completed)
-            SortChip(
-              listKey: 'smart/${list.name}',
-              foregroundColor: contrastingTextColor(accent),
-            ),
+            SortChip(listKey: 'smart/${list.name}', accentColor: accent),
           Expanded(
             child: withCardSurface(
               context: context,

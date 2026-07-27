@@ -1,5 +1,9 @@
 # Plan: BOOS Agenda im Stil von Microsoft To Do
 
+> Update 27.07.2026: Vollständige Referenzerfassung der echten To-Do-App
+> (alle Screens, Gesten, Menüs, Design-Tokens) plus Gap-Analyse und neue
+> Arbeitspakete in **docs/ms-todo-parity.md** — dort weiterarbeiten.
+
 Beschlossene Ausrichtung (26.07.2026, mit Ingo abgestimmt): Die App übernimmt
 Optik und Bedienmodell von Microsoft To Do vollständig, auf Basis der
 Offline-First-Architektur (Drift + Outbox, siehe docs/offline.md).
