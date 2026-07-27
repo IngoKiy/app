@@ -300,7 +300,33 @@ test/goldens`), UI-Guidelines (docs/ui-guidelines.md) gelten unverändert —
 Farben über Theme-Rollen, keine Hardcodes; die Token-Tabelle aus Abschnitt 3
 gehört als To-Do-Palette nach `lib/core/theming/`.
 
-## 6. Bewusst NICHT übernommen aus To Do
+## 6. Umsetzungsstand (27.07.2026, Branch feat/ms-todo-ui)
+
+**Umgesetzt (AP0–AP6 + Schrift):** vollständige deutsche l10n;
+To-Do-Fälligkeitsformat (Gestern/Heute/Morgen bzw. „Mi. 22. Juli", rot);
+Sort-Chip im To-Do-Stil; Detailseite als Aktionszeilen mit Preset-Sheets und
+„Mehr"-Bereich; Übersicht mit flachen Zeilen, Gruppenbaum, To-Do-Reihenfolge
+der Smart-Lists, Fußzeile, ohne Bottom-Navigation (Einstellungen hinter dem
+Avatar); Add-Leiste statt FAB überall (akzentgetönt); Stern/Akzente in
+Listenfarbe; „Geplant" hell mit Datums-Gruppenchips; „Mein Tag" mit
+Datums-Untertitel und Vorschläge-Sheet; Swipes wie To Do (Mein Tag blau /
+Verschieben orange / Löschen rot, kein Abhaken per Swipe); Composer mit
+Erinnerung/Fälligkeit/Notiz; Listenoptionen-Sheet mit Farb-Design-Wahl;
+„+ Neue Liste" legt sofort an; System-Schrift statt Quicksand.
+
+**Noch offen (bewusst):**
+- Scroll-Kollaps des Großtitels in die Navbar.
+- „Liste löschen": im Datenlayer fehlt Projekt-Delete (Repository/Offline-
+  Writer) — erst API-Ausbau, dann Menüpunkt.
+- Foto-/benutzerdefinierte Listen-Hintergründe, Liste drucken/duplizieren/
+  Kopie senden.
+- Composer: „Mein Tag"-Icon (braucht Task-ID direkt aus addTask zurück).
+- Erledigen-Sound, Datumserkennung im Titel, Heute-fällig-Push (vikunja-push),
+  Einstellungs-Sheet-Optik (aktuell eigene Seite mit App-Einstellungen).
+- Quicksand-Schrift liegt weiter im Bundle, falls die Markenschrift zurück
+  gewünscht wird.
+
+## 7. Bewusst NICHT übernommen aus To Do
 
 Planner-Integration, Gekennzeichnete E-Mail, Microsoft-Konten („Konten
 verwalten"), Drucken über AirPrint kann später kommen. Vikunja-Mehrwerte
