@@ -461,5 +461,9 @@
   },
   "completionSoundSetting": "Play completion sound",
   "dateDetectionSetting": "Recognize dates and times in task titles",
-  "dateStripSetting": "Remove recognized dates and times from task titles"
+  "dateStripSetting": "Remove recognized dates and times from task titles",
+  "duplicateList": "Duplicate list",
+  "sendCopy": "Send a copy",
+  "printList": "Print list",
+  "copySuffix": "copy"
 }

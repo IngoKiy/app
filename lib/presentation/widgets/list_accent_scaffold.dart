@@ -18,11 +18,20 @@ class AccentAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// auf Mint bei „Geplant"); Standard ist die Kontrastfarbe.
   final Color? foregroundColor;
 
+  /// Listentitel, der beim Scrollen zentriert in der Navbar erscheint
+  /// (wie in To Do, wo der Großtitel in die Kopfzeile kollabiert).
+  final String? title;
+
+  /// Steuert die Einblendung von [title].
+  final bool showTitle;
+
   const AccentAppBar({
     super.key,
     required this.accentColor,
     this.actions,
     this.foregroundColor,
+    this.title,
+    this.showTitle = false,
   });
 
   @override
@@ -39,6 +48,21 @@ class AccentAppBar extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: onAccent,
       elevation: 0,
       scrolledUnderElevation: 0,
+      centerTitle: true,
+      title: title != null
+          ? AnimatedOpacity(
+              opacity: showTitle ? 1 : 0,
+              duration: const Duration(milliseconds: 150),
+              child: Text(
+                title!,
+                style: TextStyle(
+                  color: onAccent,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
+          : null,
       iconTheme: IconThemeData(color: onAccent),
       actionsIconTheme: IconThemeData(color: onAccent),
       leadingWidth: canPop ? 112 : null,

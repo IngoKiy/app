@@ -27,13 +27,23 @@ import 'package:vikunja_app/presentation/widgets/task_bottom_sheet.dart';
 /// Aufgabenliste einer [SmartList] (MS-To-Do-Stil): reaktiv aus der lokalen
 /// DB, Tipp öffnet die Bearbeiten-Seite, Long-Press die Schnellvorschau,
 /// unten die „Aufgabe hinzufügen"-Leiste (außer bei „Erledigt").
-class SmartListPage extends ConsumerWidget {
+class SmartListPage extends ConsumerStatefulWidget {
   final SmartList list;
 
   const SmartListPage({super.key, required this.list});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SmartListPage> createState() => _SmartListPageState();
+}
+
+class _SmartListPageState extends ConsumerState<SmartListPage> {
+  SmartList get list => widget.list;
+
+  /// Beim Scrollen erscheint der Listentitel in der Navbar (To-Do-Kollaps).
+  bool _titleInBar = false;
+
+  @override
+  Widget build(BuildContext context) {
     final look = smartListLook(context, list);
     final tasks = ref.watch(smartListTasksProvider(list));
     final accent = look.pageColor;
@@ -51,6 +61,8 @@ class SmartListPage extends ConsumerWidget {
       appBar: AccentAppBar(
         accentColor: accent,
         foregroundColor: fg,
+        title: look.title,
+        showTitle: _titleInBar,
         actions: [
           // Glühbirne auf „Mein Tag": öffnet die Vorschläge (wie To Do).
           if (list == SmartList.today)
@@ -76,25 +88,36 @@ class SmartListPage extends ConsumerWidget {
           if (list != SmartList.completed)
             SortChip(listKey: 'smart/${list.name}', accentColor: accent),
           Expanded(
-            child: withCardSurface(
-              context: context,
-              accent: look.pageAccent,
-              child: tasks.when(
-                data: (tasks) => ConstrainedPage(
-                  child: RefreshIndicator(
-                    onRefresh: () => ref
-                        .read(syncServiceProvider)
-                        .syncNow(userInitiated: true),
-                    child: tasks.isEmpty
-                        ? _buildEmptyState(context, look)
-                        : _buildList(ref, context, tasks),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+                  final collapsed = n.metrics.pixels > 24;
+                  if (collapsed != _titleInBar) {
+                    setState(() => _titleInBar = collapsed);
+                  }
+                }
+                return false;
+              },
+              child: withCardSurface(
+                context: context,
+                accent: look.pageAccent,
+                child: tasks.when(
+                  data: (tasks) => ConstrainedPage(
+                    child: RefreshIndicator(
+                      onRefresh: () => ref
+                          .read(syncServiceProvider)
+                          .syncNow(userInitiated: true),
+                      child: tasks.isEmpty
+                          ? _buildEmptyState(context, look)
+                          : _buildList(ref, context, tasks),
+                    ),
                   ),
+                  error: (err, _) => VikunjaErrorWidget(
+                    error: err,
+                    onRetry: () => ref.invalidate(smartListTasksProvider(list)),
+                  ),
+                  loading: () => const LoadingWidget(),
                 ),
-                error: (err, _) => VikunjaErrorWidget(
-                  error: err,
-                  onRetry: () => ref.invalidate(smartListTasksProvider(list)),
-                ),
-                loading: () => const LoadingWidget(),
               ),
             ),
           ),

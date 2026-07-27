@@ -357,5 +357,9 @@
   },
   "completionSoundSetting": "Sound bei Fertigstellung wiedergeben",
   "dateDetectionSetting": "Erkennen von Daten und Zeiten in Aufgabentiteln",
-  "dateStripSetting": "Entfernen von Datums- und Zeitangaben aus erkannten Aufgabentiteln"
+  "dateStripSetting": "Entfernen von Datums- und Zeitangaben aus erkannten Aufgabentiteln",
+  "duplicateList": "Liste duplizieren",
+  "sendCopy": "Kopie senden",
+  "printList": "Liste ausdrucken",
+  "copySuffix": "Kopie"
 }

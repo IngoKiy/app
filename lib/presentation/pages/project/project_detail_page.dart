@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
@@ -44,6 +45,9 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
   int _viewIndex = 0;
   NotificationHandler? _notificationHandler;
 
+  /// Beim Scrollen erscheint der Listentitel in der Navbar (To-Do-Kollaps).
+  bool _titleInBar = false;
+
   @override
   void initState() {
     _notificationHandler = ref.read(notificationProvider);
@@ -84,6 +88,13 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
               ref
                   .read(projectControllerProvider(widget.project).notifier)
                   .loadNextPage();
+            }
+            if (scrollInfo.depth == 0 &&
+                scrollInfo.metrics.axis == Axis.vertical) {
+              final collapsed = scrollInfo.metrics.pixels > 56;
+              if (collapsed != _titleInBar) {
+                setState(() => _titleInBar = collapsed);
+              }
             }
             return false;
           },
@@ -177,7 +188,12 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     // Listen-Ansicht: Akzentfarbe + Zurück-Button „Listen" (wie To Do); die
     // Kanban-Ansicht behält die normale AppBar.
     if (accentColor != null) {
-      return AccentAppBar(accentColor: accentColor, actions: actions);
+      return AccentAppBar(
+        accentColor: accentColor,
+        actions: actions,
+        title: project.title,
+        showTitle: _titleInBar,
+      );
     }
 
     return AppBar(title: Text(project.title), actions: actions);
@@ -251,6 +267,16 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
             value: 'view',
           ),
         PresetOption(
+          icon: Icons.copy_outlined,
+          label: l10n.duplicateList,
+          value: 'duplicate',
+        ),
+        PresetOption(
+          icon: Icons.ios_share,
+          label: l10n.sendCopy,
+          value: 'send',
+        ),
+        PresetOption(
           icon: Icons.edit_outlined,
           label: l10n.edit,
           value: 'edit',
@@ -292,9 +318,74 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
             ),
           ),
         );
+      case 'duplicate':
+        await _duplicateList(project);
+      case 'send':
+        await _sendListCopy(project);
       case 'delete':
         await _confirmAndDeleteList(project);
     }
+  }
+
+  /// Dupliziert die Liste wie in To Do: neue Liste `<Titel> (Kopie)` mit
+  /// denselben offenen Aufgaben (Titel + Fälligkeit + Beschreibung).
+  Future<void> _duplicateList(Project project) async {
+    final l10n = AppLocalizations.of(context);
+    final currentUser = ref.read(currentUserProvider);
+    final tasks =
+        ref.read(projectControllerProvider(widget.project)).value?.tasks ??
+        const <Task>[];
+    final copyTitle = '${project.title} (${l10n.copySuffix})';
+
+    final result = await ref
+        .read(projectsControllerProvider.notifier)
+        .create(
+          Project(title: copyTitle, owner: currentUser, color: project.color),
+        );
+    if (!result.ok || !mounted) return;
+
+    // Neue Projekt-ID aus dem Stream auflösen, dann Aufgaben kopieren.
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final created = ref
+          .read(projectsControllerProvider)
+          .value
+          ?.projects
+          .where((p) => p.title == copyTitle)
+          .toList();
+      if (created != null && created.isNotEmpty) {
+        final newId = created.first.id;
+        for (final task in tasks.where((t) => !t.done)) {
+          await ref
+              .read(offlineWriterProvider)
+              .addTask(
+                newId,
+                Task(
+                  title: task.title,
+                  description: task.description,
+                  dueDate: task.dueDate,
+                  createdBy: currentUser,
+                  projectId: newId,
+                  isFavorite: task.isFavorite,
+                ),
+              );
+        }
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  /// „Kopie senden": Liste als Text über das System-Share-Sheet teilen
+  /// (deckt auch Drucken über die Teilen-Ziele ab).
+  Future<void> _sendListCopy(Project project) async {
+    final tasks =
+        ref.read(projectControllerProvider(widget.project)).value?.tasks ??
+        const <Task>[];
+    final buffer = StringBuffer()..writeln(project.title);
+    for (final task in tasks) {
+      buffer.writeln('${task.done ? '☑' : '☐'} ${task.title}');
+    }
+    await SharePlus.instance.share(ShareParams(text: buffer.toString()));
   }
 
   /// Löschen mit Bestätigung wie in To Do: „»…« wird endgültig gelöscht."
