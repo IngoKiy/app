@@ -40,18 +40,19 @@ Future<void> setDateDetectionEnabled(KeyValueDao kv, bool value) =>
 
 /// Zeitstempel des letzten Avatar-Wechsels — hängt als Query-Parameter an
 /// der Avatar-URL, damit nach einem Upload sofort das neue Bild geladen wird
-/// (sonst liefern Speicher- und Platten-Cache das alte).
-final avatarVersionProvider = StreamProvider<String>(
-  (ref) => ref
-      .watch(keyValueDaoProvider)
-      .watch('pref/avatar_version')
-      .map((v) => v ?? ''),
-);
+/// (sonst liefert Flutters Speicher-Cache das alte).
+///
+/// Bewusst nur im Speicher: Der Platten-Cache lädt ohnehin bei jedem Zugriff
+/// vom Server und fällt nur offline auf die Kopie zurück, und ein
+/// DB-Stream pro Avatar-Widget wäre unnötiger Ballast (jede Aufgabenzeile
+/// zeigt Avatare).
+final avatarVersionProvider = StateProvider<String>((ref) => '');
 
-Future<void> bumpAvatarVersion(KeyValueDao kv) => kv.set(
-  'pref/avatar_version',
-  DateTime.now().millisecondsSinceEpoch.toString(),
-);
+void bumpAvatarVersion(WidgetRef ref) {
+  ref.read(avatarVersionProvider.notifier).state = DateTime.now()
+      .millisecondsSinceEpoch
+      .toString();
+}
 
 /// Sichtbarkeit einer Smart-List in der Übersicht (Einstellungen, wie in
 /// To Do einzeln abschaltbar). Standard: sichtbar.

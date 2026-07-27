@@ -560,7 +560,7 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
       // in der URL), damit das neue Bild sofort erscheint.
       imageCache.clear();
       imageCache.clearLiveImages();
-      await bumpAvatarVersion(ref.read(keyValueDaoProvider));
+      bumpAvatarVersion(ref);
       ref.invalidate(settingsControllerProvider);
       messenger.showSnackBar(SnackBar(content: Text(l10n.avatarUpdated)));
     } else {

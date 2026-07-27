@@ -31,7 +31,7 @@ class UserAvatar extends ConsumerWidget {
     final cache = ref.watch(imageDiskCacheProvider);
     // Nach einem Avatar-Upload ändert sich die Version → neue URL → das
     // Bild wird garantiert neu geladen statt aus dem Cache zu kommen.
-    final avatarVersion = ref.watch(avatarVersionProvider).value ?? '';
+    final avatarVersion = ref.watch(avatarVersionProvider);
 
     return FutureBuilder<Map<String, String>>(
       future: client.getHeaders(),
