@@ -326,5 +326,14 @@
   "dueYesterday": "Gestern",
   "dueToday": "Heute",
   "dueTomorrow": "Morgen",
-  "versionCheckError": "Die neueste Version konnte nicht abgerufen werden!"
+  "versionCheckError": "Die neueste Version konnte nicht abgerufen werden!",
+  "presetLaterToday": "Später am Tag",
+  "presetNextWeek": "Nächste Woche",
+  "pickDateTime": "Datum und Uhrzeit auswählen",
+  "pickDate": "Datum auswählen",
+  "addDueDate": "Fälligkeitsdatum hinzufügen",
+  "noteAdd": "Notiz hinzufügen",
+  "moreSection": "Mehr",
+  "repeatLabel": "Wiederholen",
+  "addFile": "Datei hinzufügen"
 }

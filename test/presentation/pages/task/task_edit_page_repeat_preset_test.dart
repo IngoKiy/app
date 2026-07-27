@@ -121,13 +121,13 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Ohne Wiederholung wird "Never" (Preset Nie) erkannt', (
+  testWidgets('Ohne Wiederholung zeigt die Zeile das neutrale "Repeat"', (
     tester,
   ) async {
     await _seedProject(db, id: 1, title: 'Projekt Eins');
     await _pumpEditPage(tester, db, _taskWithRepeat(repeatAfter: null));
 
-    expect(find.text('Never'), findsOneWidget);
+    expect(find.text('Repeat'), findsOneWidget);
     await teardownPage(tester);
   });
 
@@ -206,9 +206,10 @@ void main() {
         _taskWithRepeat(repeatAfter: null),
       );
 
-      expect(find.text('Never'), findsOneWidget);
+      expect(find.text('Repeat'), findsOneWidget);
 
-      await tester.tap(find.text('Never'));
+      // Neue Interaktion: Zeile öffnet das Preset-Sheet, dort "Weekly" wählen.
+      await tester.tap(find.text('Repeat'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Weekly').last);
       await tester.pumpAndSettle();

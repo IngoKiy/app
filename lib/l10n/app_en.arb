@@ -430,5 +430,14 @@
   "dueYesterday": "Yesterday",
   "dueToday": "Today",
   "dueTomorrow": "Tomorrow",
-  "versionCheckError": "Couldn't check for the latest version!"
+  "versionCheckError": "Couldn't check for the latest version!",
+  "presetLaterToday": "Later today",
+  "presetNextWeek": "Next week",
+  "pickDateTime": "Pick a date and time",
+  "pickDate": "Pick a date",
+  "addDueDate": "Add due date",
+  "noteAdd": "Add note",
+  "moreSection": "More",
+  "repeatLabel": "Repeat",
+  "addFile": "Add file"
 }

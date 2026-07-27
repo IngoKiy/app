@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
@@ -12,6 +13,7 @@ import 'package:vikunja_app/core/offline/offline_writer.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/utils/date_extensions.dart';
+import 'package:vikunja_app/core/utils/due_date_format.dart';
 import 'package:vikunja_app/core/utils/priority.dart';
 import 'package:vikunja_app/core/utils/repeat_after_parse.dart';
 import 'package:vikunja_app/core/utils/repeat_after_unit.dart';
@@ -31,6 +33,7 @@ import 'package:vikunja_app/presentation/widgets/project/project_picker.dart';
 import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
+import 'package:vikunja_app/presentation/widgets/ui/preset_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/task/round_checkbox.dart';
 import 'package:vikunja_app/presentation/widgets/task/steps_editor.dart';
@@ -78,6 +81,14 @@ String _repeatPresetLabel(AppLocalizations l, _RepeatPreset preset) {
 
 /// Zustand der Autosave-Anzeige in der AppBar.
 enum _SaveState { idle, saving, saved, error }
+
+/// Presets des Fälligkeits-Sheets (wie To Do: Heute/Morgen/Nächste Woche/
+/// Datum auswählen).
+enum _DuePreset { today, tomorrow, nextWeek, pick }
+
+/// Presets des Erinnerungs-Sheets (wie To Do: Später am Tag/Morgen/
+/// Nächste Woche/Datum und Uhrzeit auswählen).
+enum _ReminderPreset { laterToday, tomorrow, nextWeek, pick }
 
 class TaskEditPage extends ConsumerStatefulWidget {
   final Task task;
@@ -182,14 +193,50 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   @override
   Widget build(BuildContext ctx) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: _buildAppBar(),
       body: ConstrainedPage(child: _buildForm(context)),
     );
   }
 
+  // Kopf im Stil von Microsoft To Do: keine farbige AppBar mit Titel,
+  // sondern nur ein beschrifteter Zurück-Button (Name der Herkunftsliste)
+  // in Akzentfarbe auf der weißen Seite.
   AppBar _buildAppBar() {
+    final theme = Theme.of(context);
+    final backLabel =
+        widget.task.project?.title ?? AppLocalizations.of(context).listsTitle;
     return AppBar(
-      title: Text(AppLocalizations.of(context).editTaskTitle),
+      backgroundColor: theme.colorScheme.surface,
+      foregroundColor: theme.colorScheme.primary,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      automaticallyImplyLeading: false,
+      leadingWidth: 200,
+      leading: InkWell(
+        onTap: () => Navigator.of(context).maybePop(),
+        child: Row(
+          children: [
+            const SizedBox(width: 8),
+            Icon(
+              Icons.arrow_back_ios_new,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                backLabel,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
       actions: [
         _buildSaveIndicator(),
         IconButton(
@@ -287,44 +334,88 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   }
 
   // Aufbau im Stil von Microsoft To Do: Titelzeile mit Abhaken + Stern,
-  // dann Termine/Wiederholen/Projekt, Labels/Farbe, Personen, Anhänge,
-  // die Beschreibung als Notiz und der Footer mit Erstelldatum + Löschen.
+  // Schritte, Mein Tag, dann Aktionszeilen (Erinnerung, Fälligkeit,
+  // Wiederholen), Anhänge und Notiz. Die Vikunja-Extras (Liste, Priorität,
+  // Start/Ende, Labels, Farbe, Personen) liegen eingeklappt unter „Mehr",
+  // damit die To-Do-Optik führt. Footer: Erstelldatum + Löschen.
   Form _buildForm(BuildContext context) {
     return Form(
       key: _formKey,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 50),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 50),
         children: <Widget>[
           _buildTitle(),
           _buildSteps(),
+          const Divider(),
           _buildMyDayRow(context),
-          Divider(),
-          _buildDueDate(),
-          _buildReminderList(),
-          _buildAddReminderButton(context),
-          _buildRepeatPreset(),
-          _buildProject(),
-          _buildPriority(),
-          _buildStartDate(),
-          _buildEndDate(),
-          Divider(),
-          _buildAddLabel(context),
-          _buildLabelList(),
-          _buildColor(),
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.0),
-            child: TaskAssigneesSection(task: widget.task),
-          ),
+          const Divider(),
+          _buildReminderRows(),
+          const Divider(),
+          _buildDueRow(),
+          const Divider(),
+          _buildRepeatRow(),
+          if (_repeatPreset == _RepeatPreset.custom) _buildCustomRepeat(),
+          const Divider(),
           Padding(
             padding: EdgeInsets.symmetric(vertical: 8.0),
             child: TaskAttachmentsSection(task: widget.task),
           ),
-          Divider(),
+          const Divider(),
           _buildDescription(context),
+          const SizedBox(height: 8),
+          _buildMoreSection(context),
           _buildFooter(context),
         ],
       ),
     );
+  }
+
+  // --- To-Do-Aktionszeilen ---------------------------------------------------
+
+  /// Aktionszeile im Stil der To-Do-Detailseite: Icon + Label, bei gesetztem
+  /// Wert in Akzentfarbe mit × zum Entfernen.
+  Widget _actionRow({
+    required IconData icon,
+    required String label,
+    bool isSet = false,
+    Color? labelColor,
+    VoidCallback? onTap,
+    VoidCallback? onClear,
+  }) {
+    final theme = Theme.of(context);
+    final color =
+        labelColor ??
+        (isSet
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurfaceVariant);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(label, style: TextStyle(color: color, fontSize: 16)),
+            ),
+            if (isSet && onClear != null)
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                color: theme.colorScheme.onSurfaceVariant,
+                onPressed: onClear,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  DateTime _nextMondayAt9(DateTime now) {
+    final daysUntilMonday = (DateTime.monday - now.weekday + 7) % 7;
+    final add = daysUntilMonday == 0 ? 7 : daysUntilMonday;
+    final day = DateTime(now.year, now.month, now.day).add(Duration(days: add));
+    return DateTime(day.year, day.month, day.day, 9);
   }
 
   Widget _buildTitle() {
@@ -386,9 +477,9 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         children: [
           Expanded(
             child: Text(
-              AppLocalizations.of(context).taskCreatedOn(
-                widget.task.created.toLocal().formatShort(),
-              ),
+              AppLocalizations.of(
+                context,
+              ).taskCreatedOn(widget.task.created.toLocal().formatShort()),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -428,34 +519,22 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
             _scheduleAutosave(immediate: true);
           }
         },
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            Icon(Icons.description_outlined),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      AppLocalizations.of(context).description,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).hintColor,
-                        fontWeight: FontWeight.normal,
-                      ),
+        // Notiz-Bereich wie in To Do: nur der Inhalt bzw. der graue
+        // Platzhalter „Notiz hinzufügen" — ohne Icon und Feldbeschriftung.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 80),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: _note.isNotEmpty
+                ? HtmlWidget(_note)
+                : Text(
+                    AppLocalizations.of(context).noteAdd,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 16,
                     ),
-                    HtmlWidget(
-                      _note.isNotEmpty
-                          ? _note
-                          : AppLocalizations.of(context).noDescription,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+                  ),
+          ),
         ),
       ),
     );
@@ -566,19 +645,96 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
-  Widget _buildDueDate() {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: VikunjaDateTimeField(
-        icon: Icon(Icons.access_time),
-        label: AppLocalizations.of(context).dueDateLabel,
-        initialValue: widget.task.dueDate,
-        onChanged: (duedate) {
-          _dueDate = duedate;
-          _scheduleAutosave(immediate: true);
-        },
-      ),
+  // Fälligkeit als To-Do-Aktionszeile: „Fälligkeitsdatum hinzufügen" bzw. das
+  // gesetzte Datum („Gestern"/„Heute"/„Mi. 22. Juli", rot bei überfällig)
+  // mit × zum Entfernen; Tipp öffnet das Preset-Sheet.
+  Widget _buildDueRow() {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final due = (_dueDate != null && _dueDate!.year > 1) ? _dueDate : null;
+    return _actionRow(
+      icon: Icons.calendar_today_outlined,
+      label: due != null
+          ? formatDueDate(l10n, l10n.localeName, due)
+          : l10n.addDueDate,
+      isSet: due != null,
+      labelColor: due != null && isOverdue(due)
+          ? theme.colorScheme.error
+          : null,
+      onTap: _showDueSheet,
+      onClear: () {
+        setState(() => _dueDate = null);
+        _scheduleAutosave(immediate: true);
+      },
     );
+  }
+
+  Future<void> _showDueSheet() async {
+    final l10n = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final dayFmt = DateFormat.E(l10n.localeName);
+    final today = DateTime(now.year, now.month, now.day, 12);
+    final tomorrow = today.add(const Duration(days: 1));
+    final nextWeek = _nextMondayAt9(now).copyWith(hour: 12);
+
+    final choice = await showPresetSheet<_DuePreset>(
+      context,
+      title: l10n.dueDateLabel,
+      options: [
+        PresetOption(
+          icon: Icons.today_outlined,
+          label: l10n.dueOptionToday,
+          trailing: dayFmt.format(today),
+          value: _DuePreset.today,
+        ),
+        PresetOption(
+          icon: Icons.event_outlined,
+          label: l10n.dueOptionTomorrow,
+          trailing: dayFmt.format(tomorrow),
+          value: _DuePreset.tomorrow,
+        ),
+        PresetOption(
+          icon: Icons.calendar_month_outlined,
+          label: l10n.presetNextWeek,
+          trailing: dayFmt.format(nextWeek),
+          value: _DuePreset.nextWeek,
+        ),
+        PresetOption(
+          icon: Icons.edit_calendar_outlined,
+          label: l10n.pickDate,
+          chevron: true,
+          value: _DuePreset.pick,
+        ),
+      ],
+    );
+    if (choice == null || !mounted) return;
+
+    DateTime? picked;
+    switch (choice) {
+      case _DuePreset.today:
+        picked = today;
+        break;
+      case _DuePreset.tomorrow:
+        picked = tomorrow;
+        break;
+      case _DuePreset.nextWeek:
+        picked = nextWeek;
+        break;
+      case _DuePreset.pick:
+        final date = await showDatePicker(
+          context: context,
+          initialDate: _dueDate != null && _dueDate!.year > 1 ? _dueDate! : now,
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        if (date != null) {
+          picked = DateTime(date.year, date.month, date.day, 12);
+        }
+        break;
+    }
+    if (picked == null) return;
+    setState(() => _dueDate = picked);
+    _scheduleAutosave(immediate: true);
   }
 
   Widget _buildStartDate() {
@@ -609,65 +765,125 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
-  // Wiederholen als Preset-Dropdown im Stil von Microsoft To Do; „Benutzer-
-  // definiert" klappt die bisherigen zwei Felder (Wert + Einheit) darunter
-  // aus. Mapping: Nie=0, Täglich=1 Tag, Wöchentlich=1 Woche, Monatlich=1
-  // Monat (=30 Tage), Jährlich=1 Jahr (=365 Tage).
-  Widget _buildRepeatPreset() {
-    final localizations = AppLocalizations.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<_RepeatPreset>(
-            decoration: InputDecoration(
-              icon: Icon(Icons.repeat),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-            ),
-            isExpanded: true,
-            initialValue: _repeatPreset,
-            onChanged: (preset) {
-              if (preset == null) return;
-              setState(() {
-                _repeatPreset = preset;
-                switch (preset) {
-                  case _RepeatPreset.none:
-                    _repeatAfterValue = 0;
-                    _repeatAfterUnit = RepeatAfterUnit.days;
-                    break;
-                  case _RepeatPreset.daily:
-                    _repeatAfterValue = 1;
-                    _repeatAfterUnit = RepeatAfterUnit.days;
-                    break;
-                  case _RepeatPreset.weekly:
-                    _repeatAfterValue = 1;
-                    _repeatAfterUnit = RepeatAfterUnit.weeks;
-                    break;
-                  case _RepeatPreset.monthly:
-                    _repeatAfterValue = 1;
-                    _repeatAfterUnit = RepeatAfterUnit.months;
-                    break;
-                  case _RepeatPreset.yearly:
-                    _repeatAfterValue = 1;
-                    _repeatAfterUnit = RepeatAfterUnit.years;
-                    break;
-                  case _RepeatPreset.custom:
-                    // Werte bleiben unverändert, die Felder klappen aus.
-                    break;
-                }
-              });
-              _scheduleAutosave(immediate: true);
-            },
-            items: _RepeatPreset.values.map((preset) {
-              return DropdownMenuItem<_RepeatPreset>(
-                value: preset,
-                child: Text(_repeatPresetLabel(localizations, preset)),
-              );
-            }).toList(),
+  // Wiederholen als To-Do-Aktionszeile + Preset-Sheet (Täglich/Wöchentlich/
+  // Monatlich/Jährlich/Benutzerdefiniert); „Benutzerdefiniert" klappt die
+  // zwei Felder (Wert + Einheit) darunter aus. Mapping: Nie=0, Täglich=1 Tag,
+  // Wöchentlich=1 Woche, Monatlich=1 Monat (=30 Tage), Jährlich=1 Jahr
+  // (=365 Tage). „Werktags" fehlt bewusst: Vikunjas repeat_after kennt nur
+  // eine feste Dauer, kein Wochentagsmuster.
+  Widget _buildRepeatRow() {
+    final l10n = AppLocalizations.of(context);
+    final isSet = _repeatPreset != _RepeatPreset.none;
+    return _actionRow(
+      icon: Icons.repeat,
+      label: isSet ? _repeatPresetLabel(l10n, _repeatPreset) : l10n.repeatLabel,
+      isSet: isSet,
+      onTap: _showRepeatSheet,
+      onClear: () {
+        setState(() {
+          _repeatPreset = _RepeatPreset.none;
+          _repeatAfterValue = 0;
+          _repeatAfterUnit = RepeatAfterUnit.days;
+        });
+        _scheduleAutosave(immediate: true);
+      },
+    );
+  }
+
+  Future<void> _showRepeatSheet() async {
+    final l10n = AppLocalizations.of(context);
+    final choice = await showPresetSheet<_RepeatPreset>(
+      context,
+      title: l10n.repeatLabel,
+      options: [
+        PresetOption(
+          icon: Icons.repeat,
+          label: l10n.repeatDaily,
+          value: _RepeatPreset.daily,
+        ),
+        PresetOption(
+          icon: Icons.repeat,
+          label: l10n.repeatWeekly,
+          value: _RepeatPreset.weekly,
+        ),
+        PresetOption(
+          icon: Icons.repeat,
+          label: l10n.repeatMonthly,
+          value: _RepeatPreset.monthly,
+        ),
+        PresetOption(
+          icon: Icons.repeat,
+          label: l10n.repeatYearly,
+          value: _RepeatPreset.yearly,
+        ),
+        PresetOption(
+          icon: Icons.tune,
+          label: l10n.repeatCustom,
+          chevron: true,
+          value: _RepeatPreset.custom,
+        ),
+      ],
+    );
+    if (choice == null) return;
+    setState(() {
+      _repeatPreset = choice;
+      switch (choice) {
+        case _RepeatPreset.none:
+          _repeatAfterValue = 0;
+          _repeatAfterUnit = RepeatAfterUnit.days;
+          break;
+        case _RepeatPreset.daily:
+          _repeatAfterValue = 1;
+          _repeatAfterUnit = RepeatAfterUnit.days;
+          break;
+        case _RepeatPreset.weekly:
+          _repeatAfterValue = 1;
+          _repeatAfterUnit = RepeatAfterUnit.weeks;
+          break;
+        case _RepeatPreset.monthly:
+          _repeatAfterValue = 1;
+          _repeatAfterUnit = RepeatAfterUnit.months;
+          break;
+        case _RepeatPreset.yearly:
+          _repeatAfterValue = 1;
+          _repeatAfterUnit = RepeatAfterUnit.years;
+          break;
+        case _RepeatPreset.custom:
+          // Werte bleiben unverändert, die Felder klappen aus.
+          break;
+      }
+    });
+    _scheduleAutosave(immediate: true);
+  }
+
+  /// Eingeklappter „Mehr"-Bereich mit den Vikunja-Extras, die es in
+  /// Microsoft To Do nicht gibt: Liste/Projekt, Priorität, Start-/Enddatum,
+  /// Labels, Aufgabenfarbe und Zuweisungen.
+  Widget _buildMoreSection(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        title: Text(
+          AppLocalizations.of(context).moreSection,
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-          if (_repeatPreset == _RepeatPreset.custom) _buildCustomRepeat(),
+        ),
+        children: [
+          _buildProject(),
+          _buildPriority(),
+          _buildStartDate(),
+          _buildEndDate(),
+          _buildAddLabel(context),
+          _buildLabelList(),
+          _buildColor(),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: TaskAssigneesSection(task: widget.task),
+          ),
         ],
       ),
     );
@@ -729,55 +945,125 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
-  Widget _buildReminderList() {
-    return Padding(
-      padding: EdgeInsets.only(top: 8.0),
-      child: Column(
-        children:
-            _reminderDates?.map((e) {
-              return VikunjaDateTimeField(
-                label: AppLocalizations.of(context).reminder,
-                initialValue: e.reminder,
-                onChanged: (date) {
-                  if (date != null) {
-                    e.reminder = date;
-                  } else {
-                    _reminderDates?.remove(e);
-                  }
-                  _scheduleAutosave(immediate: true);
-                },
-              );
-            }).toList() ??
-            [],
-      ),
+  // Erinnerungen im To-Do-Stil: gesetzte Erinnerungen als Akzent-Zeilen mit
+  // × zum Entfernen, darunter die „Erinnerung"-Zeile, die das Preset-Sheet
+  // öffnet (Später am Tag / Morgen / Nächste Woche / Datum und Uhrzeit).
+  Widget _buildReminderRows() {
+    final l10n = AppLocalizations.of(context);
+    final reminders = _reminderDates ?? [];
+    return Column(
+      children: [
+        for (final r in reminders.where((r) => r.reminder.year > 1))
+          _actionRow(
+            icon: Icons.notifications_active_outlined,
+            label: r.reminder.toLocal().formatShort(),
+            isSet: true,
+            onTap: () => _editReminder(r),
+            onClear: () {
+              setState(() => _reminderDates?.remove(r));
+              _scheduleAutosave(immediate: true);
+            },
+          ),
+        _actionRow(
+          icon: Icons.notifications_outlined,
+          label: l10n.reminder,
+          onTap: _showReminderSheet,
+        ),
+      ],
     );
   }
 
-  Widget _buildAddReminderButton(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: GestureDetector(
-        child: Row(
-          children: <Widget>[
-            Padding(
-              padding: EdgeInsets.only(right: 16),
-              child: Icon(
-                Icons.alarm_add,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Text(
-              AppLocalizations.of(context).addReminder,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 16,
-              ),
-            ),
-          ],
+  Future<void> _showReminderSheet() async {
+    final l10n = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final laterToday = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+    ).add(const Duration(hours: 3));
+    final tomorrow = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      9,
+    ).add(const Duration(days: 1));
+    final nextWeek = _nextMondayAt9(now);
+    final dayTimeFmt = DateFormat.E(l10n.localeName).add_Hm();
+
+    final choice = await showPresetSheet<_ReminderPreset>(
+      context,
+      title: l10n.reminder,
+      options: [
+        PresetOption(
+          icon: Icons.update,
+          label: l10n.presetLaterToday,
+          trailing: dayTimeFmt.format(laterToday),
+          value: _ReminderPreset.laterToday,
         ),
-        onTap: () => _addNewReminder(context),
-      ),
+        PresetOption(
+          icon: Icons.event_outlined,
+          label: l10n.dueOptionTomorrow,
+          trailing: dayTimeFmt.format(tomorrow),
+          value: _ReminderPreset.tomorrow,
+        ),
+        PresetOption(
+          icon: Icons.calendar_month_outlined,
+          label: l10n.presetNextWeek,
+          trailing: dayTimeFmt.format(nextWeek),
+          value: _ReminderPreset.nextWeek,
+        ),
+        PresetOption(
+          icon: Icons.edit_calendar_outlined,
+          label: l10n.pickDateTime,
+          chevron: true,
+          value: _ReminderPreset.pick,
+        ),
+      ],
     );
+    if (choice == null || !mounted) return;
+
+    DateTime? picked;
+    switch (choice) {
+      case _ReminderPreset.laterToday:
+        picked = laterToday;
+        break;
+      case _ReminderPreset.tomorrow:
+        picked = tomorrow;
+        break;
+      case _ReminderPreset.nextWeek:
+        picked = nextWeek;
+        break;
+      case _ReminderPreset.pick:
+        picked = await _pickDateTime(initial: now);
+        break;
+    }
+    if (picked == null) return;
+    setState(() => _reminderDates?.add(TaskReminder(picked!)));
+    _scheduleAutosave(immediate: true);
+  }
+
+  Future<void> _editReminder(TaskReminder reminder) async {
+    final picked = await _pickDateTime(initial: reminder.reminder);
+    if (picked == null) return;
+    setState(() => reminder.reminder = picked);
+    _scheduleAutosave(immediate: true);
+  }
+
+  Future<DateTime?> _pickDateTime({required DateTime initial}) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial.year > 1 ? initial : DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (date == null || !mounted) return null;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null) return null;
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
   Widget _buildPriority() {
@@ -991,40 +1277,6 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         setState(() {
           _labels?.add(created);
           _labelTypeAheadController.clear();
-        });
-        _scheduleAutosave(immediate: true);
-      }
-    }
-  }
-
-  Future<void> _addNewReminder(BuildContext context) async {
-    var selectedDate = await showDialog<DateTime>(
-      context: context,
-      builder: (_) => DatePickerDialog(
-        initialDate: DateTime.now(),
-        firstDate: DateTime.now(),
-        lastDate: DateTime(2100),
-        initialCalendarMode: DatePickerMode.day,
-      ),
-    );
-
-    if (selectedDate != null && context.mounted) {
-      var selectedTime = await showDialog<TimeOfDay>(
-        context: context,
-        builder: (_) =>
-            TimePickerDialog(initialTime: TimeOfDay.fromDateTime(selectedDate)),
-      );
-
-      if (selectedTime != null) {
-        setState(() {
-          _reminderDates?.add(
-            TaskReminder(
-              selectedDate.copyWith(
-                hour: selectedTime.hour,
-                minute: selectedTime.minute,
-              ),
-            ),
-          );
         });
         _scheduleAutosave(immediate: true);
       }

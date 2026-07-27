@@ -108,6 +108,14 @@ void main() {
       // Kein Speichern-Button mehr — Änderungen werden automatisch gesichert.
       expect(find.byIcon(Icons.save), findsNothing);
 
+      // Projekt-Auswahl liegt jetzt im eingeklappten "Mehr"-Bereich.
+      await tester.drag(find.byType(ListView).first, const Offset(0, -1200));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('More'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+      await tester.pumpAndSettle();
+
       // Aktuelles Projekt wird angezeigt; Feld antippen öffnet die Auswahl.
       expect(find.text('Projekt Eins'), findsOneWidget);
       await tester.tap(find.text('Projekt Eins'));
