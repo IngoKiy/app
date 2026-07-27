@@ -91,7 +91,9 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
                 _viewIndex < data.project.views.length)
             ? data.project.views[_viewIndex]
             : null;
-        final isListView = currentView?.viewKind == ViewKind.list;
+        final isListView =
+            currentView?.viewKind == ViewKind.list ||
+            data.project.views.isEmpty;
         final accentColor = isListView
             ? (data.project.color ?? Theme.of(context).colorScheme.primary)
             : null;
@@ -192,8 +194,11 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
   }
 
   Widget getBody(Project project, {bool overPhoto = false}) {
+    // Frisch angelegte Listen haben lokal noch keine Views (die liefert erst
+    // der nächste Sync). Statt „Keine Ansichten" zeigen wir die normale
+    // Aufgabenliste — sie ist die Standardansicht.
     if (project.views.isEmpty) {
-      return Text(AppLocalizations.of(context).noViews);
+      return ProjectTaskList(project, overPhoto: overPhoto);
     }
 
     switch (project.views[_viewIndex].viewKind) {

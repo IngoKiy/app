@@ -6,6 +6,7 @@ import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/utils/user_extensions.dart';
 import 'package:vikunja_app/domain/entities/task_comment.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 import 'package:vikunja_app/presentation/manager/task_comments_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/comment_edit_page.dart';
 import 'package:vikunja_app/presentation/widgets/ui/confirmation_dialog.dart';
@@ -144,52 +145,63 @@ class TaskComments extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final isEdited = comment.updated.isAfter(comment.created);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // Kommentarzeile im To-Do-Stil: Avatar links, Name + Zeit klein darüber,
+    // Text darunter — keine Karte, nur eine dezente Trennlinie.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          UserAvatar(user: comment.author, radius: 16),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  comment.author.displayName,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      comment.author.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    if (isOwner)
+                      PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            _navigateToEditPage(context, taskId, comment);
+                          } else if (value == 'delete') {
+                            _deleteComment(context, ref, taskId, comment);
+                          }
+                        },
+                        itemBuilder: (context) {
+                          final l10n = AppLocalizations.of(context);
+                          return [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Text(l10n.edit),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text(l10n.delete),
+                            ),
+                          ];
+                        },
+                      ),
+                  ],
                 ),
-                if (isOwner)
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        _navigateToEditPage(context, taskId, comment);
-                      } else if (value == 'delete') {
-                        _deleteComment(context, ref, taskId, comment);
-                      }
-                    },
-                    itemBuilder: (context) {
-                      final l10n = AppLocalizations.of(context);
-                      return [
-                        PopupMenuItem(value: 'edit', child: Text(l10n.edit)),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text(l10n.delete),
-                        ),
-                      ];
-                    },
-                  ),
+                Text(
+                  isEdited
+                      ? '${dateFormat.format(comment.created.toLocal())} · ${l10n.commentEdited} ${dateFormat.format(comment.updated.toLocal())}'
+                      : dateFormat.format(comment.created.toLocal()),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 4),
+                HtmlWidget(comment.comment),
               ],
             ),
-            Text(
-              isEdited
-                  ? '${dateFormat.format(comment.created.toLocal())} · ${l10n.commentEdited} ${dateFormat.format(comment.updated.toLocal())}'
-                  : dateFormat.format(comment.created.toLocal()),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 4),
-            HtmlWidget(comment.comment),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

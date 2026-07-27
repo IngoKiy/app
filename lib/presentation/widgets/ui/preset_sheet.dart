@@ -40,6 +40,13 @@ Future<T?> showPresetSheet<T>(
   return showModalBottomSheet<T>(
     context: context,
     showDragHandle: true,
+    // Ohne isScrollControlled deckelt Flutter das Sheet bei halber
+    // Bildschirmhöhe — lange Menüs (Listenoptionen) wären unten
+    // abgeschnitten und der letzte Eintrag nicht erreichbar.
+    isScrollControlled: true,
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.85,
+    ),
     builder: (sheetContext) {
       final theme = Theme.of(sheetContext);
       final l10n = AppLocalizations.of(sheetContext);
