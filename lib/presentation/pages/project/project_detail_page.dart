@@ -17,6 +17,7 @@ import 'package:vikunja_app/presentation/widgets/list_accent_scaffold.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_widget.dart';
 import 'package:vikunja_app/presentation/widgets/project_members_section.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_task_list.dart';
+import 'package:vikunja_app/presentation/widgets/task/add_task_bar.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 
@@ -89,6 +90,10 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
           ),
         );
 
+        // Wie Microsoft To Do: unten die „Aufgabe hinzufügen"-Leiste statt
+        // FAB; der Ansichts-Wechsel (Kanban etc.) liegt im AppBar-Menü statt
+        // in einer Bottom-Navigation.
+        final showAddBar = isListView && data.project.id > 0;
         return Scaffold(
           backgroundColor: accentColor,
           appBar: _buildAppBar(
@@ -109,9 +114,9 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
                     Expanded(child: scrollBody),
                   ],
                 ),
-          floatingActionButton: _buildFab(data.project),
-          bottomNavigationBar: isCompact
-              ? _buildBottomNavigation(data.project)
+          floatingActionButton: (!isListView) ? _buildFab(data.project) : null,
+          bottomNavigationBar: showAddBar
+              ? AddTaskBar(onTap: () => _addITaskDialog(context, data.project))
               : null,
         );
       },
@@ -147,6 +152,30 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     Color? accentColor,
   ) {
     final actions = <Widget>[
+      // Ansichts-Wechsel (List/Kanban/…) kompakt im Menü statt als
+      // Bottom-Navigation — To Do kennt keine Ansichtsleiste unten.
+      if (project.views.length >= 2)
+        PopupMenuButton<int>(
+          tooltip: AppLocalizations.of(context).noViews,
+          icon: const Icon(Icons.grid_view_outlined),
+          onSelected: _onViewTapped,
+          itemBuilder: (context) => [
+            for (var i = 0; i < project.views.length; i++)
+              PopupMenuItem<int>(
+                value: i,
+                child: Row(
+                  children: [
+                    if (i == _viewIndex)
+                      const Icon(Icons.check, size: 18)
+                    else
+                      const SizedBox(width: 18),
+                    const SizedBox(width: 8),
+                    Text(project.views[i].title),
+                  ],
+                ),
+              ),
+          ],
+        ),
       IconButton(
         icon: const Icon(Icons.people_alt_outlined),
         tooltip: AppLocalizations.of(context).projectMembers,
@@ -193,26 +222,6 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
         child: Icon(Icons.add),
       ),
     );
-  }
-
-  NavigationBar? _buildBottomNavigation(Project project) {
-    if (project.views.length >= 2) {
-      return NavigationBar(
-        destinations: project.views
-            .map(
-              (view) => NavigationDestination(
-                icon: view.icon,
-                label: view.title,
-                tooltip: view.title,
-              ),
-            )
-            .toList(),
-        selectedIndex: _viewIndex,
-        onDestinationSelected: _onViewTapped,
-      );
-    }
-
-    return null;
   }
 
   Widget _buildViewSwitcher(Project project) {

@@ -14,14 +14,23 @@ class AccentAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Color accentColor;
   final List<Widget>? actions;
 
-  const AccentAppBar({super.key, required this.accentColor, this.actions});
+  /// Vordergrund-Übersteuerung für helle Akzentflächen (z. B. dunkles Teal
+  /// auf Mint bei „Geplant"); Standard ist die Kontrastfarbe.
+  final Color? foregroundColor;
+
+  const AccentAppBar({
+    super.key,
+    required this.accentColor,
+    this.actions,
+    this.foregroundColor,
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
   Widget build(BuildContext context) {
-    final onAccent = contrastingTextColor(accentColor);
+    final onAccent = foregroundColor ?? contrastingTextColor(accentColor);
     final canPop = Navigator.of(context).canPop();
     final l10n = AppLocalizations.of(context);
 
@@ -65,37 +74,114 @@ Widget accentListTitle(
   String title,
   Color accentColor, {
   IconData? icon,
+  Color? foregroundColor,
+  String? subtitle,
 }) {
-  final onAccent = contrastingTextColor(accentColor);
+  final onAccent = foregroundColor ?? contrastingTextColor(accentColor);
   final textStyle = Theme.of(context).textTheme.headlineLarge?.copyWith(
     color: onAccent,
     fontWeight: FontWeight.bold,
   );
   return Padding(
     padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-    child: Row(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (icon != null) ...[
-          Icon(icon, color: onAccent, size: 28),
-          const SizedBox(width: 12),
-        ],
-        Expanded(
-          child: Text(title, style: textStyle, overflow: TextOverflow.ellipsis),
+        Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: onAccent, size: 28),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                title,
+                style: textStyle,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
+        // Untertitel (z. B. das Datum unter „Mein Tag" wie in To Do).
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              subtitle,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: onAccent.withValues(alpha: 0.9),
+              ),
+            ),
+          ),
       ],
     ),
   );
 }
 
+/// Leerer Zustand einer Listen-Seite im Stil von Microsoft To Do: dezente
+/// horizontale Linien (Notizzeilen-Optik) statt Illustration.
+class NotebookLinesEmptyState extends StatelessWidget {
+  final Color accentColor;
+
+  /// Vordergrund-Übersteuerung (helle Flächen); Standard: Kontrastfarbe.
+  final Color? foregroundColor;
+
+  const NotebookLinesEmptyState({
+    super.key,
+    required this.accentColor,
+    this.foregroundColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final line = (foregroundColor ?? contrastingTextColor(accentColor))
+        .withValues(alpha: 0.15);
+    return CustomPaint(
+      painter: _NotebookLinesPainter(line),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _NotebookLinesPainter extends CustomPainter {
+  final Color color;
+
+  _NotebookLinesPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    const spacing = 56.0;
+    for (var y = spacing; y < size.height; y += spacing) {
+      canvas.drawLine(Offset(16, y), Offset(size.width - 16, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_NotebookLinesPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 /// Hebt Aufgaben-Karten (die intern `surfaceContainerLow` nutzen) explizit
 /// auf die reguläre `surface`-Fläche, damit sie auf der akzentfarbenen Seite
 /// in beiden Theme-Modi klar vom Hintergrund abgesetzt bleiben.
-Widget withCardSurface({required BuildContext context, required Widget child}) {
+///
+/// Mit [accent] färben sich zusätzlich Akzent-Elemente auf den Karten
+/// (gefüllter Wichtig-Stern, Erledigt-Kreis) in der Listenfarbe — wie in
+/// Microsoft To Do, wo der Stern immer die Akzentfarbe der Liste trägt.
+Widget withCardSurface({
+  required BuildContext context,
+  required Widget child,
+  Color? accent,
+}) {
   final theme = Theme.of(context);
   return Theme(
     data: theme.copyWith(
       colorScheme: theme.colorScheme.copyWith(
         surfaceContainerLow: theme.colorScheme.surface,
+        primary: accent ?? theme.colorScheme.primary,
       ),
     ),
     child: child,

@@ -141,6 +141,7 @@ class _ProjectTaskListState extends ConsumerState<ProjectTaskList> {
 
         return withCardSurface(
           context: context,
+          accent: accentColor,
           child: CustomScrollView(slivers: children),
         );
       },

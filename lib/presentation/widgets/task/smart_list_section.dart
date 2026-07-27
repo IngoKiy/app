@@ -5,49 +5,70 @@ import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
 import 'package:vikunja_app/presentation/pages/task/smart_list_page.dart';
 
-/// Anzeige-Eigenschaften einer Smart-List (Titel, Icon, Akzentfarbe) im Stil
-/// von Microsoft To Do.
-({String title, IconData icon, Color color}) smartListLook(
-  BuildContext context,
-  SmartList list,
-) {
+/// Anzeige-Eigenschaften einer Smart-List im Stil von Microsoft To Do.
+///
+/// [color] ist die Icon-Farbe in der Übersicht, [pageColor] der vollflächige
+/// Seiten-Hintergrund und [pageAccent] die Akzentfarbe für Titel, Chip und
+/// Sterne AUF der Seite. Bei dunklen Flächen sind pageColor/pageAccent gleich
+/// [color]; „Geplant" nutzt wie das Vorbild eine helle Mint-Fläche mit
+/// dunklem Teal als Akzent.
+({String title, IconData icon, Color color, Color pageColor, Color pageAccent})
+smartListLook(BuildContext context, SmartList list) {
   final l10n = AppLocalizations.of(context);
   switch (list) {
     case SmartList.today:
+      final c = Colors.amber.shade700;
       return (
         title: l10n.smartListMyDay,
         icon: Icons.wb_sunny_outlined,
-        color: Colors.amber.shade700,
+        color: c,
+        pageColor: c,
+        pageAccent: c,
       );
     case SmartList.important:
+      final c = Colors.pink.shade400;
       return (
         title: l10n.smartListImportant,
         icon: Icons.star_border,
-        color: Colors.pink.shade400,
+        color: c,
+        pageColor: c,
+        pageAccent: c,
       );
     case SmartList.planned:
+      // Helle Akzent-Variante wie in To Do (Mint-Fläche, dunkles Teal).
       return (
         title: l10n.smartListPlanned,
         icon: Icons.calendar_today_outlined,
         color: Colors.teal.shade600,
+        pageColor: const Color(0xFFD4F1EF),
+        pageAccent: const Color(0xFF166F6B),
       );
     case SmartList.assignedToMe:
+      final c = Colors.deepOrange.shade400;
       return (
         title: l10n.smartListAssigned,
         icon: Icons.person_outline,
-        color: Colors.deepOrange.shade400,
+        color: c,
+        pageColor: c,
+        pageAccent: c,
       );
     case SmartList.all:
+      final c = Colors.indigo.shade400;
       return (
         title: l10n.smartListAll,
         icon: Icons.all_inclusive,
-        color: Colors.indigo.shade400,
+        color: c,
+        pageColor: c,
+        pageAccent: c,
       );
     case SmartList.completed:
+      final c = Colors.red.shade400;
       return (
         title: l10n.smartListCompleted,
         icon: Icons.check_circle_outline,
-        color: Colors.red.shade400,
+        color: c,
+        pageColor: c,
+        pageAccent: c,
       );
   }
 }
