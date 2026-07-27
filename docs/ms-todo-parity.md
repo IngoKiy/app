@@ -325,10 +325,17 @@ duplizieren (inkl. offener Aufgaben); Kopie senden über das
 System-Share-Sheet (Drucken über dessen Ziele); Foto-Listenhintergründe
 (6 gebündelte Verläufe, je Liste wählbar, KeyValue-persistiert).
 
+**Dritte Runde (27.07. abends) — ebenfalls umgesetzt:**
+„Liste verschieben in…" (Gruppenzuordnung), Freigabe-Symbol in der Navbar +
+Personen-Symbol bei geteilten Listen (fremder Besitzer), „Geplant"-Filter-Chip
+(Alles geplant/Überfällig/Heute/Morgen/Diese Woche/Später), Smart-Lists
+einzeln abschaltbar + „Leere intelligente Listen ausblenden", Composer mit
+Mein-Tag-Sonne (addTaskReturningId), Neue Liste öffnet direkt den
+Umbenennen-Dialog.
+
 **Bekannte bewusste Näherungen:**
 - Erledigen-Sound nutzt den System-Klick (kein eigenes Chime-Asset).
 - Foto-Hintergründe sind generierte Verläufe statt lizenzierter Fotos.
-- Composer ohne „Mein Tag"-Icon (braucht die Task-ID synchron aus addTask).
 - Heute-fällig-Push läuft weiter über vikunja-push serverseitig.
 - Quicksand-Schrift liegt im Bundle, falls die Markenschrift zurück soll.
 
