@@ -446,9 +446,15 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
                 _title = title;
                 _scheduleAutosave();
               },
+              // Frei stehender Titel wie in To Do — ohne Füllung/Rahmen aus
+              // dem globalen inputDecorationTheme.
               decoration: InputDecoration(
                 hintText: AppLocalizations.of(context).title,
                 border: InputBorder.none,
+                filled: false,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
           ),
