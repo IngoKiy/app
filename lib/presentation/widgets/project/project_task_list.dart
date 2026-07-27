@@ -25,7 +25,10 @@ import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
 class ProjectTaskList extends ConsumerStatefulWidget {
   final Project project;
 
-  const ProjectTaskList(this.project, {super.key});
+  /// Liste hat einen Foto-Hintergrund → Chips transluzent statt akzentfarben.
+  final bool overPhoto;
+
+  const ProjectTaskList(this.project, {super.key, this.overPhoto = false});
 
   @override
   ConsumerState<ProjectTaskList> createState() => _ProjectTaskListState();
@@ -54,13 +57,19 @@ class _ProjectTaskListState extends ConsumerState<ProjectTaskList> {
 
         List<Widget> children = [
           SliverToBoxAdapter(
-            child: accentListTitle(context, project.title, accentColor),
+            child: accentListTitle(
+              context,
+              project.title,
+              accentColor,
+              foregroundColor: widget.overPhoto ? Colors.white : null,
+            ),
           ),
           SliverToBoxAdapter(
             child: SortChip(
               listKey: sortKey,
               allowManualOrder: true,
               accentColor: accentColor,
+              overPhoto: widget.overPhoto,
             ),
           ),
         ];

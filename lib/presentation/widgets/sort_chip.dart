@@ -37,11 +37,16 @@ class SortChip extends ConsumerWidget {
   /// Kontrastfarbe. Ohne Akzent werden neutrale Theme-Flächen genutzt.
   final Color? accentColor;
 
+  /// Über Foto-Hintergründen: dunkel-transluzente Pille mit weißem Text
+  /// (wie in To Do), statt der Akzentfarbe.
+  final bool overPhoto;
+
   const SortChip({
     super.key,
     required this.listKey,
     this.allowManualOrder = false,
     this.accentColor,
+    this.overPhoto = false,
   });
 
   @override
@@ -62,10 +67,14 @@ class SortChip extends ConsumerWidget {
     final accent = accentColor;
     // Auf benutzergewählten Akzentflächen: Pille = leicht abgedunkelte
     // Akzentfarbe, Text in Kontrastfarbe (Ausnahme laut UI-Guidelines).
-    final pillColor = accent != null
+    final pillColor = overPhoto
+        ? Colors.black.withValues(alpha: 0.30)
+        : accent != null
         ? Color.alphaBlend(Colors.black.withValues(alpha: 0.10), accent)
         : theme.colorScheme.surfaceContainerHigh;
-    final fg = accent != null
+    final fg = overPhoto
+        ? Colors.white
+        : accent != null
         ? contrastingTextColor(accent)
         : theme.colorScheme.onSurfaceVariant;
 

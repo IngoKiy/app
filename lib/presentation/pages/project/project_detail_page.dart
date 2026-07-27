@@ -95,6 +95,11 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
         final accentColor = isListView
             ? (data.project.color ?? Theme.of(context).colorScheme.primary)
             : null;
+        final bgAssetEarly = isListView
+            ? ref
+                  .watch(listBackgroundProvider('project/${data.project.id}'))
+                  .value
+            : null;
         final scrollBody = NotificationListener<ScrollNotification>(
           onNotification: (ScrollNotification scrollInfo) {
             if (scrollInfo.metrics.pixels ==
@@ -121,7 +126,7 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
                   .read(projectControllerProvider(widget.project).notifier)
                   .reload();
             },
-            child: getBody(data.project),
+            child: getBody(data.project, overPhoto: bgAssetEarly != null),
           ),
         );
 
@@ -131,11 +136,7 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
         final showAddBar = isListView && data.project.id > 0;
         // Foto-Hintergrund der Liste (Design-Sheet, Tab Foto) — liegt wie in
         // To Do vollflächig hinter den Aufgaben-Karten.
-        final bgAsset = isListView
-            ? ref
-                  .watch(listBackgroundProvider('project/${data.project.id}'))
-                  .value
-            : null;
+        final bgAsset = bgAssetEarly;
         // Foto liegt hinter der GESAMTEN Seite (auch hinter Navbar und
         // Statusleiste, wie in To Do): Container trägt das Bild, Scaffold
         // und AppBar werden transparent.
@@ -190,14 +191,14 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     );
   }
 
-  Widget getBody(Project project) {
+  Widget getBody(Project project, {bool overPhoto = false}) {
     if (project.views.isEmpty) {
       return Text(AppLocalizations.of(context).noViews);
     }
 
     switch (project.views[_viewIndex].viewKind) {
       case ViewKind.list:
-        return ProjectTaskList(project);
+        return ProjectTaskList(project, overPhoto: overPhoto);
       case ViewKind.kanban:
         return KanbanWidget(project: project);
       default:
