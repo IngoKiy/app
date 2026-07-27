@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/theming/dimensions.dart';
+import 'package:vikunja_app/core/theming/todo_colors.dart';
+import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 import 'package:vikunja_app/core/utils/task_steps.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
@@ -21,10 +24,10 @@ import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 /// Stern-Toggle für Favoriten ("Wichtig"). Eine eigene Aufgabenfarbe erscheint
 /// als schmaler Balken am linken Kartenrand.
 ///
-/// Wischen nach rechts hakt die Aufgabe ab (bzw. öffnet sie wieder), Wischen
-/// nach links öffnet ein kleines Aktions-Sheet ("Mein Tag" / Löschen). Beide
-/// Gesten schließen die Zeile nie endgültig — die Liste aktualisiert sich
-/// über die DB-Streams von selbst.
+/// Gesten wie im Vorbild: Wischen nach rechts legt die runden Aktionen
+/// „Mein Tag" (blau) und „Verschieben" (orange) frei, Wischen nach links den
+/// roten Löschen-Button. Erledigt wird ausschließlich über den Kreis —
+/// kein Abhaken per Swipe.
 class TaskListItem extends ConsumerStatefulWidget {
   final Task task;
   final Function onTap;
@@ -59,16 +62,40 @@ class TaskListItemState extends ConsumerState<TaskListItem> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final task = widget.task;
-    final inMyDay =
-        ref.watch(taskInMyDayProvider(task.id)).value ?? false;
+    final inMyDay = ref.watch(taskInMyDayProvider(task.id)).value ?? false;
 
-    return Dismissible(
-      key: ValueKey('task-list-item-dismissible-${task.id}'),
-      // Beide Richtungen führen eine Aktion aus, entfernen die Zeile aber nie
-      // selbst — false lässt Dismissible in die Ausgangslage zurückfedern.
-      confirmDismiss: (direction) => _confirmDismiss(direction, inMyDay),
-      background: _buildCheckBackground(theme, task),
-      secondaryBackground: _buildSwipeActionsBackground(theme, inMyDay),
+    return Slidable(
+      key: ValueKey('task-list-item-slidable-${task.id}'),
+      // Rechts wischen (leading): runde Aktionen wie in To Do — Mein Tag
+      // (blau, Sonne) und Verschieben (orange).
+      startActionPane: ActionPane(
+        motion: const BehindMotion(),
+        extentRatio: 0.42,
+        children: [
+          _RoundSlidableAction(
+            color: TodoColors.actionBlue,
+            icon: inMyDay ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+            onPressed: () => _toggleMyDay(inMyDay),
+          ),
+          _RoundSlidableAction(
+            color: TodoColors.actionOrange,
+            icon: Icons.playlist_play,
+            onPressed: _showMoveSheet,
+          ),
+        ],
+      ),
+      // Links wischen (trailing): roter Löschen-Button.
+      endActionPane: ActionPane(
+        motion: const BehindMotion(),
+        extentRatio: 0.24,
+        children: [
+          _RoundSlidableAction(
+            color: TodoColors.actionRed,
+            icon: Icons.delete_outline,
+            onPressed: _confirmAndDelete,
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
         child: Material(
@@ -132,102 +159,50 @@ class TaskListItemState extends ConsumerState<TaskListItem> {
   // Swipe-Aktionen
   // ---------------------------------------------------------------------
 
-  Future<bool> _confirmDismiss(
-    DismissDirection direction,
-    bool inMyDay,
-  ) async {
-    switch (direction) {
-      case DismissDirection.startToEnd:
-        // Rechts wischen: abhaken bzw. (bei bereits erledigten Aufgaben)
-        // wieder öffnen.
-        widget.onCheckedChanged(!widget.task.done);
-        return false;
-      case DismissDirection.endToStart:
-        // Links wischen: kleines Aktions-Sheet ("Mein Tag" / Löschen).
-        await _showSwipeActionsSheet(inMyDay);
-        return false;
-      default:
-        return false;
-    }
-  }
-
-  Widget _buildCheckBackground(ThemeData theme, Task task) {
-    return Container(
-      color: Colors.green,
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Icon(
-        task.done ? Icons.replay : Icons.check_circle,
-        color: Colors.white,
-      ),
-    );
-  }
-
-  Widget _buildSwipeActionsBackground(ThemeData theme, bool inMyDay) {
-    return Row(
-      children: [
-        const Spacer(),
-        Container(
-          width: 72,
-          color: theme.colorScheme.tertiaryContainer,
-          alignment: Alignment.center,
-          child: Icon(
-            inMyDay ? Icons.wb_sunny : Icons.wb_sunny_outlined,
-            color: theme.colorScheme.onTertiaryContainer,
-          ),
-        ),
-        Container(
-          width: 72,
-          color: theme.colorScheme.errorContainer,
-          alignment: Alignment.center,
-          child: Icon(
-            Icons.delete_outline,
-            color: theme.colorScheme.onErrorContainer,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Aktions-Sheet für die Links-Wisch-Geste: "Mein Tag" hinzufügen/entfernen
-  /// und Löschen (mit Bestätigungs-Dialog).
-  Future<void> _showSwipeActionsSheet(bool inMyDay) {
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    return showModalBottomSheet<void>(
+  /// „Verschieben"-Aktion (oranger Swipe-Button): Sheet mit den Projekten;
+  /// Auswahl verschiebt die Aufgabe (projectId + updateTask, optimistisch).
+  Future<void> _showMoveSheet() async {
+    final projectsModel = ref.read(projectsControllerProvider).value;
+    if (projectsModel == null) return;
+    final projects = projectsModel.projects
+        .where((p) => !p.isSavedFilter && p.id > 0)
+        .toList();
+    final selected = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: ListView(
+            shrinkWrap: true,
             children: [
-              ListTile(
-                leading: Icon(
-                  inMyDay ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+              for (final p in projects)
+                ListTile(
+                  leading: Icon(
+                    Icons.format_list_bulleted,
+                    color:
+                        p.color ?? Theme.of(sheetContext).colorScheme.primary,
+                  ),
+                  title: Text(p.title),
+                  trailing: p.id == widget.task.projectId
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () => Navigator.of(sheetContext).pop(p.id),
                 ),
-                title: Text(inMyDay ? l10n.myDayRemove : l10n.myDayAdd),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _toggleMyDay(inMyDay);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                title: Text(
-                  l10n.delete,
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _confirmAndDelete();
-                },
-              ),
             ],
           ),
         );
       },
     );
+    if (selected == null || selected == widget.task.projectId) return;
+    widget.task.projectId = selected;
+    final ok = await ref
+        .read(taskPageControllerProvider.notifier)
+        .updateTask(widget.task);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).taskMoveError)),
+      );
+    }
   }
 
   /// Mein-Tag-Toggle: rein lokal (kein Server-Sync), siehe `my_day_entries`.
@@ -254,9 +229,9 @@ class TaskListItemState extends ConsumerState<TaskListItem> {
                 .read(taskPageControllerProvider.notifier)
                 .deleteTask(widget.task.id);
             if (!ok && mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.taskDeleteError)),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(l10n.taskDeleteError)));
             }
           },
           onCancel: () => Navigator.of(dialogContext).pop(),
@@ -338,7 +313,9 @@ class TaskListItemState extends ConsumerState<TaskListItem> {
     }
 
     if (inMyDay) {
-      chips.add(_MyDayBadge(label: AppLocalizations.of(context).smartListMyDay));
+      chips.add(
+        _MyDayBadge(label: AppLocalizations.of(context).smartListMyDay),
+      );
     }
 
     final project = task.project;
@@ -361,6 +338,40 @@ class TaskListItemState extends ConsumerState<TaskListItem> {
       runSpacing: 2,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: chips,
+    );
+  }
+}
+
+/// Runder Swipe-Aktions-Button wie in Microsoft To Do (farbige Pille mit
+/// weißem Icon, vertikal zentriert).
+class _RoundSlidableAction extends StatelessWidget {
+  final Color color;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _RoundSlidableAction({
+    required this.color,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomSlidableAction(
+      onPressed: (_) => onPressed(),
+      backgroundColor: Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Center(
+        child: Container(
+          width: 56,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Icon(icon, size: 20, color: Colors.white),
+        ),
+      ),
     );
   }
 }

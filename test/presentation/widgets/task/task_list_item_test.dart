@@ -143,41 +143,48 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets('Wischen nach rechts hakt die Aufgabe ab', (
-    WidgetTester tester,
-  ) async {
-    bool? checkedValue;
-    final task = Task(
-      id: 1,
-      title: 'Water the plants',
-      createdBy: User(username: 'demo'),
-      projectId: 5,
-      done: false,
-    );
+  testWidgets(
+    'Wischen nach rechts legt die Mein-Tag-Aktion frei (kein Abhaken)',
+    (WidgetTester tester) async {
+      bool? checkedValue;
+      final task = Task(
+        id: 1,
+        title: 'Water the plants',
+        createdBy: User(username: 'demo'),
+        projectId: 5,
+        done: false,
+      );
 
-    await tester.pumpWidget(
-      _wrap(
-        TaskListItem(
-          task: task,
-          onTap: () {},
-          onEdit: () {},
-          onCheckedChanged: (value) => checkedValue = value,
+      await tester.pumpWidget(
+        _wrap(
+          TaskListItem(
+            task: task,
+            onTap: () {},
+            onEdit: () {},
+            onCheckedChanged: (value) => checkedValue = value,
+          ),
+          db,
         ),
-        db,
-      ),
-    );
+      );
+      await tester.pump();
 
-    // Nach rechts wischen (startToEnd) löst das Abhaken aus; die Zeile bleibt
-    // bestehen (confirmDismiss liefert false, Dismissible federt zurück).
-    await tester.drag(find.byType(Dismissible), const Offset(500, 0));
-    await tester.pump();
-    await tester.pumpAndSettle();
+      // Nach rechts wischen legt die runden Aktionen frei — wie in To Do
+      // wird dabei NICHT abgehakt.
+      await tester.drag(find.text('Water the plants'), const Offset(200, 0));
+      await tester.pumpAndSettle();
 
-    expect(checkedValue, isTrue);
-    expect(find.byType(Dismissible), findsOneWidget);
+      expect(checkedValue, isNull);
+      expect(find.byIcon(Icons.wb_sunny_outlined), findsOneWidget);
 
-    await _unmount(tester);
-  });
+      // Tipp auf die Sonne fügt die Aufgabe „Mein Tag" hinzu (lokale DB);
+      // die Zeile zeigt danach das Mein-Tag-Kennzeichen.
+      await tester.tap(find.byIcon(Icons.wb_sunny_outlined));
+      await tester.pumpAndSettle();
+      expect(find.text('My Day'), findsOneWidget);
+
+      await _unmount(tester);
+    },
+  );
 
   testWidgets('zeigt den Schritte-Fortschritt "x von y" in der Metazeile', (
     WidgetTester tester,
