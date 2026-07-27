@@ -22,6 +22,7 @@ Future<void> showAddTaskSheet(
     int projectId, {
     DateTime? reminder,
     String? description,
+    bool addToMyDay,
   })
   onAddTask,
   int defaultProjectId = 0,
@@ -48,6 +49,7 @@ class AddTaskSheet extends ConsumerStatefulWidget {
     int projectId, {
     DateTime? reminder,
     String? description,
+    bool addToMyDay,
   })
   onAddTask;
 
@@ -81,6 +83,7 @@ class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   final _focusNode = FocusNode();
   DateTime? _dueDate;
   DateTime? _reminder;
+  bool _addToMyDay = false;
   bool _showNote = false;
   int _projectId = 0;
   String? _projectTitle;
@@ -133,6 +136,7 @@ class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       _projectId,
       reminder: _reminder,
       description: note.isEmpty ? null : note,
+      addToMyDay: _addToMyDay,
     );
     // Sheet bleibt offen für die nächste Aufgabe (To-Do-Verhalten).
     _controller.clear();
@@ -140,6 +144,7 @@ class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     setState(() {
       _dueDate = null;
       _reminder = null;
+      _addToMyDay = false;
       _showNote = false;
     });
     _focusNode.requestFocus();
@@ -215,6 +220,17 @@ class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
               spacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                // Sonne wie in To Do: neue Aufgabe direkt in „Mein Tag".
+                IconButton(
+                  tooltip: l10n.myDayAdd,
+                  icon: Icon(
+                    _addToMyDay ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+                    color: _addToMyDay
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () => setState(() => _addToMyDay = !_addToMyDay),
+                ),
                 _reminder == null
                     ? IconButton(
                         tooltip: l10n.reminder,

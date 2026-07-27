@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:vikunja_app/core/utils/due_date_format.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
@@ -23,6 +24,10 @@ import 'package:vikunja_app/presentation/widgets/task/smart_list_section.dart';
 import 'package:vikunja_app/presentation/widgets/task/suggestions_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
 import 'package:vikunja_app/presentation/widgets/task_bottom_sheet.dart';
+import 'package:vikunja_app/presentation/widgets/ui/preset_sheet.dart';
+
+/// Filter der „Geplant"-Seite (Chip „Alles geplant" wie in To Do).
+enum _PlannedFilter { all, overdue, today, tomorrow, thisWeek, later }
 
 /// Aufgabenliste einer [SmartList] (MS-To-Do-Stil): reaktiv aus der lokalen
 /// DB, Tipp öffnet die Bearbeiten-Seite, Long-Press die Schnellvorschau,
@@ -41,6 +46,9 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
 
   /// Beim Scrollen erscheint der Listentitel in der Navbar (To-Do-Kollaps).
   bool _titleInBar = false;
+
+  /// Aktiver „Geplant"-Filter (Chip „Alles geplant").
+  _PlannedFilter _plannedFilter = _PlannedFilter.all;
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +94,27 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
           // "Erledigt" bleibt ohne Sortier-Chip (sie hat eine feste
           // Reihenfolge, siehe smartListTasksProvider).
           if (list != SmartList.completed)
-            SortChip(listKey: 'smart/${list.name}', accentColor: accent),
+            Row(
+              children: [
+                // „Geplant": Filter-Chip („Alles geplant" …) wie in To Do.
+                if (list == SmartList.planned)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, top: 8, bottom: 4),
+                    child: _PlannedFilterChip(
+                      accent: accent,
+                      fg: fg,
+                      value: _plannedFilter,
+                      onTap: _showPlannedFilterSheet,
+                    ),
+                  ),
+                Expanded(
+                  child: SortChip(
+                    listKey: 'smart/${list.name}',
+                    accentColor: accent,
+                  ),
+                ),
+              ],
+            ),
           Expanded(
             child: NotificationListener<ScrollNotification>(
               onNotification: (n) {
@@ -212,13 +240,68 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
     );
   }
 
+  Future<void> _showPlannedFilterSheet() async {
+    final l10n = AppLocalizations.of(context);
+    final labels = _plannedFilterLabels(l10n);
+    final choice = await showPresetSheet<_PlannedFilter>(
+      context,
+      title: labels[_PlannedFilter.all]!,
+      options: [
+        for (final f in _PlannedFilter.values)
+          PresetOption(
+            icon: f == _plannedFilter
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
+            label: labels[f]!,
+            value: f,
+          ),
+      ],
+    );
+    if (choice != null && mounted) {
+      setState(() => _plannedFilter = choice);
+    }
+  }
+
+  Map<_PlannedFilter, String> _plannedFilterLabels(AppLocalizations l10n) => {
+    _PlannedFilter.all: l10n.plannedFilterAll,
+    _PlannedFilter.overdue: l10n.plannedFilterOverdue,
+    _PlannedFilter.today: l10n.plannedFilterToday,
+    _PlannedFilter.tomorrow: l10n.plannedFilterTomorrow,
+    _PlannedFilter.thisWeek: l10n.plannedFilterThisWeek,
+    _PlannedFilter.later: l10n.plannedFilterLater,
+  };
+
+  bool _matchesPlannedFilter(Task task) {
+    if (_plannedFilter == _PlannedFilter.all) return true;
+    final due = task.dueDate;
+    if (due == null || due.year <= 1) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(due.year, due.month, due.day);
+    final diff = day.difference(today).inDays;
+    switch (_plannedFilter) {
+      case _PlannedFilter.all:
+        return true;
+      case _PlannedFilter.overdue:
+        return diff < 0;
+      case _PlannedFilter.today:
+        return diff == 0;
+      case _PlannedFilter.tomorrow:
+        return diff == 1;
+      case _PlannedFilter.thisWeek:
+        return diff >= 0 && diff < 8 - today.weekday;
+      case _PlannedFilter.later:
+        return diff >= 8 - today.weekday;
+    }
+  }
+
   /// Aufgabenliste der „Geplant"-Seite mit Datums-Gruppenköpfen (ein Chip je
   /// Fälligkeits-Kalendertag, in der Reihenfolge der sortierten Aufgaben).
   List<_ListEntry> _plannedEntries(BuildContext context, List<Task> tasks) {
     final l10n = AppLocalizations.of(context);
     final entries = <_ListEntry>[];
     String? lastLabel;
-    for (final task in tasks) {
+    for (final task in tasks.where(_matchesPlannedFilter)) {
       final due = task.dueDate;
       final label = (due != null && due.year > 1)
           ? formatDueDate(l10n, l10n.localeName, due)
@@ -237,14 +320,22 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
         ref.read(currentUserProvider)?.settings?.defaultProjectId ?? 0;
     showAddTaskSheet(
       context,
-      onAddTask: (title, dueDate, projectId, {reminder, description}) =>
-          _addTask(
+      onAddTask:
+          (
+            title,
+            dueDate,
+            projectId, {
+            reminder,
+            description,
+            addToMyDay = false,
+          }) => _addTask(
             ref,
             title,
             dueDate,
             projectId,
             reminder: reminder,
             description: description,
+            addToMyDay: addToMyDay,
           ),
       defaultProjectId: defaultProjectId,
       selectableProject: true,
@@ -258,6 +349,7 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
     int projectId, {
     DateTime? reminder,
     String? description,
+    bool addToMyDay = false,
   }) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -275,9 +367,21 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
       isFavorite: list == SmartList.important,
     );
 
-    final success = await ref
-        .read(taskPageControllerProvider.notifier)
-        .addTask(projectId, task);
+    final controller = ref.read(taskPageControllerProvider.notifier);
+    final bool success;
+    if (addToMyDay || list == SmartList.today) {
+      // Sonne im Composer bzw. Anlegen aus „Mein Tag": direkt in den
+      // heutigen Mein Tag übernehmen (lokale Temp-ID reicht dafür).
+      final id = await controller.addTaskReturningId(projectId, task);
+      success = id != null;
+      if (id != null) {
+        await ref
+            .read(tasksDaoProvider)
+            .addToMyDay(id, localDayKey(DateTime.now()));
+      }
+    } else {
+      success = await controller.addTask(projectId, task);
+    }
 
     if (ref.context.mounted && !success) {
       ScaffoldMessenger.of(ref.context).showSnackBar(
@@ -346,6 +450,61 @@ class _DateGroupChip extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Filter-Chip der „Geplant"-Seite im Stil des Sort-Chips.
+class _PlannedFilterChip extends StatelessWidget {
+  final Color accent;
+  final Color? fg;
+  final _PlannedFilter value;
+  final VoidCallback onTap;
+
+  const _PlannedFilterChip({
+    required this.accent,
+    required this.fg,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final labels = {
+      _PlannedFilter.all: l10n.plannedFilterAll,
+      _PlannedFilter.overdue: l10n.plannedFilterOverdue,
+      _PlannedFilter.today: l10n.plannedFilterToday,
+      _PlannedFilter.tomorrow: l10n.plannedFilterTomorrow,
+      _PlannedFilter.thisWeek: l10n.plannedFilterThisWeek,
+      _PlannedFilter.later: l10n.plannedFilterLater,
+    };
+    final theme = Theme.of(context);
+    final color = fg ?? Colors.white;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(Colors.black.withValues(alpha: 0.10), accent),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.filter_list, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              labels[value]!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

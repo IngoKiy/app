@@ -38,6 +38,29 @@ Future<void> setCompletionSoundEnabled(KeyValueDao kv, bool value) =>
 Future<void> setDateDetectionEnabled(KeyValueDao kv, bool value) =>
     kv.set(_kDateDetection, value ? '1' : '0');
 
+/// Sichtbarkeit einer Smart-List in der Übersicht (Einstellungen, wie in
+/// To Do einzeln abschaltbar). Standard: sichtbar.
+final smartListEnabledProvider = StreamProvider.family<bool, String>(
+  (ref, name) => ref
+      .watch(keyValueDaoProvider)
+      .watch('pref/smartlist/$name')
+      .map((v) => v != '0'),
+);
+
+Future<void> setSmartListEnabled(KeyValueDao kv, String name, bool value) =>
+    kv.set('pref/smartlist/$name', value ? '1' : '0');
+
+/// „Leere intelligente Listen automatisch ausblenden" (Standard: aus).
+final hideEmptySmartListsProvider = StreamProvider<bool>(
+  (ref) => ref
+      .watch(keyValueDaoProvider)
+      .watch('pref/hide_empty_smartlists')
+      .map((v) => v == '1'),
+);
+
+Future<void> setHideEmptySmartLists(KeyValueDao kv, bool value) =>
+    kv.set('pref/hide_empty_smartlists', value ? '1' : '0');
+
 /// Bündelte „Foto"-Hintergründe für Listen (Design-Sheet, Tab Foto).
 const listBackgroundAssets = [
   'assets/backgrounds/bg_ocean.png',

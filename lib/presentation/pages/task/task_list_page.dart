@@ -141,8 +141,15 @@ class TaskListPage extends ConsumerWidget {
   ) {
     showAddTaskSheet(
       context,
-      onAddTask: (title, dueDate, projectId, {reminder, description}) =>
-          _addTask(ref, title, dueDate, projectId),
+      onAddTask:
+          (
+            title,
+            dueDate,
+            projectId, {
+            reminder,
+            description,
+            addToMyDay = false,
+          }) => _addTask(ref, title, dueDate, projectId),
       defaultProjectId: defaultProjectId,
       selectableProject: true,
     );

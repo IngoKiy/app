@@ -12,6 +12,7 @@ import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
 import 'package:vikunja_app/data/local/row_mappers.dart';
+import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_page_model.dart';
 import 'package:vikunja_app/presentation/manager/widget_controller.dart';
@@ -222,6 +223,19 @@ class TaskPageController extends _$TaskPageController {
         .read(offlineWriterProvider)
         .addTask(projectId, task);
     return result.ok;
+  }
+
+  /// Wie [addTask], liefert aber die ID der angelegten Aufgabe zurück
+  /// (Server-ID wenn direkt gesynct, sonst die lokale Temp-ID) — für
+  /// Folgeaktionen wie „direkt zu Mein Tag" aus dem Composer.
+  Future<int?> addTaskReturningId(int projectId, Task task) async {
+    final result = await ref
+        .read(offlineWriterProvider)
+        .addTask(projectId, task);
+    if (!result.ok) return null;
+    final body = result.body;
+    if (body is TaskDto) return body.id;
+    return result.localId;
   }
 
   Future<bool> deleteTask(int id) async {

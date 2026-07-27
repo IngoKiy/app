@@ -361,5 +361,15 @@
   "duplicateList": "Liste duplizieren",
   "sendCopy": "Kopie senden",
   "printList": "Liste ausdrucken",
-  "copySuffix": "Kopie"
+  "copySuffix": "Kopie",
+  "moveListTo": "Liste verschieben in…",
+  "noGroup": "Keine Gruppe",
+  "plannedFilterAll": "Alles geplant",
+  "plannedFilterOverdue": "Überfällig",
+  "plannedFilterToday": "Heute",
+  "plannedFilterTomorrow": "Morgen",
+  "plannedFilterThisWeek": "Diese Woche",
+  "plannedFilterLater": "Später",
+  "hideEmptySmartLists": "Leere intelligente Listen automatisch ausblenden",
+  "smartListsSection": "Intelligente Listen"
 }

@@ -20,6 +20,9 @@ class ProjectCard extends StatelessWidget {
   /// Master-Detail-Auswahl hervorheben.
   final bool selected;
 
+  /// Liste wurde mit mir geteilt (fremder Besitzer) → Personen-Symbol.
+  final bool sharedWithMe;
+
   /// Gruppe: zeigt Ordner-Icon und Chevron rechts.
   final bool expandable;
   final bool expanded;
@@ -32,6 +35,7 @@ class ProjectCard extends StatelessWidget {
     required this.project,
     this.openTaskCount,
     this.selected = false,
+    this.sharedWithMe = false,
     this.expandable = false,
     this.expanded = false,
     this.onToggleExpand,
@@ -76,6 +80,16 @@ class ProjectCard extends StatelessWidget {
                   ),
                 ),
               ),
+              // Geteilte Liste (fremder Besitzer): Personen-Symbol wie To Do.
+              if (sharedWithMe)
+                Padding(
+                  padding: const EdgeInsets.only(left: AppDimensions.xxs),
+                  child: Icon(
+                    Icons.people_outline,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               if (project.isFavourite)
                 Padding(
                   padding: const EdgeInsets.only(left: AppDimensions.xxs),

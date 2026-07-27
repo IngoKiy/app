@@ -36,7 +36,15 @@ import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 class ProjectDetailPage extends ConsumerStatefulWidget {
   final Project project;
 
-  const ProjectDetailPage({super.key, required this.project});
+  /// Öffnet nach dem Aufbau sofort den Umbenennen-Dialog — für den
+  /// „+ Neue Liste"-Flow wie in To Do (anlegen, dann direkt benennen).
+  final bool autoRename;
+
+  const ProjectDetailPage({
+    super.key,
+    required this.project,
+    this.autoRename = false,
+  });
 
   @override
   ProjectPageState createState() => ProjectPageState();
@@ -53,6 +61,11 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
   void initState() {
     _notificationHandler = ref.read(notificationProvider);
     _notificationHandler?.addListener(onNotificationDone);
+    if (widget.autoRename) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _renameList(widget.project);
+      });
+    }
     super.initState();
   }
 
@@ -195,6 +208,18 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     // Wie Microsoft To Do: ein einzelnes „…" öffnet das Listenoptionen-Sheet
     // (Umbenennen, Sortieren, Design ändern, Mitglieder, Ansicht, Bearbeiten).
     final actions = <Widget>[
+      // Freigabe-Symbol wie in To Do (öffnet die Mitglieder-Verwaltung).
+      if (project.id > 0)
+        IconButton(
+          icon: const Icon(Icons.person_add_alt),
+          tooltip: AppLocalizations.of(context).projectMembers,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProjectMembersPage(projectId: project.id),
+            ),
+          ),
+        ),
       IconButton(
         icon: const Icon(Icons.more_horiz),
         tooltip: AppLocalizations.of(context).listOptionsTitle,
@@ -260,6 +285,12 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
           value: 'rename',
         ),
         PresetOption(
+          icon: Icons.drive_file_move_outline,
+          label: l10n.moveListTo,
+          chevron: true,
+          value: 'move',
+        ),
+        PresetOption(
           icon: Icons.swap_vert,
           label: l10n.sortByLabel,
           chevron: true,
@@ -312,6 +343,8 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     switch (choice) {
       case 'rename':
         await _renameList(project);
+      case 'move':
+        await _showMoveToGroupSheet(project);
       case 'sort':
         await _showSortSheet(project);
       case 'design':
@@ -475,6 +508,44 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     await ref
         .read(projectControllerProvider(widget.project).notifier)
         .updateProject(project.copyWith(title: title));
+  }
+
+  /// „Liste verschieben in…": ordnet die Liste einer Gruppe (Elternprojekt)
+  /// zu bzw. löst sie mit „Keine Gruppe" wieder heraus.
+  Future<void> _showMoveToGroupSheet(Project project) async {
+    final l10n = AppLocalizations.of(context);
+    final candidates =
+        ref
+            .read(projectsControllerProvider)
+            .value
+            ?.projects
+            .where((p) => !p.isSavedFilter && p.id > 0 && p.id != project.id)
+            .toList() ??
+        const <Project>[];
+    final choice = await showPresetSheet<int>(
+      context,
+      title: l10n.moveListTo,
+      options: [
+        PresetOption(
+          icon: Icons.folder_off_outlined,
+          label: l10n.noGroup,
+          value: 0,
+        ),
+        for (final p in candidates)
+          PresetOption(
+            icon: Icons.folder_outlined,
+            label: p.title,
+            value: p.id,
+          ),
+      ],
+    );
+    if (choice == null || !mounted) return;
+    final updated = project.copyWith(parentProjectId: choice)
+      ..parentProjectId = choice;
+    await ref
+        .read(projectControllerProvider(widget.project).notifier)
+        .updateProject(updated);
+    ref.invalidate(projectsControllerProvider);
   }
 
   Future<void> _showSortSheet(Project project) async {
@@ -652,14 +723,16 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
   Future<void> _addITaskDialog(BuildContext context, Project project) {
     return showAddTaskSheet(
       context,
-      onAddTask: (title, dueDate, _, {reminder, description}) => _addItem(
-        context,
-        project,
-        title,
-        dueDate,
-        reminder: reminder,
-        description: description,
-      ),
+      onAddTask:
+          (title, dueDate, _, {reminder, description, addToMyDay = false}) =>
+              _addItem(
+                context,
+                project,
+                title,
+                dueDate,
+                reminder: reminder,
+                description: description,
+              ),
       defaultProjectId: project.id,
     );
   }

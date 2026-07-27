@@ -465,5 +465,15 @@
   "duplicateList": "Duplicate list",
   "sendCopy": "Send a copy",
   "printList": "Print list",
-  "copySuffix": "copy"
+  "copySuffix": "copy",
+  "moveListTo": "Move list to…",
+  "noGroup": "No group",
+  "plannedFilterAll": "All planned",
+  "plannedFilterOverdue": "Overdue",
+  "plannedFilterToday": "Today",
+  "plannedFilterTomorrow": "Tomorrow",
+  "plannedFilterThisWeek": "This week",
+  "plannedFilterLater": "Later",
+  "hideEmptySmartLists": "Automatically hide empty smart lists",
+  "smartListsSection": "Smart lists"
 }

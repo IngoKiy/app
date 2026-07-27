@@ -53,9 +53,13 @@ enum OfflineWriteStatus {
 }
 
 class OfflineWriteResult {
-  const OfflineWriteResult(this.status, {this.body, this.error});
+  const OfflineWriteResult(this.status, {this.body, this.error, this.localId});
 
   final OfflineWriteStatus status;
+
+  /// Lokale (Temp-)ID der erzeugten Entität bei Create-Ops — erlaubt
+  /// Folgeaktionen wie „direkt zu Mein Tag" ohne auf den Sync zu warten.
+  final int? localId;
 
   /// Server-Antwort bei [OfflineWriteStatus.synced].
   final Object? body;
@@ -257,6 +261,13 @@ class OfflineWriter {
             .copyWith(remoteId: const Value(null)),
       ),
       rollback: () => _deleteTaskLocal(tempId),
+    ).then(
+      (r) => OfflineWriteResult(
+        r.status,
+        body: r.body,
+        error: r.error,
+        localId: tempId,
+      ),
     );
   }
 

@@ -52,6 +52,7 @@ class ProjectListPage extends ConsumerWidget {
             _ProjectTreeTile(
               project: p,
               counts: counts,
+              currentUserId: ref.read(currentUserProvider)?.id,
               selectedProjectId: selectedProjectId,
               onOpen: (project) => _navigateToProject(ref, project),
             ),
@@ -61,6 +62,7 @@ class ProjectListPage extends ConsumerWidget {
               _ProjectTreeTile(
                 project: f,
                 counts: counts,
+                currentUserId: ref.read(currentUserProvider)?.id,
                 selectedProjectId: selectedProjectId,
                 onOpen: (project) => _navigateToProject(ref, project),
               ),
@@ -174,7 +176,17 @@ class ProjectListPage extends ConsumerWidget {
       final created = projects?.where((p) => p.title == name).toList();
       if (created != null && created.isNotEmpty) {
         if (!ref.context.mounted) return;
-        _navigateToProject(ref, created.first);
+        // Wie To Do: Liste öffnen und den Titel direkt benennen lassen.
+        Navigator.push(
+          ref.context,
+          MaterialPageRoute(
+            builder: (context) => ProjectDetailPage(
+              key: Key(created.first.id.toString()),
+              project: created.first,
+              autoRename: true,
+            ),
+          ),
+        );
         return;
       }
       await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -375,6 +387,7 @@ class _SectionHeader extends StatelessWidget {
 class _ProjectTreeTile extends StatefulWidget {
   final Project project;
   final Map<int, int> counts;
+  final int? currentUserId;
   final int? selectedProjectId;
   final ValueChanged<Project> onOpen;
   final int depth;
@@ -382,6 +395,7 @@ class _ProjectTreeTile extends StatefulWidget {
   const _ProjectTreeTile({
     required this.project,
     required this.counts,
+    this.currentUserId,
     required this.selectedProjectId,
     required this.onOpen,
     this.depth = 0,
@@ -405,6 +419,10 @@ class _ProjectTreeTileState extends State<_ProjectTreeTile> {
         ProjectCard(
           project: project,
           openTaskCount: widget.counts[project.id],
+          sharedWithMe:
+              widget.currentUserId != null &&
+              project.owner != null &&
+              project.owner!.id != widget.currentUserId,
           selected: project.id == widget.selectedProjectId,
           onTap: () => widget.onOpen(project),
           expandable: hasChildren,
@@ -432,6 +450,7 @@ class _ProjectTreeTileState extends State<_ProjectTreeTile> {
                     _ProjectTreeTile(
                       project: child,
                       counts: widget.counts,
+                      currentUserId: widget.currentUserId,
                       selectedProjectId: widget.selectedProjectId,
                       onOpen: widget.onOpen,
                       depth: widget.depth + 1,

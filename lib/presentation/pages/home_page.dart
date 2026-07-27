@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/notification_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/utils/constants.dart';
+import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
@@ -176,14 +178,22 @@ class HomePageState extends ConsumerState<HomePage> {
   ]) {
     showAddTaskSheet(
       context,
-      onAddTask: (title, dueDate, projectId, {reminder, description}) =>
-          _addTask(
+      onAddTask:
+          (
+            title,
+            dueDate,
+            projectId, {
+            reminder,
+            description,
+            addToMyDay = false,
+          }) => _addTask(
             title,
             dueDate,
             projectId,
             context,
             reminder: reminder,
             description: description,
+            addToMyDay: addToMyDay,
           ),
       initialTitle: title,
       defaultProjectId: defaultProjectId,
@@ -198,6 +208,7 @@ class HomePageState extends ConsumerState<HomePage> {
     BuildContext context, {
     DateTime? reminder,
     String? description,
+    bool addToMyDay = false,
   }) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -213,9 +224,19 @@ class HomePageState extends ConsumerState<HomePage> {
       projectId: projectId,
     );
 
-    var success = await ref
-        .read(taskPageControllerProvider.notifier)
-        .addTask(projectId, task);
+    final controller = ref.read(taskPageControllerProvider.notifier);
+    bool success;
+    if (addToMyDay) {
+      final id = await controller.addTaskReturningId(projectId, task);
+      success = id != null;
+      if (id != null) {
+        await ref
+            .read(tasksDaoProvider)
+            .addToMyDay(id, localDayKey(DateTime.now()));
+      }
+    } else {
+      success = await controller.addTask(projectId, task);
+    }
 
     if (context.mounted) {
       if (success) {

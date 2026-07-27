@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
+import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
 import 'package:vikunja_app/presentation/pages/task/smart_list_page.dart';
 
 /// Anzeige-Eigenschaften einer Smart-List im Stil von Microsoft To Do.
@@ -113,6 +114,16 @@ class _SmartListTile extends ConsumerWidget {
     final count = list == SmartList.completed
         ? null
         : ref.watch(smartListCountProvider(list)).value;
+
+    // In den Einstellungen abgeschaltete bzw. (optional) leere Smart-Lists
+    // werden wie in To Do ausgeblendet.
+    final enabled =
+        ref.watch(smartListEnabledProvider(list.name)).value ?? true;
+    final hideEmpty = ref.watch(hideEmptySmartListsProvider).value ?? false;
+    if (!enabled) return const SizedBox.shrink();
+    if (hideEmpty && list != SmartList.completed && (count ?? 0) == 0) {
+      return const SizedBox.shrink();
+    }
 
     return ListTile(
       leading: Icon(look.icon, color: look.color),

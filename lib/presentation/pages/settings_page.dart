@@ -16,7 +16,9 @@ import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/domain/entities/version.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
+import 'package:vikunja_app/presentation/widgets/task/smart_list_section.dart';
 import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/manager/settings_controller.dart';
@@ -152,6 +154,40 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                     value,
                   ),
                 ),
+                Divider(),
+                // Smart-Lists einzeln ein-/ausblenden (wie in To Do).
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text(
+                    l10n.smartListsSection,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+                for (final list in SmartList.values)
+                  SwitchListTile(
+                    title: Text(smartListLook(context, list).title),
+                    secondary: Icon(
+                      smartListLook(context, list).icon,
+                      color: smartListLook(context, list).color,
+                    ),
+                    value:
+                        ref.watch(smartListEnabledProvider(list.name)).value ??
+                        true,
+                    onChanged: (value) => setSmartListEnabled(
+                      ref.read(keyValueDaoProvider),
+                      list.name,
+                      value,
+                    ),
+                  ),
+                SwitchListTile(
+                  title: Text(l10n.hideEmptySmartLists),
+                  value: ref.watch(hideEmptySmartListsProvider).value ?? false,
+                  onChanged: (value) => setHideEmptySmartLists(
+                    ref.read(keyValueDaoProvider),
+                    value,
+                  ),
+                ),
+                Divider(),
                 SwitchListTile(
                   title: Text(l10n.dateStripSetting),
                   value: ref.watch(dateStripEnabledProvider).value ?? true,
