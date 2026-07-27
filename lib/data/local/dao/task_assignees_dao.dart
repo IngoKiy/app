@@ -14,10 +14,10 @@ class TaskAssigneesDao extends DatabaseAccessor<AppDatabase>
 
   /// Siehe [TaskLabelsDao.upsertFromServer].
   Future<void> upsertFromServer(int taskId, int userId) async {
-    final existing = await (select(taskAssignees)..where(
-          (t) => t.taskId.equals(taskId) & t.userId.equals(userId),
-        ))
-        .getSingleOrNull();
+    final existing =
+        await (select(taskAssignees)
+              ..where((t) => t.taskId.equals(taskId) & t.userId.equals(userId)))
+            .getSingleOrNull();
     if (existing != null && existing.isDirty) return;
 
     await into(taskAssignees).insertOnConflictUpdate(
@@ -39,10 +39,7 @@ class TaskAssigneesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  Future<int> deleteMissingCleanForTask(
-    int taskId,
-    Iterable<int> keepUserIds,
-  ) {
+  Future<int> deleteMissingCleanForTask(int taskId, Iterable<int> keepUserIds) {
     return (delete(taskAssignees)..where(
           (t) =>
               t.taskId.equals(taskId) &

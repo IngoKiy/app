@@ -112,7 +112,7 @@ class ProjectListPage extends ConsumerWidget {
               ),
             ),
             bottomNavigationBar: _NewListBar(
-              onTap: () => _addProjectDialog(ref),
+              onTap: () => _createListInline(ref),
               onNewGroup: () => _addProjectDialog(ref),
             ),
           );
@@ -137,6 +137,48 @@ class ProjectListPage extends ConsumerWidget {
       ),
       loading: () => const LoadingWidget(),
     );
+  }
+
+  /// „+ Neue Liste" wie in Microsoft To Do: sofort eine Liste
+  /// „Unbenannte Liste [n]" anlegen und öffnen — benennen ist Umbenennen
+  /// (Listenoptionen), kein vorgeschalteter Dialog.
+  Future<void> _createListInline(WidgetRef ref) async {
+    final l10n = AppLocalizations.of(ref.context);
+    final messenger = ScaffoldMessenger.of(ref.context);
+    final currentUser = ref.read(currentUserProvider);
+    final model = ref.read(projectsControllerProvider).value;
+
+    // Eindeutigen Namen bestimmen: „Unbenannte Liste", „… 1", „… 2", …
+    final existing = <String>{
+      if (model != null)
+        for (final p in model.projects) p.title,
+    };
+    var name = l10n.untitledList;
+    var i = 1;
+    while (existing.contains(name)) {
+      name = '${l10n.untitledList} $i';
+      i++;
+    }
+
+    final result = await ref
+        .read(projectsControllerProvider.notifier)
+        .create(Project(title: name, owner: currentUser));
+    if (!result.ok) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.projectCreateError)));
+      return;
+    }
+
+    // Die neue Liste öffnen, sobald sie im Stream angekommen ist.
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final projects = ref.read(projectsControllerProvider).value?.projects;
+      final created = projects?.where((p) => p.title == name).toList();
+      if (created != null && created.isNotEmpty) {
+        if (!ref.context.mounted) return;
+        _navigateToProject(ref, created.first);
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   void _addProjectDialog(WidgetRef ref) {

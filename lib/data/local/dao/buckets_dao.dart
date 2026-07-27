@@ -11,8 +11,7 @@ class BucketsDao extends DatabaseAccessor<AppDatabase> with _$BucketsDaoMixin {
   Stream<List<BucketRow>> watchBucketsByProject(int projectId) =>
       (select(buckets)
             ..where(
-              (b) =>
-                  b.projectId.equals(projectId) & b.isDeleted.equals(false),
+              (b) => b.projectId.equals(projectId) & b.isDeleted.equals(false),
             )
             ..orderBy([(b) => OrderingTerm(expression: b.position)]))
           .watch();

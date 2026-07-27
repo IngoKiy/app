@@ -118,29 +118,31 @@ class _SyncBannerContent extends StatelessWidget {
                 vertical: AppDimensions.xs,
               ),
               child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  message,
-                  style: theme.textTheme.bodySmall?.copyWith(color: foreground),
-                  textAlign: TextAlign.center,
-                ),
-                if (state.phase == SyncPhase.syncing) ...[
-                  const SizedBox(height: AppDimensions.xxs),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppDimensions.xxs),
-                    child: SizedBox(
-                      height: 3,
-                      child: LinearProgressIndicator(
-                        minHeight: 3,
-                        backgroundColor: foreground.withValues(alpha: 0.2),
-                        valueColor: AlwaysStoppedAnimation<Color>(foreground),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    message,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: foreground,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (state.phase == SyncPhase.syncing) ...[
+                    const SizedBox(height: AppDimensions.xxs),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppDimensions.xxs),
+                      child: SizedBox(
+                        height: 3,
+                        child: LinearProgressIndicator(
+                          minHeight: 3,
+                          backgroundColor: foreground.withValues(alpha: 0.2),
+                          valueColor: AlwaysStoppedAnimation<Color>(foreground),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
               ),
             ),
           ),

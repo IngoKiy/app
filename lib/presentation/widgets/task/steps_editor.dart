@@ -88,8 +88,7 @@ class _StepsEditorState extends State<StepsEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var i = 0; i < widget.steps.length; i++)
-          _buildStepRow(theme, i),
+        for (var i = 0; i < widget.steps.length; i++) _buildStepRow(theme, i),
         _buildAddRow(context, theme),
       ],
     );
@@ -143,10 +142,7 @@ class _StepsEditorState extends State<StepsEditor> {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 8, right: 16),
-              child: Icon(
-                Icons.add,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              child: Icon(Icons.add, color: theme.colorScheme.onSurfaceVariant),
             ),
             Text(
               AppLocalizations.of(context).stepAdd,

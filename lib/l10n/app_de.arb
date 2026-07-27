@@ -335,5 +335,11 @@
   "noteAdd": "Notiz hinzufügen",
   "moreSection": "Mehr",
   "repeatLabel": "Wiederholen",
-  "addFile": "Datei hinzufügen"
+  "addFile": "Datei hinzufügen",
+  "listOptionsTitle": "Listenoptionen",
+  "renameList": "Liste umbenennen",
+  "changeDesign": "Design ändern",
+  "changeView": "Ansicht wechseln",
+  "sortManual": "Manuelle Reihenfolge",
+  "untitledList": "Unbenannte Liste"
 }

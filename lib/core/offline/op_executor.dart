@@ -157,34 +157,27 @@ class OpExecutor {
         return _taskDataSource.setAssignees(primaryId!, assignees);
       case PendingOpType.taskLabelBulk:
         final labels = _labelList(op.payload['labels']);
-        final task = TaskDto(
-          id: primaryId!,
-          createdBy: null,
-          projectId: null,
-        );
+        final task = TaskDto(id: primaryId!, createdBy: null, projectId: null);
         return _taskLabelBulkDataSource.update(task, labels);
       case PendingOpType.labelCreate:
         return _labelDataSource.create(
           LabelDto.fromJson(_createPayload(op.payload)),
         );
       case PendingOpType.commentCreate:
-        final taskId =
-            refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
+        final taskId = refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
         return _taskCommentDataSource.create(
           taskId,
           TaskCommentDto.fromJson(_createPayload(op.payload)),
         );
       case PendingOpType.commentUpdate:
-        final taskId =
-            refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
+        final taskId = refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
         final payload = Map<String, dynamic>.of(op.payload)..['id'] = primaryId;
         return _taskCommentDataSource.update(
           taskId,
           TaskCommentDto.fromJson(payload),
         );
       case PendingOpType.commentDelete:
-        final taskId =
-            refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
+        final taskId = refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
         return _taskCommentDataSource.delete(taskId, primaryId!);
       case PendingOpType.projectCreate:
         return _projectDataSource.create(
@@ -196,8 +189,7 @@ class OpExecutor {
       case PendingOpType.bucketCreate:
         final projectId =
             refs['projectId'] ?? (op.payload['project_id'] as num).toInt();
-        final viewId =
-            refs['viewId'] ?? (op.payload['view_id'] as num).toInt();
+        final viewId = refs['viewId'] ?? (op.payload['view_id'] as num).toInt();
         return _bucketDataSource.add(
           projectId,
           viewId,
@@ -206,8 +198,7 @@ class OpExecutor {
       case PendingOpType.bucketUpdate:
         final projectId =
             refs['projectId'] ?? (op.payload['project_id'] as num).toInt();
-        final viewId =
-            refs['viewId'] ?? (op.payload['view_id'] as num).toInt();
+        final viewId = refs['viewId'] ?? (op.payload['view_id'] as num).toInt();
         final payload = Map<String, dynamic>.of(op.payload)..['id'] = primaryId;
         return _bucketDataSource.update(
           projectId,
@@ -217,8 +208,7 @@ class OpExecutor {
       case PendingOpType.bucketDelete:
         final projectId =
             refs['projectId'] ?? (op.payload['project_id'] as num).toInt();
-        final viewId =
-            refs['viewId'] ?? (op.payload['view_id'] as num).toInt();
+        final viewId = refs['viewId'] ?? (op.payload['view_id'] as num).toInt();
         return _bucketDataSource.delete(projectId, viewId, primaryId!);
       case PendingOpType.taskMoveBucket:
         final taskId = refs['taskId'] ?? primaryId!;
@@ -253,8 +243,7 @@ class OpExecutor {
           op.localFilePaths ?? const [],
         );
       case PendingOpType.attachmentDelete:
-        final taskId =
-            refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
+        final taskId = refs['taskId'] ?? (op.payload['task_id'] as num).toInt();
         final attachmentId = (op.payload['attachment_id'] as num).toInt();
         return _taskDataSource.deleteAttachment(taskId, attachmentId);
     }
@@ -320,26 +309,17 @@ class OpExecutor {
             isDirty: const Value(false),
           ),
         );
-        await (_db.update(
-          _db.taskComments,
-        )..where((c) => c.taskId.equals(temp))).write(
-          TaskCommentsCompanion(taskId: Value(server)),
-        );
-        await (_db.update(
-          _db.taskLabels,
-        )..where((r) => r.taskId.equals(temp))).write(
-          TaskLabelsCompanion(taskId: Value(server)),
-        );
-        await (_db.update(
-          _db.taskAssignees,
-        )..where((r) => r.taskId.equals(temp))).write(
-          TaskAssigneesCompanion(taskId: Value(server)),
-        );
-        await (_db.update(
-          _db.taskAttachments,
-        )..where((a) => a.taskId.equals(temp))).write(
-          TaskAttachmentsCompanion(taskId: Value(server)),
-        );
+        await (_db.update(_db.taskComments)
+              ..where((c) => c.taskId.equals(temp)))
+            .write(TaskCommentsCompanion(taskId: Value(server)));
+        await (_db.update(_db.taskLabels)..where((r) => r.taskId.equals(temp)))
+            .write(TaskLabelsCompanion(taskId: Value(server)));
+        await (_db.update(_db.taskAssignees)
+              ..where((r) => r.taskId.equals(temp)))
+            .write(TaskAssigneesCompanion(taskId: Value(server)));
+        await (_db.update(_db.taskAttachments)
+              ..where((a) => a.taskId.equals(temp)))
+            .write(TaskAttachmentsCompanion(taskId: Value(server)));
       case PendingOpType.projectCreate:
         await (_db.update(_db.projects)..where((p) => p.id.equals(temp))).write(
           ProjectsCompanion(
@@ -449,7 +429,9 @@ class OpExecutor {
           _mapper.task(body as TaskDto, now, projectId: (body).projectId),
         );
       case PendingOpType.taskDelete:
-        await (_db.delete(_db.tasks)..where((t) => t.id.equals(primaryId))).go();
+        await (_db.delete(
+          _db.tasks,
+        )..where((t) => t.id.equals(primaryId))).go();
         await (_db.delete(
           _db.taskLabels,
         )..where((r) => r.taskId.equals(primaryId))).go();
@@ -457,17 +439,13 @@ class OpExecutor {
           _db.taskAssignees,
         )..where((r) => r.taskId.equals(primaryId))).go();
       case PendingOpType.taskSetAssignees:
-        await (_db.update(
-          _db.taskAssignees,
-        )..where((r) => r.taskId.equals(primaryId))).write(
-          const TaskAssigneesCompanion(isDirty: Value(false)),
-        );
+        await (_db.update(_db.taskAssignees)
+              ..where((r) => r.taskId.equals(primaryId)))
+            .write(const TaskAssigneesCompanion(isDirty: Value(false)));
       case PendingOpType.taskLabelBulk:
-        await (_db.update(
-          _db.taskLabels,
-        )..where((r) => r.taskId.equals(primaryId))).write(
-          const TaskLabelsCompanion(isDirty: Value(false)),
-        );
+        await (_db.update(_db.taskLabels)
+              ..where((r) => r.taskId.equals(primaryId)))
+            .write(const TaskLabelsCompanion(isDirty: Value(false)));
       case PendingOpType.taskMoveBucket:
       case PendingOpType.taskPosition:
         await _clearTaskDirty(primaryId);
@@ -481,11 +459,9 @@ class OpExecutor {
           _db.buckets,
         )..where((b) => b.id.equals(primaryId))).go();
       case PendingOpType.commentUpdate:
-        await (_db.update(
-          _db.taskComments,
-        )..where((c) => c.id.equals(primaryId))).write(
-          const TaskCommentsCompanion(isDirty: Value(false)),
-        );
+        await (_db.update(_db.taskComments)
+              ..where((c) => c.id.equals(primaryId)))
+            .write(const TaskCommentsCompanion(isDirty: Value(false)));
       case PendingOpType.commentDelete:
         await (_db.delete(
           _db.taskComments,
@@ -615,13 +591,14 @@ class OpExecutor {
         tempIdRefs: newRefs,
         localId: newLocalId,
       );
-      await (_db.update(_db.pendingOps)..where((o) => o.opId.equals(row.opId)))
-          .write(
-            PendingOpsCompanion(
-              payloadJson: Value(updated.encodePayload()),
-              localId: Value(newLocalId),
-            ),
-          );
+      await (_db.update(
+        _db.pendingOps,
+      )..where((o) => o.opId.equals(row.opId))).write(
+        PendingOpsCompanion(
+          payloadJson: Value(updated.encodePayload()),
+          localId: Value(newLocalId),
+        ),
+      );
     }
   }
 }

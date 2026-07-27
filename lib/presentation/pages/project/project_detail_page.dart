@@ -3,9 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/core/theming/color_utils.dart';
+import 'package:vikunja_app/core/theming/todo_colors.dart';
+import 'package:vikunja_app/domain/entities/task_sort.dart';
+import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
+import 'package:vikunja_app/presentation/widgets/ui/preset_sheet.dart';
+
 import 'package:vikunja_app/core/di/notification_provider.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
+import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/domain/entities/view_kind.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/manager/notifications.dart';
@@ -154,52 +162,13 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     bool displayDoneTask,
     Color? accentColor,
   ) {
+    // Wie Microsoft To Do: ein einzelnes „…" öffnet das Listenoptionen-Sheet
+    // (Umbenennen, Sortieren, Design ändern, Mitglieder, Ansicht, Bearbeiten).
     final actions = <Widget>[
-      // Ansichts-Wechsel (List/Kanban/…) kompakt im Menü statt als
-      // Bottom-Navigation — To Do kennt keine Ansichtsleiste unten.
-      if (project.views.length >= 2)
-        PopupMenuButton<int>(
-          tooltip: AppLocalizations.of(context).noViews,
-          icon: const Icon(Icons.grid_view_outlined),
-          onSelected: _onViewTapped,
-          itemBuilder: (context) => [
-            for (var i = 0; i < project.views.length; i++)
-              PopupMenuItem<int>(
-                value: i,
-                child: Row(
-                  children: [
-                    if (i == _viewIndex)
-                      const Icon(Icons.check, size: 18)
-                    else
-                      const SizedBox(width: 18),
-                    const SizedBox(width: 8),
-                    Text(project.views[i].title),
-                  ],
-                ),
-              ),
-          ],
-        ),
       IconButton(
-        icon: const Icon(Icons.people_alt_outlined),
-        tooltip: AppLocalizations.of(context).projectMembers,
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProjectMembersPage(projectId: project.id),
-          ),
-        ),
-      ),
-      IconButton(
-        icon: Icon(Icons.edit),
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProjectEditPage(
-              project: project,
-              displayDoneTask: displayDoneTask,
-            ),
-          ),
-        ),
+        icon: const Icon(Icons.more_horiz),
+        tooltip: AppLocalizations.of(context).listOptionsTitle,
+        onPressed: () => _showListOptions(project, displayDoneTask),
       ),
     ];
 
@@ -242,11 +211,246 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     );
   }
 
+  // --- Listenoptionen-Sheet (To-Do-Stil) -----------------------------------
+
+  Future<void> _showListOptions(Project project, bool displayDoneTask) async {
+    final l10n = AppLocalizations.of(context);
+    final choice = await showPresetSheet<String>(
+      context,
+      title: l10n.listOptionsTitle,
+      options: [
+        PresetOption(
+          icon: Icons.drive_file_rename_outline,
+          label: l10n.renameList,
+          value: 'rename',
+        ),
+        PresetOption(
+          icon: Icons.swap_vert,
+          label: l10n.sortByLabel,
+          chevron: true,
+          value: 'sort',
+        ),
+        PresetOption(
+          icon: Icons.palette_outlined,
+          label: l10n.changeDesign,
+          chevron: true,
+          value: 'design',
+        ),
+        PresetOption(
+          icon: Icons.people_alt_outlined,
+          label: l10n.projectMembers,
+          value: 'members',
+        ),
+        if (project.views.length >= 2)
+          PresetOption(
+            icon: Icons.grid_view_outlined,
+            label: l10n.changeView,
+            chevron: true,
+            value: 'view',
+          ),
+        PresetOption(
+          icon: Icons.edit_outlined,
+          label: l10n.edit,
+          value: 'edit',
+        ),
+      ],
+    );
+    if (choice == null || !mounted) return;
+
+    switch (choice) {
+      case 'rename':
+        await _renameList(project);
+      case 'sort':
+        await _showSortSheet(project);
+      case 'design':
+        await _showDesignSheet(project);
+      case 'members':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProjectMembersPage(projectId: project.id),
+          ),
+        );
+      case 'view':
+        await _showViewSheet(project);
+      case 'edit':
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProjectEditPage(
+              project: project,
+              displayDoneTask: displayDoneTask,
+            ),
+          ),
+        );
+    }
+  }
+
+  Future<void> _renameList(Project project) async {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController(text: project.title);
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.renameList),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+    final title = newTitle?.trim();
+    if (title == null || title.isEmpty || title == project.title) return;
+    await ref
+        .read(projectControllerProvider(widget.project).notifier)
+        .updateProject(project.copyWith(title: title));
+  }
+
+  Future<void> _showSortSheet(Project project) async {
+    final l10n = AppLocalizations.of(context);
+    final choice = await showPresetSheet<String>(
+      context,
+      title: l10n.sortByLabel,
+      options: [
+        PresetOption(
+          icon: Icons.star_border,
+          label: l10n.sortImportance,
+          value: TaskSortMode.importance.name,
+        ),
+        PresetOption(
+          icon: Icons.sort_by_alpha,
+          label: l10n.sortAlphabetical,
+          value: TaskSortMode.alphabetical.name,
+        ),
+        PresetOption(
+          icon: Icons.calendar_today_outlined,
+          label: l10n.sortDueDate,
+          value: TaskSortMode.dueDate.name,
+        ),
+        PresetOption(
+          icon: Icons.more_time,
+          label: l10n.sortCreated,
+          value: TaskSortMode.created.name,
+        ),
+        PresetOption(
+          icon: Icons.drag_handle,
+          label: l10n.sortManual,
+          value: 'manual',
+        ),
+      ],
+    );
+    if (choice == null || !mounted) return;
+    final kv = ref.read(keyValueDaoProvider);
+    final key = 'project/${project.id}';
+    if (choice == 'manual') {
+      await clearListSortMode(kv, key);
+    } else {
+      await setListSortMode(kv, key, TaskSortMode.values.byName(choice));
+    }
+  }
+
+  Future<void> _showDesignSheet(Project project) async {
+    final l10n = AppLocalizations.of(context);
+    final selected = await showModalBottomSheet<Color>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              l10n.changeDesign,
+              style: Theme.of(
+                sheetContext,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final color in TodoColors.listPalette)
+                    InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => Navigator.of(sheetContext).pop(color),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Theme.of(
+                              sheetContext,
+                            ).colorScheme.outlineVariant,
+                          ),
+                        ),
+                        child: project.color == color
+                            ? Icon(
+                                Icons.check,
+                                color: contrastingTextColor(color),
+                              )
+                            : null,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    final updated = project.copyWith()..color = selected;
+    await ref
+        .read(projectControllerProvider(widget.project).notifier)
+        .updateProject(updated);
+  }
+
+  Future<void> _showViewSheet(Project project) async {
+    final l10n = AppLocalizations.of(context);
+    final choice = await showPresetSheet<int>(
+      context,
+      title: l10n.changeView,
+      options: [
+        for (var i = 0; i < project.views.length; i++)
+          PresetOption(
+            icon: i == _viewIndex
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
+            label: project.views[i].title,
+            value: i,
+          ),
+      ],
+    );
+    if (choice != null) _onViewTapped(choice);
+  }
+
   Future<void> _addITaskDialog(BuildContext context, Project project) {
     return showAddTaskSheet(
       context,
-      onAddTask: (title, dueDate, _) =>
-          _addItem(context, project, title, dueDate),
+      onAddTask: (title, dueDate, _, {reminder, description}) => _addItem(
+        context,
+        project,
+        title,
+        dueDate,
+        reminder: reminder,
+        description: description,
+      ),
       defaultProjectId: project.id,
     );
   }
@@ -255,8 +459,10 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     BuildContext context,
     Project project,
     String title,
-    DateTime? dueDate,
-  ) async {
+    DateTime? dueDate, {
+    DateTime? reminder,
+    String? description,
+  }) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       return;
@@ -265,6 +471,8 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     final task = Task(
       title: title,
       dueDate: dueDate,
+      description: description ?? '',
+      reminderDates: reminder != null ? [TaskReminder(reminder)] : [],
       createdBy: currentUser,
       done: false,
       projectId: project.id,

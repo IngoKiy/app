@@ -14,4 +14,18 @@ abstract final class TodoColors {
 
   /// Rot der Löschen-Swipe-Aktion.
   static const actionRed = Color(0xFFE32C2E);
+
+  /// Listen-Farbpalette des „Design auswählen"-Panels (Reihenfolge wie im
+  /// Vorbild: Blau, Lila, Magenta, Rot, Grün, Teal, Grau + helle Varianten).
+  static const listPalette = [
+    Color(0xFF6579C8),
+    Color(0xFF8764B8),
+    Color(0xFFC3487E),
+    Color(0xFFD64550),
+    Color(0xFF2E8B57),
+    Color(0xFF068387),
+    Color(0xFF69797E),
+    Color(0xFFD4E5F6),
+    Color(0xFFE5D9F2),
+  ];
 }

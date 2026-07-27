@@ -9,8 +9,7 @@ class Buckets extends Table with SyncColumns {
   TextColumn get title => text()();
   RealColumn get position => real().withDefault(const Constant(0))();
   IntColumn get taskLimit => integer().nullable()();
-  BoolColumn get isDoneBucket =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isDoneBucket => boolean().withDefault(const Constant(false))();
   TextColumn get rawJson => text()();
 
   @override

@@ -87,9 +87,7 @@ class ProjectController extends _$ProjectController {
         if (!_displayDoneTask) {
           tasks = tasks.where((t) => !t.done).toList();
         }
-        tasks.sort(
-          (a, b) => (a.position ?? 0).compareTo(b.position ?? 0),
-        );
+        tasks.sort((a, b) => (a.position ?? 0).compareTo(b.position ?? 0));
         emit(
           ProjectPageModel(
             project,
@@ -189,7 +187,11 @@ class ProjectController extends _$ProjectController {
 
     final result = await ref
         .read(offlineWriterProvider)
-        .reorderTask(taskId: movedTaskId, viewId: viewId, position: newPosition);
+        .reorderTask(
+          taskId: movedTaskId,
+          viewId: viewId,
+          position: newPosition,
+        );
     if (!result.ok) {
       reload();
       return false;

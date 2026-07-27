@@ -163,7 +163,10 @@ class _TaskAttachmentsSectionState
   /// Lokale Datei zuerst (FileImage, ohne Netz); sonst der authentifizierte
   /// Platten-Cache. Provider werden memoisiert, damit setState (Upload,
   /// Fortschritt) sie nicht neu erzeugt. `previewSize` gilt nur für Server-Bilder.
-  ImageProvider? _imageProvider(TaskAttachment attachment, {String? previewSize}) {
+  ImageProvider? _imageProvider(
+    TaskAttachment attachment, {
+    String? previewSize,
+  }) {
     final cacheKey = '${attachment.id}|${previewSize ?? ''}';
     final cached = _providerCache[cacheKey];
     if (cached != null) return cached;

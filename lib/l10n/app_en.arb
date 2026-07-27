@@ -439,5 +439,11 @@
   "noteAdd": "Add note",
   "moreSection": "More",
   "repeatLabel": "Repeat",
-  "addFile": "Add file"
+  "addFile": "Add file",
+  "listOptionsTitle": "List options",
+  "renameList": "Rename list",
+  "changeDesign": "Change design",
+  "changeView": "Switch view",
+  "sortManual": "Manual order",
+  "untitledList": "Untitled list"
 }

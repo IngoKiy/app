@@ -120,9 +120,15 @@ class TaskPageController extends _$TaskPageController {
     final dao = ref.read(tasksDaoProvider);
     final completer = Completer<TaskPageModel>();
 
-    final sub = dao.watchOverviewTasks(onlyDueDate: onlyDue).listen((rows) async {
+    final sub = dao.watchOverviewTasks(onlyDueDate: onlyDue).listen((
+      rows,
+    ) async {
       final tasks = rows.map(taskFromRow).toList();
-      final model = await _createPageModel(tasks, onlyDue, isInitial: !completer.isCompleted);
+      final model = await _createPageModel(
+        tasks,
+        onlyDue,
+        isInitial: !completer.isCompleted,
+      );
       if (!completer.isCompleted) {
         completer.complete(model);
       } else {
@@ -141,13 +147,14 @@ class TaskPageController extends _$TaskPageController {
         .read(settingsRepositoryProvider)
         .getLandingPageOnlyDueDateTasks();
 
-    final response = await ref
-        .read(taskRepositoryProvider)
-        .getAllByProject(filterId, {
-          "sort_by": ["due_date", "id"],
-          "order_by": ["asc", "desc"],
-          "page": ["1"],
-        });
+    final response = await ref.read(taskRepositoryProvider).getAllByProject(
+      filterId,
+      {
+        "sort_by": ["due_date", "id"],
+        "order_by": ["asc", "desc"],
+        "page": ["1"],
+      },
+    );
 
     if (response.isSuccessful) {
       return _createPageModel(

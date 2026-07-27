@@ -174,9 +174,10 @@ class SyncService {
   }
 
   Future<SyncResult> pullAll({bool userInitiated = false}) {
-    return _pullInFlight ??= _pullAll(userInitiated: userInitiated).whenComplete(() {
-      _pullInFlight = null;
-    });
+    return _pullInFlight ??= _pullAll(userInitiated: userInitiated)
+        .whenComplete(() {
+          _pullInFlight = null;
+        });
   }
 
   Future<SyncResult> _pullAll({bool userInitiated = false}) async {
@@ -356,12 +357,7 @@ class SyncService {
     final taskResp = await _taskDataSource.getTask(remoteTaskId);
     if (!taskResp.isSuccessful) return;
     final dto = taskResp.toSuccess().body;
-    await _upsertTaskWithJunctions(
-      dto,
-      dto.projectId ?? 0,
-      now,
-      SyncStats(),
-    );
+    await _upsertTaskWithJunctions(dto, dto.projectId ?? 0, now, SyncStats());
 
     final commentsResp = await _taskCommentDataSource.getAll(remoteTaskId);
     if (!commentsResp.isSuccessful) return;
@@ -444,9 +440,7 @@ class SyncService {
       case ExceptionResponse<T>():
         throw _OfflineAbort();
       case ErrorResponse<T>():
-        throw _ServerAbort(
-          'HTTP ${response.statusCode}: ${response.error}',
-        );
+        throw _ServerAbort('HTTP ${response.statusCode}: ${response.error}');
     }
   }
 }

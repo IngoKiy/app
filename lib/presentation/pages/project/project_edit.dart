@@ -155,7 +155,9 @@ class ProjectEditPageState extends ConsumerState<ProjectEditPage> {
           style: color == null
               ? null
               : ButtonStyle(
-                  backgroundColor: WidgetStateProperty.resolveWith((_) => color),
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (_) => color,
+                  ),
                 ),
           onPressed: _onColorEdit,
           child: Text(
@@ -183,16 +185,12 @@ class ProjectEditPageState extends ConsumerState<ProjectEditPage> {
     final pickerColor = _color ?? Colors.black;
     showDialog(
       context: context,
-      builder: (context) => ColorPickerDialog(
-        pickerColor,
-        (color) {
-          setState(() {
-            _color = color == Colors.black ? null : color;
-          });
-          Navigator.of(context).pop();
-        },
-        () => Navigator.of(context).pop(),
-      ),
+      builder: (context) => ColorPickerDialog(pickerColor, (color) {
+        setState(() {
+          _color = color == Colors.black ? null : color;
+        });
+        Navigator.of(context).pop();
+      }, () => Navigator.of(context).pop()),
     );
   }
 

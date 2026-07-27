@@ -119,10 +119,12 @@ class _ProjectMembersSectionState extends ConsumerState<ProjectMembersSection> {
         ),
         const SizedBox(height: 8),
         if (_loading && _members.isEmpty)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(),
-          ))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          )
         else if (_members.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -200,7 +202,9 @@ class _ProjectMembersSectionState extends ConsumerState<ProjectMembersSection> {
       _busy = false;
       if (response.isSuccessful) {
         _members = _members
-            .map((m) => m.user.id == member.user.id ? m.copyWith(right: right) : m)
+            .map(
+              (m) => m.user.id == member.user.id ? m.copyWith(right: right) : m,
+            )
             .toList();
       } else {
         _showSnack(AppLocalizations.of(context).memberUpdateFailed);

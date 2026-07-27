@@ -11,6 +11,7 @@ import 'package:vikunja_app/core/di/notification_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/utils/constants.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
+import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/main.dart';
 import 'package:vikunja_app/presentation/manager/notifications.dart';
@@ -175,8 +176,15 @@ class HomePageState extends ConsumerState<HomePage> {
   ]) {
     showAddTaskSheet(
       context,
-      onAddTask: (title, dueDate, projectId) =>
-          _addTask(title, dueDate, projectId, context),
+      onAddTask: (title, dueDate, projectId, {reminder, description}) =>
+          _addTask(
+            title,
+            dueDate,
+            projectId,
+            context,
+            reminder: reminder,
+            description: description,
+          ),
       initialTitle: title,
       defaultProjectId: defaultProjectId,
       selectableProject: true,
@@ -187,8 +195,10 @@ class HomePageState extends ConsumerState<HomePage> {
     String title,
     DateTime? dueDate,
     int projectId,
-    BuildContext context,
-  ) async {
+    BuildContext context, {
+    DateTime? reminder,
+    String? description,
+  }) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       return;
@@ -197,6 +207,8 @@ class HomePageState extends ConsumerState<HomePage> {
     var task = Task(
       title: title,
       dueDate: dueDate,
+      description: description ?? '',
+      reminderDates: reminder != null ? [TaskReminder(reminder)] : [],
       createdBy: currentUser,
       projectId: projectId,
     );

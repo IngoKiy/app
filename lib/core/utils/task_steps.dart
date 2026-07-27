@@ -37,10 +37,8 @@ String _unescape(String s) => s
     .replaceAll('&#39;', "'")
     .replaceAll('&amp;', '&');
 
-String _escape(String s) => s
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+String _escape(String s) =>
+    s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
 /// Alle Schritte aus der Beschreibung (über sämtliche Task-Lists hinweg,
 /// in Dokumentreihenfolge).

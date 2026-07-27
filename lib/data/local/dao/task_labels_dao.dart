@@ -15,10 +15,11 @@ class TaskLabelsDao extends DatabaseAccessor<AppDatabase>
   /// Legt die Relation an, falls sie fehlt; überschreibt keine dirty-Relation
   /// (z.B. eine noch nicht gepushte lokale Entfernung).
   Future<void> upsertFromServer(int taskId, int labelId) async {
-    final existing = await (select(taskLabels)..where(
-          (t) => t.taskId.equals(taskId) & t.labelId.equals(labelId),
-        ))
-        .getSingleOrNull();
+    final existing =
+        await (select(taskLabels)..where(
+              (t) => t.taskId.equals(taskId) & t.labelId.equals(labelId),
+            ))
+            .getSingleOrNull();
     if (existing != null && existing.isDirty) return;
 
     await into(taskLabels).insertOnConflictUpdate(

@@ -91,9 +91,8 @@ class _SyncStatusSheetState extends ConsumerState<SyncStatusSheet> {
                           ...failed.map(
                             (op) => _OpTile(
                               op: op,
-                              onDiscard: () => ref
-                                  .read(offlineWriterProvider)
-                                  .discardOp(op),
+                              onDiscard: () =>
+                                  ref.read(offlineWriterProvider).discardOp(op),
                             ),
                           ),
                         ],
@@ -184,8 +183,7 @@ class _OpTile extends StatelessWidget {
   /// Payload (Task-/Projekt-/Bucket-Titel bzw. Kommentartext).
   String _opTitle(AppLocalizations loc, PendingOp op) {
     final label = _opLabel(loc, op.type);
-    final subject =
-        (op.payload['title'] ?? op.payload['comment']) as String?;
+    final subject = (op.payload['title'] ?? op.payload['comment']) as String?;
     if (subject == null || subject.isEmpty) return label;
     return '$label · $subject';
   }

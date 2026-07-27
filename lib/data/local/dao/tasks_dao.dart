@@ -58,12 +58,10 @@ class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
     switch (list) {
       case SmartList.today:
         final dueToday =
-            t.dueDate.isNotNull() &
-            t.dueDate.isSmallerThanValue(endOfTodayIso);
+            t.dueDate.isNotNull() & t.dueDate.isSmallerThanValue(endOfTodayIso);
         final addedManually = existsQuery(
-          select(myDayEntries)..where(
-            (e) => e.taskId.equalsExp(t.id) & e.day.equals(dayKey),
-          ),
+          select(myDayEntries)
+            ..where((e) => e.taskId.equalsExp(t.id) & e.day.equals(dayKey)),
         );
         return visible & t.done.equals(false) & (dueToday | addedManually);
       case SmartList.important:
@@ -106,8 +104,7 @@ class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
       );
     if (list == SmartList.completed) {
       query.orderBy([
-        (t) =>
-            OrderingTerm(expression: t.updatedAt, mode: OrderingMode.desc),
+        (t) => OrderingTerm(expression: t.updatedAt, mode: OrderingMode.desc),
       ]);
     } else {
       query.orderBy([

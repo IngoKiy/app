@@ -6,6 +6,7 @@ import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
+import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
@@ -200,8 +201,15 @@ class SmartListPage extends ConsumerWidget {
         ref.read(currentUserProvider)?.settings?.defaultProjectId ?? 0;
     showAddTaskSheet(
       context,
-      onAddTask: (title, dueDate, projectId) =>
-          _addTask(ref, title, dueDate, projectId),
+      onAddTask: (title, dueDate, projectId, {reminder, description}) =>
+          _addTask(
+            ref,
+            title,
+            dueDate,
+            projectId,
+            reminder: reminder,
+            description: description,
+          ),
       defaultProjectId: defaultProjectId,
       selectableProject: true,
     );
@@ -211,8 +219,10 @@ class SmartListPage extends ConsumerWidget {
     WidgetRef ref,
     String title,
     DateTime? dueDate,
-    int projectId,
-  ) async {
+    int projectId, {
+    DateTime? reminder,
+    String? description,
+  }) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       return;
@@ -221,6 +231,8 @@ class SmartListPage extends ConsumerWidget {
     final task = Task(
       title: title,
       dueDate: dueDate,
+      description: description ?? '',
+      reminderDates: reminder != null ? [TaskReminder(reminder)] : [],
       createdBy: currentUser,
       projectId: projectId,
       // In „Wichtig" angelegte Aufgaben starten als Favorit.
