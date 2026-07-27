@@ -16,6 +16,7 @@ import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/domain/entities/version.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
 import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/manager/settings_controller.dart';
@@ -132,6 +133,30 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                         .read(settingsControllerProvider.notifier)
                         .setDynamicColors(value ?? false);
                   },
+                ),
+                // To-Do-Verhaltensoptionen (lokal, KeyValue-Store).
+                SwitchListTile(
+                  title: Text(l10n.completionSoundSetting),
+                  value:
+                      ref.watch(completionSoundEnabledProvider).value ?? true,
+                  onChanged: (value) => setCompletionSoundEnabled(
+                    ref.read(keyValueDaoProvider),
+                    value,
+                  ),
+                ),
+                SwitchListTile(
+                  title: Text(l10n.dateDetectionSetting),
+                  value: ref.watch(dateDetectionEnabledProvider).value ?? true,
+                  onChanged: (value) => setDateDetectionEnabled(
+                    ref.read(keyValueDaoProvider),
+                    value,
+                  ),
+                ),
+                SwitchListTile(
+                  title: Text(l10n.dateStripSetting),
+                  value: ref.watch(dateStripEnabledProvider).value ?? true,
+                  onChanged: (value) =>
+                      setDateStripEnabled(ref.read(keyValueDaoProvider), value),
                 ),
                 Divider(),
                 CheckboxListTile(

@@ -40,16 +40,18 @@ void main() {
 
   test('attachmentUpload-Erfolg ersetzt Platzhalter + löscht Kopien', () async {
     // Platzhalter-Zeile (offline angelegt) + Op.
-    await db.into(db.taskAttachments).insert(
-      TaskAttachmentsCompanion.insert(
-        id: const Value(-3),
-        taskId: 7,
-        fileJson: '{}',
-        localFilePath: const Value('/uploads/3/pic.png'),
-        rawJson: '{}',
-        isDirty: const Value(true),
-      ),
-    );
+    await db
+        .into(db.taskAttachments)
+        .insert(
+          TaskAttachmentsCompanion.insert(
+            id: const Value(-3),
+            taskId: 7,
+            fileJson: '{}',
+            localFilePath: const Value('/uploads/3/pic.png'),
+            rawJson: '{}',
+            isDirty: const Value(true),
+          ),
+        );
     await db.pendingOpsDao.enqueue(
       PendingOp(
         type: PendingOpType.attachmentUpload,
@@ -84,16 +86,18 @@ void main() {
   });
 
   test('attachmentDelete-Erfolg entfernt die Tombstone-Zeile', () async {
-    await db.into(db.taskAttachments).insert(
-      TaskAttachmentsCompanion.insert(
-        id: const Value(5),
-        taskId: 7,
-        fileJson: '{}',
-        rawJson: '{}',
-        remoteId: const Value(5),
-        isDeleted: const Value(true),
-      ),
-    );
+    await db
+        .into(db.taskAttachments)
+        .insert(
+          TaskAttachmentsCompanion.insert(
+            id: const Value(5),
+            taskId: 7,
+            fileJson: '{}',
+            rawJson: '{}',
+            remoteId: const Value(5),
+            isDeleted: const Value(true),
+          ),
+        );
     await db.pendingOpsDao.enqueue(
       PendingOp(
         type: PendingOpType.attachmentDelete,

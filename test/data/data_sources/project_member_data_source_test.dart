@@ -26,9 +26,7 @@ class _TestableClient extends Client {
   http.Client createClient() => mockHttpClient;
 }
 
-ProjectMemberDataSource _dataSource(
-  http.Client mockHttp,
-) {
+ProjectMemberDataSource _dataSource(http.Client mockHttp) {
   final client = _TestableClient(base: _baseUrl, mockHttpClient: mockHttp)
     ..settingsDatasource = _StubSettings();
   return ProjectMemberDataSource(client);
@@ -79,39 +77,45 @@ void main() {
     expect(members[1].permission, 0);
   });
 
-  test('addMember → PUT /projects/{id}/users mit username+permission', () async {
-    late http.Request captured;
-    final ds = _dataSource(
-      http_testing.MockClient((request) async {
-        captured = request;
-        return http.Response('{}', 201);
-      }),
-    );
+  test(
+    'addMember → PUT /projects/{id}/users mit username+permission',
+    () async {
+      late http.Request captured;
+      final ds = _dataSource(
+        http_testing.MockClient((request) async {
+          captured = request;
+          return http.Response('{}', 201);
+        }),
+      );
 
-    final response = await ds.addMember(7, 'carol', 1);
+      final response = await ds.addMember(7, 'carol', 1);
 
-    expect(captured.method, 'PUT');
-    expect(captured.url.path, '/api/v1/projects/7/users');
-    expect(jsonDecode(captured.body), {'username': 'carol', 'permission': 1});
-    expect(response.isSuccessful, isTrue);
-  });
+      expect(captured.method, 'PUT');
+      expect(captured.url.path, '/api/v1/projects/7/users');
+      expect(jsonDecode(captured.body), {'username': 'carol', 'permission': 1});
+      expect(response.isSuccessful, isTrue);
+    },
+  );
 
-  test('updateMemberRight → POST /projects/{id}/users/{user} mit permission', () async {
-    late http.Request captured;
-    final ds = _dataSource(
-      http_testing.MockClient((request) async {
-        captured = request;
-        return http.Response('{}', 200);
-      }),
-    );
+  test(
+    'updateMemberRight → POST /projects/{id}/users/{user} mit permission',
+    () async {
+      late http.Request captured;
+      final ds = _dataSource(
+        http_testing.MockClient((request) async {
+          captured = request;
+          return http.Response('{}', 200);
+        }),
+      );
 
-    final response = await ds.updateMemberRight(7, 42, 2);
+      final response = await ds.updateMemberRight(7, 42, 2);
 
-    expect(captured.method, 'POST');
-    expect(captured.url.path, '/api/v1/projects/7/users/42');
-    expect(jsonDecode(captured.body), {'permission': 2});
-    expect(response.isSuccessful, isTrue);
-  });
+      expect(captured.method, 'POST');
+      expect(captured.url.path, '/api/v1/projects/7/users/42');
+      expect(jsonDecode(captured.body), {'permission': 2});
+      expect(response.isSuccessful, isTrue);
+    },
+  );
 
   test('removeMember → DELETE /projects/{id}/users/{user}', () async {
     late http.Request captured;

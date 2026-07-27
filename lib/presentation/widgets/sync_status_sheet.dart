@@ -210,6 +210,7 @@ class _OpTile extends StatelessWidget {
         return loc.syncOpComment;
       case PendingOpType.projectCreate:
       case PendingOpType.projectUpdate:
+      case PendingOpType.projectDelete:
       case PendingOpType.projectViewUpdate:
         return loc.syncOpProject;
       case PendingOpType.bucketCreate:

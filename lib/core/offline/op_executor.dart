@@ -186,6 +186,8 @@ class OpExecutor {
       case PendingOpType.projectUpdate:
         final payload = Map<String, dynamic>.of(op.payload)..['id'] = primaryId;
         return _projectDataSource.update(ProjectDto.fromJson(payload));
+      case PendingOpType.projectDelete:
+        return _projectDataSource.delete(primaryId!);
       case PendingOpType.bucketCreate:
         final projectId =
             refs['projectId'] ?? (op.payload['project_id'] as num).toInt();
@@ -452,6 +454,13 @@ class OpExecutor {
       case PendingOpType.projectUpdate:
         await _clearProjectDirty(primaryId);
         await _projectsDao.upsertFromServer(_mapper.project(body, now));
+      case PendingOpType.projectDelete:
+        await (_db.delete(
+          _db.projects,
+        )..where((p) => p.id.equals(primaryId))).go();
+        await (_db.delete(
+          _db.tasks,
+        )..where((t) => t.projectId.equals(primaryId))).go();
       case PendingOpType.bucketUpdate:
         await _clearBucketDirty(primaryId);
       case PendingOpType.bucketDelete:

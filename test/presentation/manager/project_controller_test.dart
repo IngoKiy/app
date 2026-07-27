@@ -61,20 +61,23 @@ void main() {
     return container;
   }
 
-  test('liest Tasks der List-View reaktiv aus der DB (nach Position sortiert)', () async {
-    await seedTask(db, id: 11, projectId: 1, title: 'Zweite', position: 2);
-    await seedTask(db, id: 10, projectId: 1, title: 'Erste', position: 1);
+  test(
+    'liest Tasks der List-View reaktiv aus der DB (nach Position sortiert)',
+    () async {
+      await seedTask(db, id: 11, projectId: 1, title: 'Zweite', position: 2);
+      await seedTask(db, id: 10, projectId: 1, title: 'Erste', position: 1);
 
-    final project = listProject();
-    final container = createContainer();
-    final model = await container.read(
-      projectControllerProvider(project).future,
-    );
+      final project = listProject();
+      final container = createContainer();
+      final model = await container.read(
+        projectControllerProvider(project).future,
+      );
 
-    expect(model.tasks.length, 2);
-    expect(model.tasks.first.id, 10);
-    expect(model.tasks.last.id, 11);
-  });
+      expect(model.tasks.length, 2);
+      expect(model.tasks.first.id, 10);
+      expect(model.tasks.last.id, 11);
+    },
+  );
 
   test('offene-Task-Filter blendet erledigte Tasks aus', () async {
     await seedTask(db, id: 10, projectId: 1, title: 'Offen', done: false);
@@ -90,54 +93,55 @@ void main() {
     expect(model.tasks.first.id, 10);
   });
 
-  test('addTask (online) legt die Server-Antwort über den OfflineWriter an', () async {
-    final taskDs = FakeTaskDataSource()
-      ..addStub = (projectId, t) => SuccessResponse(
-        TaskDto(
-          id: 55,
-          title: t.title,
-          projectId: projectId,
-          createdBy: null,
-          created: testTime,
-          updated: testTime,
-        ),
-        201,
-        {},
-      );
-
-    final project = listProject();
-    final container = createContainer(
-      overrides: [
-        opExecutorProvider.overrideWithValue(buildExecutor(db, task: taskDs)),
-      ],
-    );
-    await container.read(projectControllerProvider(project).future);
-
-    final ok = await container
-        .read(projectControllerProvider(project).notifier)
-        .addTask(
-          project,
-          Task(
-            title: 'Neu',
+  test(
+    'addTask (online) legt die Server-Antwort über den OfflineWriter an',
+    () async {
+      final taskDs = FakeTaskDataSource()
+        ..addStub = (projectId, t) => SuccessResponse(
+          TaskDto(
+            id: 55,
+            title: t.title,
+            projectId: projectId,
             createdBy: null,
-            projectId: 1,
             created: testTime,
             updated: testTime,
           ),
+          201,
+          {},
         );
 
-    expect(ok, isTrue);
-    final row = await db.tasksDao.getById(55);
-    expect(row, isNotNull);
-    expect(row!.title, 'Neu');
-  });
+      final project = listProject();
+      final container = createContainer(
+        overrides: [
+          opExecutorProvider.overrideWithValue(buildExecutor(db, task: taskDs)),
+        ],
+      );
+      await container.read(projectControllerProvider(project).future);
+
+      final ok = await container
+          .read(projectControllerProvider(project).notifier)
+          .addTask(
+            project,
+            Task(
+              title: 'Neu',
+              createdBy: null,
+              projectId: 1,
+              created: testTime,
+              updated: testTime,
+            ),
+          );
+
+      expect(ok, isTrue);
+      final row = await db.tasksDao.getById(55);
+      expect(row, isNotNull);
+      expect(row!.title, 'Neu');
+    },
+  );
 
   test('addTask (offline) legt eine optimistische Temp-Zeile an', () async {
     final project = listProject();
     final container = createContainer(
-      overrides: [
-        opExecutorProvider.overrideWithValue(buildExecutor(db)),
-      ],
+      overrides: [opExecutorProvider.overrideWithValue(buildExecutor(db))],
     );
     await container.read(projectControllerProvider(project).future);
 

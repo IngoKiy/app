@@ -589,6 +589,31 @@ class OfflineWriter {
     );
   }
 
+  /// Löscht ein Projekt (lokal sofort, online über die Outbox). Die lokalen
+  /// Aufgaben des Projekts verschwinden mit; bei Server-Ablehnung stellt der
+  /// Rollback die Projektzeile wieder her (Aufgaben kommen mit dem nächsten
+  /// Pull zurück).
+  Future<OfflineWriteResult> deleteProject(int id) async {
+    final backup = await _projectsDao.getById(id);
+    final op = PendingOp(
+      type: PendingOpType.projectDelete,
+      localId: id,
+      payload: const {},
+      createdAt: _nowIso,
+    );
+    return _execute(
+      op: op,
+      onlinePrimaryId: id,
+      applyLocal: () async {
+        await _deleteProjectLocal(id);
+        await (_db.delete(
+          _db.tasks,
+        )..where((t) => t.projectId.equals(id))).go();
+      },
+      rollback: () => _restoreProject(id, backup),
+    );
+  }
+
   /// Aktualisiert die Metadaten einer Projekt-View (done-/default-Bucket). Das
   /// lokale Persistieren übernimmt [persistLocal] (die View steckt im Projekt).
   Future<OfflineWriteResult> updateProjectView(
@@ -967,6 +992,7 @@ class OfflineWriter {
       case PendingOpType.taskCreate:
         await _deleteTaskLocal(id);
       case PendingOpType.projectCreate:
+      case PendingOpType.projectDelete:
         await _deleteProjectLocal(id);
       case PendingOpType.bucketCreate:
         await _deleteBucketLocal(id);

@@ -20,9 +20,12 @@ void main() {
   setUp(() => db = AppDatabase.forTesting(NativeDatabase.memory()));
   tearDown(() => db.close());
 
-  Future<int> enqueue(PendingOp op) => db.pendingOpsDao.enqueue(op.toCompanion());
+  Future<int> enqueue(PendingOp op) =>
+      db.pendingOpsDao.enqueue(op.toCompanion());
 
-  testWidgets('Sheet zeigt ausstehende und fehlgeschlagene Ops', (tester) async {
+  testWidgets('Sheet zeigt ausstehende und fehlgeschlagene Ops', (
+    tester,
+  ) async {
     // Eine ausstehende + eine fehlgeschlagene Op.
     await enqueue(
       PendingOp(

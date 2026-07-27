@@ -5,6 +5,7 @@ import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/theming/dimensions.dart';
 import 'package:vikunja_app/core/theming/todo_colors.dart';
 import 'package:vikunja_app/presentation/manager/projects_controller.dart';
+import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
 import 'package:vikunja_app/core/utils/task_steps.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
@@ -123,8 +124,15 @@ class TaskListItemState extends ConsumerState<TaskListItem> {
                         children: [
                           RoundCheckbox(
                             value: task.done,
-                            onChanged: (newValue) =>
-                                widget.onCheckedChanged(newValue),
+                            onChanged: (newValue) {
+                              // Erledigt-Sound wie in To Do (abschaltbar).
+                              if (newValue) {
+                                playCompletionSound(
+                                  ref.read(keyValueDaoProvider),
+                                );
+                              }
+                              widget.onCheckedChanged(newValue);
+                            },
                           ),
                           const SizedBox(width: 4),
                           Expanded(child: _buildContent(task, theme, inMyDay)),

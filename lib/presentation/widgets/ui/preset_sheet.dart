@@ -13,6 +13,9 @@ class PresetOption<T> {
   /// „Datum auswählen".
   final bool chevron;
 
+  /// Destruktive Aktion (rot), z. B. „Liste löschen".
+  final bool destructive;
+
   final T value;
 
   const PresetOption({
@@ -21,6 +24,7 @@ class PresetOption<T> {
     required this.value,
     this.trailing,
     this.chevron = false,
+    this.destructive = false,
   });
 }
 
@@ -70,8 +74,16 @@ Future<T?> showPresetSheet<T>(
               const SizedBox(height: 4),
               for (final option in options)
                 ListTile(
-                  leading: Icon(option.icon),
-                  title: Text(option.label),
+                  leading: Icon(
+                    option.icon,
+                    color: option.destructive ? theme.colorScheme.error : null,
+                  ),
+                  title: Text(
+                    option.label,
+                    style: option.destructive
+                        ? TextStyle(color: theme.colorScheme.error)
+                        : null,
+                  ),
                   trailing: option.chevron
                       ? const Icon(Icons.chevron_right)
                       : (option.trailing != null

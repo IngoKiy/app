@@ -103,8 +103,8 @@ void main() {
     final ops = await db.pendingOpsDao.nextBatch(limit: 10);
     expect(ops.length, 1);
     expect(ops.first.opType, 'attachmentUpload');
-    final paths =
-        (jsonDecode(ops.first.localFilePathsJson!) as List).cast<String>();
+    final paths = (jsonDecode(ops.first.localFilePathsJson!) as List)
+        .cast<String>();
     expect(paths, [copy]);
 
     // Platzhalter-Zeile in der DB.
@@ -123,22 +123,27 @@ void main() {
     expect(result, isA<AttachmentFailed>());
     expect((result as AttachmentFailed).statusCode, 400);
     expect(await db.pendingOpsDao.nextBatch(limit: 10), isEmpty);
-    expect(await db.taskAttachmentsDao.watchAttachmentsByTask(7).first, isEmpty);
+    expect(
+      await db.taskAttachmentsDao.watchAttachmentsByTask(7).first,
+      isEmpty,
+    );
     await expectUploadsDirEmpty();
     // Quelle bleibt unberührt.
     expect(await File(path).exists(), isTrue);
   });
 
   test('delete offline: Op enqueued + Zeile als Tombstone', () async {
-    await db.into(db.taskAttachments).insert(
-      TaskAttachmentsCompanion.insert(
-        id: const Value(5),
-        taskId: 7,
-        fileJson: '{}',
-        rawJson: '{}',
-        remoteId: const Value(5),
-      ),
-    );
+    await db
+        .into(db.taskAttachments)
+        .insert(
+          TaskAttachmentsCompanion.insert(
+            id: const Value(5),
+            taskId: 7,
+            fileJson: '{}',
+            rawJson: '{}',
+            remoteId: const Value(5),
+          ),
+        );
     // Kein Stub → offline.
 
     final result = await writer.deleteAttachment(7, 5);
@@ -147,19 +152,24 @@ void main() {
     final ops = await db.pendingOpsDao.nextBatch(limit: 10);
     expect(ops.single.opType, 'attachmentDelete');
     // Tombstone: watch (filtert isDeleted) liefert nichts mehr.
-    expect(await db.taskAttachmentsDao.watchAttachmentsByTask(7).first, isEmpty);
+    expect(
+      await db.taskAttachmentsDao.watchAttachmentsByTask(7).first,
+      isEmpty,
+    );
   });
 
   test('delete online: Zeile entfernt, kein Op', () async {
-    await db.into(db.taskAttachments).insert(
-      TaskAttachmentsCompanion.insert(
-        id: const Value(5),
-        taskId: 7,
-        fileJson: '{}',
-        rawJson: '{}',
-        remoteId: const Value(5),
-      ),
-    );
+    await db
+        .into(db.taskAttachments)
+        .insert(
+          TaskAttachmentsCompanion.insert(
+            id: const Value(5),
+            taskId: 7,
+            fileJson: '{}',
+            rawJson: '{}',
+            remoteId: const Value(5),
+          ),
+        );
     task.deleteAttachmentStub = (taskId, attId) => VoidResponse();
 
     final result = await writer.deleteAttachment(7, 5);
@@ -183,7 +193,10 @@ void main() {
     );
 
     expect(result, isA<AttachmentDeleted>());
-    expect(await db.taskAttachmentsDao.watchAttachmentsByTask(7).first, isEmpty);
+    expect(
+      await db.taskAttachmentsDao.watchAttachmentsByTask(7).first,
+      isEmpty,
+    );
     expect(await File(placeholder.localFilePath!).exists(), isFalse);
   });
 

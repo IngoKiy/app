@@ -18,23 +18,29 @@ class MockProjectsController extends ProjectsController {
 
 Widget _wrap(ProjectListModel model, {Map<int, int> counts = const {}}) =>
     ProviderScope(
-  overrides: [
-    projectsControllerProvider.overrideWith(() => MockProjectsController(model)),
-    // Zähler-Provider (DB-gestützt) durch statischen Wert ersetzen.
-    openTaskCountsProvider.overrideWith((ref) => Stream.value(counts)),
-  ],
-  child: const MaterialApp(
-    home: ProjectListPage(),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: Locale('en'),
-  ),
-);
+      overrides: [
+        projectsControllerProvider.overrideWith(
+          () => MockProjectsController(model),
+        ),
+        // Zähler-Provider (DB-gestützt) durch statischen Wert ersetzen.
+        openTaskCountsProvider.overrideWith((ref) => Stream.value(counts)),
+      ],
+      child: const MaterialApp(
+        home: ProjectListPage(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('en'),
+      ),
+    );
 
 void main() {
   testWidgets('ProjectListPage renders projects as folder cards and can '
       'expand subprojects', (WidgetTester tester) async {
-    final subproject = Project(id: 2, title: 'Subproject 1', parentProjectId: 1);
+    final subproject = Project(
+      id: 2,
+      title: 'Subproject 1',
+      parentProjectId: 1,
+    );
     final parentProject = Project(id: 1, title: 'Parent Project');
     parentProject.subprojects = [subproject];
 
@@ -54,8 +60,9 @@ void main() {
     expect(find.byType(ProjectCard), findsNWidgets(2));
   });
 
-  testWidgets('Saved filters are shown in their own section with a filter icon',
-      (WidgetTester tester) async {
+  testWidgets('Saved filters are shown in their own section with a filter icon', (
+    WidgetTester tester,
+  ) async {
     final project = Project(id: 1, title: 'Real Project');
     // Pseudo-Projekt: negative ID < -1 kennzeichnet einen gespeicherten Filter.
     final filter = Project(id: -2, title: 'My Filter');

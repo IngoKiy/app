@@ -47,8 +47,7 @@ class FakeTaskDataSource implements TaskDataSource {
   Response<Object> Function(int taskId, List<UserDto> assignees)? assigneesStub;
   Response<List<TaskAttachmentDto>> Function(int taskId, List<String> paths)?
   uploadAttachmentsStub;
-  Response<Object> Function(int taskId, int attachmentId)?
-  deleteAttachmentStub;
+  Response<Object> Function(int taskId, int attachmentId)? deleteAttachmentStub;
 
   @override
   Future<Response<TaskDto>> add(int projectId, TaskDto task) async {
@@ -71,7 +70,10 @@ class FakeTaskDataSource implements TaskDataSource {
   }
 
   @override
-  Future<Response<Object>> setAssignees(int taskId, List<UserDto> assignees) async {
+  Future<Response<Object>> setAssignees(
+    int taskId,
+    List<UserDto> assignees,
+  ) async {
     log.add('setAssignees(task=$taskId,n=${assignees.length})');
     return assigneesStub?.call(taskId, assignees) ?? _offline();
   }
@@ -86,7 +88,10 @@ class FakeTaskDataSource implements TaskDataSource {
   }
 
   @override
-  Future<Response<Object>> deleteAttachment(int taskId, int attachmentId) async {
+  Future<Response<Object>> deleteAttachment(
+    int taskId,
+    int attachmentId,
+  ) async {
     log.add('deleteAttachment(task=$taskId,id=$attachmentId)');
     return deleteAttachmentStub?.call(taskId, attachmentId) ?? _offline();
   }

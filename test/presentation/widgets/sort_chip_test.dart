@@ -48,10 +48,7 @@ void main() {
     'Projekt-Chip zeigt ohne gespeicherten Modus "Sort" (manuelle Reihenfolge)',
     (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          db,
-          const SortChip(listKey: 'project/1', allowManualOrder: true),
-        ),
+        _wrap(db, const SortChip(listKey: 'project/1', allowManualOrder: true)),
       );
       await tester.pump();
 
@@ -65,10 +62,7 @@ void main() {
     'Auswahl im Menü persistiert den Modus und aktualisiert den Chip-Text',
     (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          db,
-          const SortChip(listKey: 'project/1', allowManualOrder: true),
-        ),
+        _wrap(db, const SortChip(listKey: 'project/1', allowManualOrder: true)),
       );
       await tester.pump();
       expect(find.text('Sort'), findsOneWidget);

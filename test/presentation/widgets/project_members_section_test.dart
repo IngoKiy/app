@@ -26,7 +26,10 @@ class _FakeMemberRepository implements ProjectMemberRepository {
   int addCalls = 0;
   int updateCalls = 0;
 
-  _FakeMemberRepository({this.members = const [], this.searchResults = const []});
+  _FakeMemberRepository({
+    this.members = const [],
+    this.searchResults = const [],
+  });
 
   @override
   Future<Response<List<ProjectMember>>> getMembers(int projectId) async =>
@@ -82,9 +85,7 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en'),
-        home: const Scaffold(
-          body: ProjectMembersSection(projectId: 7),
-        ),
+        home: const Scaffold(body: ProjectMembersSection(projectId: 7)),
       ),
     );
   }
@@ -111,7 +112,9 @@ void main() {
     expect(find.text('Read'), findsOneWidget);
   });
 
-  testWidgets('Hinzufügen-Dialog öffnet über das Personen-Icon', (tester) async {
+  testWidgets('Hinzufügen-Dialog öffnet über das Personen-Icon', (
+    tester,
+  ) async {
     final repo = _FakeMemberRepository(
       members: [ProjectMember(user: user(1, 'Alice', 'alice'), right: 1)],
       searchResults: [user(9, 'Dave', 'dave')],
@@ -168,8 +171,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Member management is only available online'),
-        findsOneWidget);
+    expect(
+      find.text('Member management is only available online'),
+      findsOneWidget,
+    );
   });
 }
 

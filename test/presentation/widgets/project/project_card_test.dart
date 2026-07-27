@@ -32,9 +32,7 @@ void main() {
       expect(find.text('3'), findsOneWidget);
 
       // Kleines Listen-Icon in der Projektfarbe statt Ordner-Badge.
-      final icon = tester.widget<Icon>(
-        find.byIcon(Icons.format_list_bulleted),
-      );
+      final icon = tester.widget<Icon>(find.byIcon(Icons.format_list_bulleted));
       expect(icon.color, projectColor);
 
       // Favoriten-Stern; ohne Kinder kein Chevron.

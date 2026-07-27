@@ -50,7 +50,9 @@ void main() {
   test('Beschreibung ohne Checkliste: keine Schritte, Notiz unverändert', () {
     expect(parseSteps('<p>Nur Text</p>'), isEmpty);
     expect(stripSteps('<p>Nur Text</p>'), '<p>Nur Text</p>');
-    expect(buildDescription(note: '<p>Nur Text</p>', steps: const []),
-        '<p>Nur Text</p>');
+    expect(
+      buildDescription(note: '<p>Nur Text</p>', steps: const []),
+      '<p>Nur Text</p>',
+    );
   });
 }

@@ -247,11 +247,14 @@ class _HomeHeader extends ConsumerWidget {
             Expanded(
               child: InkWell(
                 borderRadius: BorderRadius.circular(24),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    fullscreenDialog: true,
-                    builder: (_) => const SettingsPage(),
+                // Einstellungen als hochgezogenes Sheet (wie To Do).
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => FractionallySizedBox(
+                    heightFactor: 0.93,
+                    child: const SettingsPage(),
                   ),
                 ),
                 child: Row(

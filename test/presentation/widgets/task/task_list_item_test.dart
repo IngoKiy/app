@@ -62,12 +62,14 @@ void main() {
 
     // Der farbige Punkt trägt die Projektfarbe. (Gefüllter Kreis — der leere
     // Kreis der runden Checkbox hat keine Füllfarbe.)
-    final dot = tester.widgetList<Container>(find.byType(Container)).firstWhere(
-      (c) =>
-          c.decoration is BoxDecoration &&
-          (c.decoration as BoxDecoration).shape == BoxShape.circle &&
-          (c.decoration as BoxDecoration).color != null,
-    );
+    final dot = tester
+        .widgetList<Container>(find.byType(Container))
+        .firstWhere(
+          (c) =>
+              c.decoration is BoxDecoration &&
+              (c.decoration as BoxDecoration).shape == BoxShape.circle &&
+              (c.decoration as BoxDecoration).color != null,
+        );
     expect((dot.decoration as BoxDecoration).color, projectColor);
 
     await _unmount(tester);

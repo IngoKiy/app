@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vikunja_app/core/utils/title_date_detection.dart';
+import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
 import 'package:intl/intl.dart';
 import 'package:vikunja_app/domain/entities/new_task_due.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
@@ -38,7 +41,7 @@ Future<void> showAddTaskSheet(
   );
 }
 
-class AddTaskSheet extends StatefulWidget {
+class AddTaskSheet extends ConsumerStatefulWidget {
   final void Function(
     String title,
     DateTime? dueDate,
@@ -67,12 +70,12 @@ class AddTaskSheet extends StatefulWidget {
   });
 
   @override
-  State<AddTaskSheet> createState() => AddTaskSheetState();
+  ConsumerState<AddTaskSheet> createState() => AddTaskSheetState();
 }
 
 enum _SheetReminderPreset { laterToday, tomorrow, nextWeek, pick }
 
-class AddTaskSheetState extends State<AddTaskSheet> {
+class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   final _controller = TextEditingController();
   final _noteController = TextEditingController();
   final _focusNode = FocusNode();
@@ -109,9 +112,21 @@ class AddTaskSheetState extends State<AddTaskSheet> {
   bool get _canSubmit => _hasText && _projectId != 0;
 
   void _submit() {
-    final title = _controller.text.trim();
+    var title = _controller.text.trim();
     if (title.isEmpty || _projectId == 0) return;
     final note = _noteController.text.trim();
+    // Datumserkennung im Titel (wie To Do, abschaltbar): „Milch kaufen
+    // morgen" setzt die Fälligkeit; das erkannte Wort wird optional entfernt.
+    if (_dueDate == null &&
+        (ref.read(dateDetectionEnabledProvider).value ?? true)) {
+      final detected = detectDueDateInTitle(title);
+      if (detected != null) {
+        _dueDate = detected.dueDate;
+        if (ref.read(dateStripEnabledProvider).value ?? true) {
+          title = detected.cleanedTitle;
+        }
+      }
+    }
     widget.onAddTask(
       title,
       _dueDate,

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,18 +65,23 @@ void main() {
 
   /// Fügt einen synchronisierten Task (remoteId gesetzt) mit den Anhängen im
   /// rawJson ein.
-  Future<void> insertSyncedTask(int id, List<Map<String, dynamic>> attachments) {
-    return db.into(db.tasks).insert(
-      TasksCompanion.insert(
-        id: Value(id),
-        projectId: 1,
-        title: 'T$id',
-        createdAt: _t.toIso8601String(),
-        updatedAt: _t.toIso8601String(),
-        rawJson: jsonEncode({'id': id, 'attachments': attachments}),
-        remoteId: Value(id),
-      ),
-    );
+  Future<void> insertSyncedTask(
+    int id,
+    List<Map<String, dynamic>> attachments,
+  ) {
+    return db
+        .into(db.tasks)
+        .insert(
+          TasksCompanion.insert(
+            id: Value(id),
+            projectId: 1,
+            title: 'T$id',
+            createdAt: _t.toIso8601String(),
+            updatedAt: _t.toIso8601String(),
+            rawJson: jsonEncode({'id': id, 'attachments': attachments}),
+            remoteId: Value(id),
+          ),
+        );
   }
 
   final bytes = Uint8List.fromList(List<int>.generate(16, (i) => i));
@@ -130,7 +134,9 @@ void main() {
   });
 
   test('überspringt zu große Dateien (> Limit)', () async {
-    await insertSyncedTask(7, [_attachmentJson(99, 'big.bin', 20 * 1024 * 1024)]);
+    await insertSyncedTask(7, [
+      _attachmentJson(99, 'big.bin', 20 * 1024 * 1024),
+    ]);
     var hits = 0;
     final client = MockClient((_) async {
       hits++;
@@ -147,7 +153,9 @@ void main() {
 
   test('still bei Netzfehler: kein Throw, localFilePath bleibt null', () async {
     await insertSyncedTask(7, [_attachmentJson(99, 'pic.png', 3)]);
-    final client = MockClient((_) async => throw http.ClientException('offline'));
+    final client = MockClient(
+      (_) async => throw http.ClientException('offline'),
+    );
 
     await prefetcher(client).run(); // wirft nicht
 

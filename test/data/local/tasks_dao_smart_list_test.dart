@@ -69,18 +69,20 @@ void main() {
       )
       .first;
 
-  test('Mein Tag: heute fällig + überfällig, ohne erledigte/gelöschte',
-      () async {
-    await seed(id: 1, dueDate: iso(now.subtract(const Duration(days: 1))));
-    await seed(id: 2, dueDate: iso(now));
-    await seed(id: 3, dueDate: iso(now.add(const Duration(days: 1))));
-    await seed(id: 4); // ohne Fälligkeit
-    await seed(id: 5, dueDate: iso(now), done: true);
-    await seed(id: 6, dueDate: iso(now), deleted: true);
+  test(
+    'Mein Tag: heute fällig + überfällig, ohne erledigte/gelöschte',
+    () async {
+      await seed(id: 1, dueDate: iso(now.subtract(const Duration(days: 1))));
+      await seed(id: 2, dueDate: iso(now));
+      await seed(id: 3, dueDate: iso(now.add(const Duration(days: 1))));
+      await seed(id: 4); // ohne Fälligkeit
+      await seed(id: 5, dueDate: iso(now), done: true);
+      await seed(id: 6, dueDate: iso(now), deleted: true);
 
-    expect(await ids(SmartList.today), [1, 2]);
-    expect(await count(SmartList.today), 2);
-  });
+      expect(await ids(SmartList.today), [1, 2]);
+      expect(await count(SmartList.today), 2);
+    },
+  );
 
   test('Wichtig: nur offene Favoriten', () async {
     await seed(id: 1, favorite: true);
@@ -129,21 +131,20 @@ void main() {
     expect(await ids(SmartList.today), [2]);
   });
 
-  test('Mein Tag: Einträge früherer Tage verfallen beim nächsten Hinzufügen',
-      () async {
-    await seed(id: 1);
-    await seed(id: 2);
+  test(
+    'Mein Tag: Einträge früherer Tage verfallen beim nächsten Hinzufügen',
+    () async {
+      await seed(id: 1);
+      await seed(id: 2);
 
-    await db.tasksDao.addToMyDay(1, '2020-01-01');
-    expect(await ids(SmartList.today), isEmpty); // alter Tag zählt nicht
+      await db.tasksDao.addToMyDay(1, '2020-01-01');
+      expect(await ids(SmartList.today), isEmpty); // alter Tag zählt nicht
 
-    await db.tasksDao.addToMyDay(2, dayKey); // räumt alte Einträge weg
-    expect(await ids(SmartList.today), [2]);
-    expect(
-      await db.tasksDao.watchInMyDay(1, '2020-01-01').first,
-      isFalse,
-    );
-  });
+      await db.tasksDao.addToMyDay(2, dayKey); // räumt alte Einträge weg
+      expect(await ids(SmartList.today), [2]);
+      expect(await db.tasksDao.watchInMyDay(1, '2020-01-01').first, isFalse);
+    },
+  );
 
   test('Mir zugewiesen: nur offene Aufgaben mit eigener Zuweisung', () async {
     await seed(id: 1);
@@ -162,8 +163,7 @@ void main() {
     expect(await ids(SmartList.assignedToMe), isEmpty);
   });
 
-  test('Suche: Titel + Beschreibung, case-insensitiv, Offene zuerst',
-      () async {
+  test('Suche: Titel + Beschreibung, case-insensitiv, Offene zuerst', () async {
     await seed(id: 1, title: 'Dach reparieren');
     await seed(id: 2, title: 'Einkaufen', description: 'Dachrinne besorgen');
     await seed(id: 3, title: 'DACH prüfen', done: true);

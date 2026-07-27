@@ -448,5 +448,18 @@
   "untitledList": "Untitled list",
   "suggestionsTitle": "Suggestions",
   "suggestionsLater": "Later",
-  "suggestionsEarlier": "Earlier"
+  "suggestionsEarlier": "Earlier",
+  "deleteList": "Delete list",
+  "deleteListMessage": "\"{title}\" will be permanently deleted.",
+  "listDeleteError": "Error deleting the list!",
+  "@deleteListMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "completionSoundSetting": "Play completion sound",
+  "dateDetectionSetting": "Recognize dates and times in task titles",
+  "dateStripSetting": "Remove recognized dates and times from task titles"
 }

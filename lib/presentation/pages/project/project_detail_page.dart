@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/core/di/offline_provider.dart';
+import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/theming/todo_colors.dart';
 import 'package:vikunja_app/domain/entities/task_sort.dart';
@@ -253,6 +255,13 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
           label: l10n.edit,
           value: 'edit',
         ),
+        if (project.id > 0)
+          PresetOption(
+            icon: Icons.delete_outline,
+            label: l10n.deleteList,
+            destructive: true,
+            value: 'delete',
+          ),
       ],
     );
     if (choice == null || !mounted) return;
@@ -283,6 +292,49 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
             ),
           ),
         );
+      case 'delete':
+        await _confirmAndDeleteList(project);
+    }
+  }
+
+  /// Löschen mit Bestätigung wie in To Do: „»…« wird endgültig gelöscht."
+  /// [Abbrechen | Liste löschen (rot)]; danach zurück zur Übersicht.
+  Future<void> _confirmAndDeleteList(Project project) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: Text(l10n.deleteListMessage(project.title)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.deleteList,
+              style: TextStyle(
+                color: Theme.of(dialogContext).colorScheme.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final result = await ref
+        .read(offlineWriterProvider)
+        .deleteProject(project.id);
+    if (!mounted) return;
+    if (result.ok) {
+      ref.invalidate(projectsControllerProvider);
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.listDeleteError)));
     }
   }
 

@@ -85,16 +85,18 @@ void main() {
     // Echtes Datei-I/O braucht runAsync (FakeAsync lässt IO-Futures sonst hängen).
     final localFile = File('${tempDir.path}/doc.pdf');
     await tester.runAsync(() => localFile.writeAsBytes([1, 2, 3]));
-    await db.into(db.taskAttachments).insert(
-      TaskAttachmentsCompanion.insert(
-        id: const Value(99),
-        taskId: 7,
-        fileJson: '{}',
-        rawJson: '{}',
-        remoteId: const Value(99),
-        localFilePath: Value(localFile.path),
-      ),
-    );
+    await db
+        .into(db.taskAttachments)
+        .insert(
+          TaskAttachmentsCompanion.insert(
+            id: const Value(99),
+            taskId: 7,
+            fileJson: '{}',
+            rawJson: '{}',
+            remoteId: const Value(99),
+            localFilePath: Value(localFile.path),
+          ),
+        );
 
     final writer = buildWriter(db, buildExecutor(db));
     final task = Task(

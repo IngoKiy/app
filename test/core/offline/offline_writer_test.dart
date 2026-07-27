@@ -65,33 +65,36 @@ void main() {
     String title = 'seed',
     bool isDirty = false,
     int projectId = 10,
-  }) => db.into(db.tasks).insert(
-    TasksCompanion.insert(
-      id: Value(id),
-      projectId: projectId,
-      title: title,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      rawJson: '{"id":$id,"title":"$title","project_id":$projectId,'
-          '"description":"","done":false,'
-          '"updated":"2026-01-01T00:00:00.000Z",'
-          '"created":"2026-01-01T00:00:00.000Z"}',
-      remoteId: Value(remoteId),
-      isDirty: Value(isDirty),
-    ),
-    mode: InsertMode.insertOrReplace,
-  );
+  }) => db
+      .into(db.tasks)
+      .insert(
+        TasksCompanion.insert(
+          id: Value(id),
+          projectId: projectId,
+          title: title,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          rawJson:
+              '{"id":$id,"title":"$title","project_id":$projectId,'
+              '"description":"","done":false,'
+              '"updated":"2026-01-01T00:00:00.000Z",'
+              '"created":"2026-01-01T00:00:00.000Z"}',
+          remoteId: Value(remoteId),
+          isDirty: Value(isDirty),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
 
-  Future<List<PendingOp>> ops() async =>
-      (await db.pendingOpsDao.nextBatch(limit: 100))
-          .map(PendingOp.fromRow)
-          .toList();
+  Future<List<PendingOp>> ops() async => (await db.pendingOpsDao.nextBatch(
+    limit: 100,
+  )).map(PendingOp.fromRow).toList();
 
   // --- Task add --------------------------------------------------------------
 
   group('addTask', () {
     test('online-Erfolg: kein Enqueue, Server-Zeile, dirty gelöscht', () async {
-      task.addStub = (p, t) => SuccessResponse(_srvTask(42, title: t.title), 200, {});
+      task.addStub = (p, t) =>
+          SuccessResponse(_srvTask(42, title: t.title), 200, {});
 
       final res = await writer.addTask(10, _task(title: 'neu'));
 
@@ -133,7 +136,8 @@ void main() {
   group('updateTask', () {
     test('online-Erfolg: kein Enqueue, dirty gelöscht', () async {
       await seedTask(id: 5, remoteId: 5, title: 'alt');
-      task.updateStub = (t) => SuccessResponse(_srvTask(5, title: t.title), 200, {});
+      task.updateStub = (t) =>
+          SuccessResponse(_srvTask(5, title: t.title), 200, {});
 
       final res = await writer.updateTask(_task(id: 5, title: 'neu'));
 
@@ -179,54 +183,58 @@ void main() {
   // --- Task project move (über updateTask) -----------------------------------
 
   group('updateTask: Projektwechsel (Verschieben)', () {
-    test('online-Erfolg: project_id im Payload, DB-Zeile trägt neues Projekt',
-        () async {
-      await seedTask(id: 5, remoteId: 5, projectId: 10);
-      task.updateStub =
-          (t) => SuccessResponse(_srvTask(5, projectId: 20), 200, {});
+    test(
+      'online-Erfolg: project_id im Payload, DB-Zeile trägt neues Projekt',
+      () async {
+        await seedTask(id: 5, remoteId: 5, projectId: 10);
+        task.updateStub = (t) =>
+            SuccessResponse(_srvTask(5, projectId: 20), 200, {});
 
-      final res = await writer.updateTask(
-        _task(id: 5)..projectId = 20,
-      );
+        final res = await writer.updateTask(_task(id: 5)..projectId = 20);
 
-      expect(res.status, OfflineWriteStatus.synced);
-      expect(await ops(), isEmpty);
-      // Lokale Zeile trägt das neue Projekt -> Listen-Streams aktualisieren.
-      expect((await db.tasksDao.getById(5))!.projectId, 20);
-    });
+        expect(res.status, OfflineWriteStatus.synced);
+        expect(await ops(), isEmpty);
+        // Lokale Zeile trägt das neue Projekt -> Listen-Streams aktualisieren.
+        expect((await db.tasksDao.getById(5))!.projectId, 20);
+      },
+    );
 
-    test('offline: Move landet als taskUpdate mit project_id in der Outbox',
-        () async {
-      await seedTask(id: 5, remoteId: 5, projectId: 10);
+    test(
+      'offline: Move landet als taskUpdate mit project_id in der Outbox',
+      () async {
+        await seedTask(id: 5, remoteId: 5, projectId: 10);
 
-      final res = await writer.updateTask(_task(id: 5)..projectId = 20);
+        final res = await writer.updateTask(_task(id: 5)..projectId = 20);
 
-      expect(res.status, OfflineWriteStatus.queued);
-      final queued = await ops();
-      expect(queued.single.type, PendingOpType.taskUpdate);
-      expect(queued.single.payload['project_id'], 20);
-      // Optimistisch lokal verschoben (dirty).
-      final row = await db.tasksDao.getById(5);
-      expect(row!.projectId, 20);
-      expect(row.isDirty, isTrue);
-    });
+        expect(res.status, OfflineWriteStatus.queued);
+        final queued = await ops();
+        expect(queued.single.type, PendingOpType.taskUpdate);
+        expect(queued.single.payload['project_id'], 20);
+        // Optimistisch lokal verschoben (dirty).
+        final row = await db.tasksDao.getById(5);
+        expect(row!.projectId, 20);
+        expect(row.isDirty, isTrue);
+      },
+    );
   });
 
   // --- Outbox-Koaleszierung (Autosave) ---------------------------------------
 
   group('updateTask: Outbox-Koaleszierung', () {
-    test('zwei Offline-Updates derselben Aufgabe → eine Op mit letztem Stand',
-        () async {
-      await seedTask(id: 5, remoteId: 5, title: 'alt');
+    test(
+      'zwei Offline-Updates derselben Aufgabe → eine Op mit letztem Stand',
+      () async {
+        await seedTask(id: 5, remoteId: 5, title: 'alt');
 
-      await writer.updateTask(_task(id: 5, title: 'Zwischenstand'));
-      await writer.updateTask(_task(id: 5, title: 'final'));
+        await writer.updateTask(_task(id: 5, title: 'Zwischenstand'));
+        await writer.updateTask(_task(id: 5, title: 'final'));
 
-      final queued = await ops();
-      expect(queued, hasLength(1));
-      expect(queued.single.type, PendingOpType.taskUpdate);
-      expect(queued.single.payload['title'], 'final');
-    });
+        final queued = await ops();
+        expect(queued, hasLength(1));
+        expect(queued.single.type, PendingOpType.taskUpdate);
+        expect(queued.single.payload['title'], 'final');
+      },
+    );
 
     test('Updates verschiedener Aufgaben werden nicht koalesziert', () async {
       await seedTask(id: 5, remoteId: 5);
@@ -374,7 +382,9 @@ void main() {
     expect(add.status, OfflineWriteStatus.queued);
 
     // markAsDone auf der Temp-ID (-1) → landet direkt in der Outbox.
-    final done = await writer.updateTask(_task(id: -1, title: 'neu', done: true));
+    final done = await writer.updateTask(
+      _task(id: -1, title: 'neu', done: true),
+    );
     expect(done.status, OfflineWriteStatus.queued);
 
     final queued = await ops();
@@ -388,30 +398,36 @@ void main() {
 
   // --- E2E mit PushProcessor -------------------------------------------------
 
-  test('E2E: offline Task+Kommentar → online → Push in korrekter Reihenfolge',
-      () async {
-    final author = User(id: 1, username: 'u1', created: _t, updated: _t);
+  test(
+    'E2E: offline Task+Kommentar → online → Push in korrekter Reihenfolge',
+    () async {
+      final author = User(id: 1, username: 'u1', created: _t, updated: _t);
 
-    // Offline anlegen (keine Stubs -> ExceptionResponse).
-    await writer.addTask(10, _task(title: 'neu')); // taskCreate localId -1
-    await writer.addComment(-1, 'hi', author); // commentCreate localId -2, ref -1
+      // Offline anlegen (keine Stubs -> ExceptionResponse).
+      await writer.addTask(10, _task(title: 'neu')); // taskCreate localId -1
+      await writer.addComment(
+        -1,
+        'hi',
+        author,
+      ); // commentCreate localId -2, ref -1
 
-    // Jetzt online: gemeinsamer Log über die Push-Fakes.
-    final log = <String>[];
-    final pTask = FakeTaskDataSource(log)
-      ..addStub = (p, t) => SuccessResponse(_srvTask(42), 200, {});
-    final pComment = FakeCommentDataSource(log)
-      ..createStub = (tid, c) => SuccessResponse(_srvComment(99), 200, {});
-    final processor = buildPushProcessor(db, task: pTask, comment: pComment);
+      // Jetzt online: gemeinsamer Log über die Push-Fakes.
+      final log = <String>[];
+      final pTask = FakeTaskDataSource(log)
+        ..addStub = (p, t) => SuccessResponse(_srvTask(42), 200, {});
+      final pComment = FakeCommentDataSource(log)
+        ..createStub = (tid, c) => SuccessResponse(_srvComment(99), 200, {});
+      final processor = buildPushProcessor(db, task: pTask, comment: pComment);
 
-    final result = await processor.pushAll();
+      final result = await processor.pushAll();
 
-    expect(result.success, isTrue);
-    // Create-Payload trägt id=0 (nicht die Temp-ID -1), sonst 404 vom Server.
-    expect(log, ['add(project=10,id=0)', 'comment.create(task=42)']);
-    expect(await ops(), isEmpty);
-    expect(await db.tasksDao.getById(42), isNotNull);
-  });
+      expect(result.success, isTrue);
+      // Create-Payload trägt id=0 (nicht die Temp-ID -1), sonst 404 vom Server.
+      expect(log, ['add(project=10,id=0)', 'comment.create(task=42)']);
+      expect(await ops(), isEmpty);
+      expect(await db.tasksDao.getById(42), isNotNull);
+    },
+  );
 
   // --- Create-Payload: Temp-ID darf NICHT an den Server (Vikunja: 404) -------
 
@@ -466,11 +482,16 @@ void main() {
           const {},
         );
       };
-      final projectWriter =
-          buildWriter(db, buildExecutor(db, project: projectDs));
+      final projectWriter = buildWriter(
+        db,
+        buildExecutor(db, project: projectDs),
+      );
 
       final res = await projectWriter.createProject(
-        Project(title: 'Neu', owner: User(id: 1, username: 'u1')),
+        Project(
+          title: 'Neu',
+          owner: User(id: 1, username: 'u1'),
+        ),
       );
 
       expect(res.status, OfflineWriteStatus.synced);

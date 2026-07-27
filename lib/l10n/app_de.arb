@@ -344,5 +344,18 @@
   "untitledList": "Unbenannte Liste",
   "suggestionsTitle": "Vorschläge",
   "suggestionsLater": "Später",
-  "suggestionsEarlier": "Früher"
+  "suggestionsEarlier": "Früher",
+  "deleteList": "Liste löschen",
+  "deleteListMessage": "„{title}“ wird endgültig gelöscht.",
+  "listDeleteError": "Fehler beim Löschen der Liste!",
+  "@deleteListMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "completionSoundSetting": "Sound bei Fertigstellung wiedergeben",
+  "dateDetectionSetting": "Erkennen von Daten und Zeiten in Aufgabentiteln",
+  "dateStripSetting": "Entfernen von Datums- und Zeitangaben aus erkannten Aufgabentiteln"
 }
