@@ -71,11 +71,13 @@ class User {
   }) : created = created ?? DateTime.now(),
        updated = updated ?? DateTime.now();
 
-  /// Avatar-Endpunkt des Servers: `GET /{username}/avatar` (Vikunja-Route,
-  /// siehe API-Doku). [cacheBuster] hängt einen Query-Parameter an, damit
-  /// nach einem Upload nicht das alte Bild aus dem Cache kommt.
+  /// Avatar-Endpunkt des Servers: `GET /avatar/<username>` (gegen den
+  /// laufenden Server verifiziert — die Swagger-Doku nennt fälschlich
+  /// `/{username}/avatar`, das liefert dort 404). [cacheBuster] hängt einen
+  /// Query-Parameter an, damit nach einem Upload nicht das alte Bild aus
+  /// dem Cache kommt.
   String avatarUrl(String baseUrl, {String? cacheBuster}) {
-    final url = "$baseUrl/$username/avatar";
+    final url = "$baseUrl/avatar/$username";
     return cacheBuster == null || cacheBuster.isEmpty
         ? url
         : "$url?v=$cacheBuster";
