@@ -7,6 +7,7 @@ import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/presentation/manager/projects_controller.dart';
+import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
 import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/theming/todo_colors.dart';
 import 'package:vikunja_app/domain/entities/task_sort.dart';
@@ -115,6 +116,22 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
         // FAB; der Ansichts-Wechsel (Kanban etc.) liegt im AppBar-Menü statt
         // in einer Bottom-Navigation.
         final showAddBar = isListView && data.project.id > 0;
+        // Foto-Hintergrund der Liste (Design-Sheet, Tab Foto) — liegt wie in
+        // To Do vollflächig hinter den Aufgaben-Karten.
+        final bgAsset = isListView
+            ? ref
+                  .watch(listBackgroundProvider('project/${data.project.id}'))
+                  .value
+            : null;
+        Widget withBackground(Widget child) => bgAsset == null
+            ? child
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(bgAsset, fit: BoxFit.cover),
+                  child,
+                ],
+              );
         return Scaffold(
           backgroundColor: accentColor,
           appBar: _buildAppBar(
@@ -124,7 +141,7 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
             accentColor,
           ),
           body: isCompact
-              ? scrollBody
+              ? withBackground(scrollBody)
               : Column(
                   children: [
                     if (data.project.views.length >= 2)
@@ -505,7 +522,9 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
 
   Future<void> _showDesignSheet(Project project) async {
     final l10n = AppLocalizations.of(context);
-    final selected = await showModalBottomSheet<Color>(
+    // Auswahl: Farbe (Color), Foto-Hintergrund (String-Asset) oder
+    // 'clear' zum Entfernen des Fotos.
+    final selected = await showModalBottomSheet<Object>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
@@ -552,16 +571,63 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            // „Foto"-Hintergründe wie in To Do (gebündelte Verläufe).
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  InkWell(
+                    onTap: () => Navigator.of(sheetContext).pop('clear'),
+                    child: Container(
+                      width: 56,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Theme.of(
+                            sheetContext,
+                          ).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      child: const Icon(Icons.block),
+                    ),
+                  ),
+                  for (final asset in listBackgroundAssets)
+                    InkWell(
+                      onTap: () => Navigator.of(sheetContext).pop(asset),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          asset,
+                          width: 56,
+                          height: 84,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
           ],
         ),
       ),
     );
     if (selected == null || !mounted) return;
-    final updated = project.copyWith()..color = selected;
-    await ref
-        .read(projectControllerProvider(widget.project).notifier)
-        .updateProject(updated);
+    final kv = ref.read(keyValueDaoProvider);
+    if (selected is Color) {
+      final updated = project.copyWith()..color = selected;
+      await ref
+          .read(projectControllerProvider(widget.project).notifier)
+          .updateProject(updated);
+    } else if (selected == 'clear') {
+      await setListBackground(kv, 'project/${project.id}', null);
+    } else if (selected is String) {
+      await setListBackground(kv, 'project/${project.id}', selected);
+    }
   }
 
   Future<void> _showViewSheet(Project project) async {

@@ -38,6 +38,26 @@ Future<void> setCompletionSoundEnabled(KeyValueDao kv, bool value) =>
 Future<void> setDateDetectionEnabled(KeyValueDao kv, bool value) =>
     kv.set(_kDateDetection, value ? '1' : '0');
 
+/// Bündelte „Foto"-Hintergründe für Listen (Design-Sheet, Tab Foto).
+const listBackgroundAssets = [
+  'assets/backgrounds/bg_ocean.png',
+  'assets/backgrounds/bg_forest.png',
+  'assets/backgrounds/bg_sunset.png',
+  'assets/backgrounds/bg_lavender.png',
+  'assets/backgrounds/bg_graphite.png',
+  'assets/backgrounds/bg_mint.png',
+];
+
+/// Gewählter Foto-Hintergrund einer Liste (Asset-Pfad) oder `null`.
+final listBackgroundProvider = StreamProvider.family<String?, String>(
+  (ref, listKey) => ref.watch(keyValueDaoProvider).watch('list_bg/$listKey'),
+);
+
+Future<void> setListBackground(KeyValueDao kv, String listKey, String? asset) =>
+    asset == null
+    ? kv.remove('list_bg/$listKey')
+    : kv.set('list_bg/$listKey', asset);
+
 /// Spielt den Erledigt-Sound (Systemklick), wenn die Präferenz aktiv ist.
 Future<void> playCompletionSound(KeyValueDao kv) async {
   final enabled = await kv.get(_kCompletionSound);
