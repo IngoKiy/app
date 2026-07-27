@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 
@@ -25,6 +26,10 @@ class AccentAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Steuert die Einblendung von [title].
   final bool showTitle;
 
+  /// Übersteuert die Balkenfarbe (z. B. transparent über Foto-Hintergrund);
+  /// [accentColor] bestimmt weiterhin die Kontrastfarben.
+  final Color? barColor;
+
   const AccentAppBar({
     super.key,
     required this.accentColor,
@@ -32,6 +37,7 @@ class AccentAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.foregroundColor,
     this.title,
     this.showTitle = false,
+    this.barColor,
   });
 
   @override
@@ -44,10 +50,15 @@ class AccentAppBar extends StatelessWidget implements PreferredSizeWidget {
     final l10n = AppLocalizations.of(context);
 
     return AppBar(
-      backgroundColor: accentColor,
+      backgroundColor: barColor ?? accentColor,
       foregroundColor: onAccent,
       elevation: 0,
       scrolledUnderElevation: 0,
+      // Statusleisten-Kontrast explizit aus der Vordergrundfarbe ableiten:
+      // weiße Inhalte auf dunkler Fläche → helle Statusleiste, sonst dunkle.
+      systemOverlayStyle: onAccent.computeLuminance() > 0.5
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
       centerTitle: true,
       title: title != null
           ? AnimatedOpacity(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -209,6 +210,9 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
       foregroundColor: theme.colorScheme.primary,
       elevation: 0,
       scrolledUnderElevation: 0,
+      systemOverlayStyle: theme.brightness == Brightness.light
+          ? SystemUiOverlayStyle.dark
+          : SystemUiOverlayStyle.light,
       automaticallyImplyLeading: false,
       leadingWidth: 200,
       leading: InkWell(

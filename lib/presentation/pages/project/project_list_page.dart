@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
@@ -104,18 +105,26 @@ class ProjectListPage extends ConsumerWidget {
         // AppBar (Avatar + Name + Suche) und unten fixiert "+ Neue Liste"
         // statt Plus-Button.
         if (showSmartLists) {
-          return Scaffold(
-            body: SafeArea(
-              child: Column(
-                children: [
-                  const _HomeHeader(),
-                  Expanded(child: content),
-                ],
+          // Ohne AppBar setzt niemand den Statusleisten-Stil — explizit
+          // passend zur Flächenhelligkeit wählen (dunkle Icons auf hell).
+          final overlay = Theme.of(context).brightness == Brightness.light
+              ? SystemUiOverlayStyle.dark
+              : SystemUiOverlayStyle.light;
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: overlay,
+            child: Scaffold(
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    const _HomeHeader(),
+                    Expanded(child: content),
+                  ],
+                ),
               ),
-            ),
-            bottomNavigationBar: _NewListBar(
-              onTap: () => _createListInline(ref),
-              onNewGroup: () => _addProjectDialog(ref),
+              bottomNavigationBar: _NewListBar(
+                onTap: () => _createListInline(ref),
+                onNewGroup: () => _addProjectDialog(ref),
+              ),
             ),
           );
         }

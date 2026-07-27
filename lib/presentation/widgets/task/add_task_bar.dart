@@ -13,16 +13,29 @@ class AddTaskBar extends StatelessWidget {
   final VoidCallback onTap;
   final Color? accentColor;
 
-  const AddTaskBar({super.key, required this.onTap, this.accentColor});
+  /// Über Foto-Hintergründen: dunkel-transluzente Leiste mit weißem Text
+  /// (wie in To Do), statt der Akzent-Tönung.
+  final bool overPhoto;
+
+  const AddTaskBar({
+    super.key,
+    required this.onTap,
+    this.accentColor,
+    this.overPhoto = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = accentColor;
-    final barColor = accent != null
+    final barColor = overPhoto
+        ? Colors.black.withValues(alpha: 0.35)
+        : accent != null
         ? Color.alphaBlend(Colors.black.withValues(alpha: 0.15), accent)
         : theme.colorScheme.primaryContainer;
-    final fg = accent != null
+    final fg = overPhoto
+        ? Colors.white
+        : accent != null
         ? contrastingTextColor(barColor)
         : theme.colorScheme.onPrimaryContainer;
     return SafeArea(

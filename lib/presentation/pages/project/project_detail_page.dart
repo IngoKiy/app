@@ -136,25 +136,20 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
                   .watch(listBackgroundProvider('project/${data.project.id}'))
                   .value
             : null;
-        Widget withBackground(Widget child) => bgAsset == null
-            ? child
-            : Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(bgAsset, fit: BoxFit.cover),
-                  child,
-                ],
-              );
-        return Scaffold(
-          backgroundColor: accentColor,
+        // Foto liegt hinter der GESAMTEN Seite (auch hinter Navbar und
+        // Statusleiste, wie in To Do): Container trägt das Bild, Scaffold
+        // und AppBar werden transparent.
+        final page = Scaffold(
+          backgroundColor: bgAsset != null ? Colors.transparent : accentColor,
           appBar: _buildAppBar(
             context,
             data.project,
             data.displayDoneTask,
             accentColor,
+            transparentBar: bgAsset != null,
           ),
           body: isCompact
-              ? withBackground(scrollBody)
+              ? scrollBody
               : Column(
                   children: [
                     if (data.project.views.length >= 2)
@@ -169,9 +164,20 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
           bottomNavigationBar: showAddBar
               ? AddTaskBar(
                   accentColor: accentColor,
+                  overPhoto: bgAsset != null,
                   onTap: () => _addITaskDialog(context, data.project),
                 )
               : null,
+        );
+        if (bgAsset == null) return page;
+        return Container(
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(bgAsset),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: page,
         );
       },
       error: (err, _) => VikunjaErrorWidget(
@@ -203,8 +209,9 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     BuildContext context,
     Project project,
     bool displayDoneTask,
-    Color? accentColor,
-  ) {
+    Color? accentColor, {
+    bool transparentBar = false,
+  }) {
     // Wie Microsoft To Do: ein einzelnes „…" öffnet das Listenoptionen-Sheet
     // (Umbenennen, Sortieren, Design ändern, Mitglieder, Ansicht, Bearbeiten).
     final actions = <Widget>[
@@ -232,6 +239,7 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     if (accentColor != null) {
       return AccentAppBar(
         accentColor: accentColor,
+        barColor: transparentBar ? Colors.transparent : null,
         actions: actions,
         title: project.title,
         showTitle: _titleInBar,
