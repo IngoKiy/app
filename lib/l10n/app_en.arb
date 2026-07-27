@@ -501,5 +501,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "changeAvatar": "Change profile picture",
+  "avatarUpdated": "Profile picture updated",
+  "avatarUpdateError": "Could not upload the profile picture",
+  "chooseFromLibrary": "Choose from library",
+  "takePhoto": "Take photo",
+  "useInitials": "Use initials"
 }

@@ -78,6 +78,7 @@ flutter:
   assets:
     - assets/backgrounds/
     - assets/graphics/hypnotize.png
+    - assets/graphics/profile_header.jpg
     - assets/vikunja_logo.png
     - assets/vikunja_logo_full.png
     - assets/vikunja_logo_full_white.png

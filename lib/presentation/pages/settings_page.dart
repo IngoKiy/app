@@ -15,6 +15,10 @@ import 'package:vikunja_app/core/utils/user_extensions.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/domain/entities/version.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:vikunja_app/core/di/data_source_provider.dart';
+import 'package:vikunja_app/presentation/widgets/ui/preset_sheet.dart';
+import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
@@ -53,7 +57,22 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
         isSystemSelected &&
         platformLocale.languageCode != resolvedLocale.languageCode;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.settings)),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: Theme.of(context).brightness == Brightness.light
+            ? SystemUiOverlayStyle.dark
+            : SystemUiOverlayStyle.light,
+        title: Text(
+          l10n.settings,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+      ),
       body: ConstrainedPage(
         child: settings.when(
           data: (settings) {
@@ -360,49 +379,86 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
     List<Project> projects,
     BuildContext context,
   ) {
+    final theme = Theme.of(context);
     return Column(
       children: [
-        UserAccountsDrawerHeader(
-          accountName: Text(
-            user.displayName,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSecondaryContainer,
-            ),
-          ),
-          accountEmail: Text(
-            user.username,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSecondaryContainer,
-            ),
-          ),
-          currentAccountPicture: FutureBuilder(
-            future: ref.read(clientProviderProvider).getHeaders(),
-            builder: (context, asyncSnapshot) {
-              if (asyncSnapshot.hasData && asyncSnapshot.data != null) {
-                return CircleAvatar(
-                  backgroundImage: user.username != ""
-                      ? NetworkImage(
-                          user.avatarUrl(
-                            ref.read(clientProviderProvider).apiBase,
-                          ),
-                          headers: asyncSnapshot.data,
-                        )
-                      : null,
-                );
-              } else {
-                return CircleAvatar();
-              }
-            },
-          ),
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage("assets/graphics/hypnotize.png"),
-              repeat: ImageRepeat.repeat,
-              colorFilter: ColorFilter.mode(
-                Theme.of(context).colorScheme.secondaryContainer,
-                BlendMode.multiply,
+        // Profilkopf im To-Do-Stil: Foto der Anlage als Banner, darauf der
+        // Avatar (antippen = Profilbild ändern) mit Name und Benutzername.
+        SizedBox(
+          height: 190,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                'assets/graphics/profile_header.jpg',
+                fit: BoxFit.cover,
               ),
-            ),
+              // Abdunkeln, damit weiße Schrift auf jedem Bildbereich sitzt.
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.15),
+                      Colors.black.withValues(alpha: 0.65),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Stack(
+                      children: [
+                        UserAvatar(user: user, radius: 34),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.photo_camera,
+                              size: 14,
+                              color: theme.colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      user.displayName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      user.username,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Ganze Kopffläche antippbar: öffnet die Avatar-Auswahl.
+              Positioned.fill(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(onTap: () => _changeAvatar(ref, context)),
+                ),
+              ),
+            ],
           ),
         ),
         ListTile(
@@ -436,5 +492,71 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
         ),
       ],
     );
+  }
+
+  /// Profilbild ändern (Vikunja-Avatar-API): Foto aufnehmen, aus der
+  /// Mediathek wählen oder auf Initialen zurückstellen. Das Bild landet
+  /// serverseitig — Web und alle Geräte zeigen es danach ebenfalls.
+  Future<void> _changeAvatar(WidgetRef ref, BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final choice = await showPresetSheet<String>(
+      context,
+      title: l10n.changeAvatar,
+      options: [
+        PresetOption(
+          icon: Icons.photo_library_outlined,
+          label: l10n.chooseFromLibrary,
+          value: 'library',
+        ),
+        PresetOption(
+          icon: Icons.photo_camera_outlined,
+          label: l10n.takePhoto,
+          value: 'camera',
+        ),
+        PresetOption(
+          icon: Icons.person_outline,
+          label: l10n.useInitials,
+          value: 'initials',
+        ),
+      ],
+    );
+    if (choice == null || !context.mounted) return;
+
+    final dataSource = ref.read(userDataSourceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (choice == 'initials') {
+      final res = await dataSource.setAvatarProvider('initials');
+      _afterAvatarChange(ref, messenger, l10n, res.isSuccessful);
+      return;
+    }
+
+    final picked = await ImagePicker().pickImage(
+      source: choice == 'camera' ? ImageSource.camera : ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 88,
+    );
+    if (picked == null) return;
+
+    final res = await dataSource.uploadAvatar(picked.path);
+    _afterAvatarChange(ref, messenger, l10n, res.isSuccessful);
+  }
+
+  void _afterAvatarChange(
+    WidgetRef ref,
+    ScaffoldMessengerState messenger,
+    AppLocalizations l10n,
+    bool ok,
+  ) {
+    if (ok) {
+      // Bild-Cache räumen, damit das neue Avatar sofort erscheint.
+      imageCache.clear();
+      imageCache.clearLiveImages();
+      ref.invalidate(settingsControllerProvider);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.avatarUpdated)));
+    } else {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.avatarUpdateError)));
+    }
   }
 }
