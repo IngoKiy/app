@@ -17,6 +17,7 @@ import 'package:vikunja_app/domain/entities/user.dart';
 import 'package:vikunja_app/domain/entities/version.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:vikunja_app/core/di/data_source_provider.dart';
+import 'package:vikunja_app/core/network/response.dart';
 import 'package:vikunja_app/presentation/widgets/ui/preset_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
@@ -527,7 +528,7 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
 
     if (choice == 'initials') {
       final res = await dataSource.setAvatarProvider('initials');
-      _afterAvatarChange(ref, messenger, l10n, res.isSuccessful);
+      await _afterAvatarChange(ref, messenger, l10n, res);
       return;
     }
 
@@ -540,23 +541,37 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
     if (picked == null) return;
 
     final res = await dataSource.uploadAvatar(picked.path);
-    _afterAvatarChange(ref, messenger, l10n, res.isSuccessful);
+    if (res.isSuccessful) {
+      // Vikunja setzt den Provider beim Upload nicht zwingend um — explizit
+      // auf „upload" stellen, sonst liefert der Server weiter die Initialen.
+      await dataSource.setAvatarProvider('upload');
+    }
+    await _afterAvatarChange(ref, messenger, l10n, res);
   }
 
-  void _afterAvatarChange(
+  Future<void> _afterAvatarChange(
     WidgetRef ref,
     ScaffoldMessengerState messenger,
     AppLocalizations l10n,
-    bool ok,
-  ) {
-    if (ok) {
-      // Bild-Cache räumen, damit das neue Avatar sofort erscheint.
+    Response<Object> res,
+  ) async {
+    if (res.isSuccessful) {
+      // Bild-Caches räumen und die Avatar-Version hochzählen (Cache-Buster
+      // in der URL), damit das neue Bild sofort erscheint.
       imageCache.clear();
       imageCache.clearLiveImages();
+      await bumpAvatarVersion(ref.read(keyValueDaoProvider));
       ref.invalidate(settingsControllerProvider);
       messenger.showSnackBar(SnackBar(content: Text(l10n.avatarUpdated)));
     } else {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.avatarUpdateError)));
+      // Statuscode mitgeben — sonst bleibt bei einem Serverfehler unklar,
+      // woran es lag.
+      final detail = res is ErrorResponse<Object>
+          ? ' (HTTP ${res.statusCode})'
+          : '';
+      messenger.showSnackBar(
+        SnackBar(content: Text('${l10n.avatarUpdateError}$detail')),
+      );
     }
   }
 }

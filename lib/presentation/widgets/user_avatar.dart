@@ -4,6 +4,7 @@ import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/network/cached_image_provider.dart';
 import 'package:vikunja_app/domain/entities/user.dart';
+import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
 
 /// Rundes Nutzer-Avatar-Bild vom Vikunja-Server mit Initialen-Fallback.
 class UserAvatar extends ConsumerWidget {
@@ -28,6 +29,9 @@ class UserAvatar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final client = ref.read(clientProviderProvider);
     final cache = ref.watch(imageDiskCacheProvider);
+    // Nach einem Avatar-Upload ändert sich die Version → neue URL → das
+    // Bild wird garantiert neu geladen statt aus dem Cache zu kommen.
+    final avatarVersion = ref.watch(avatarVersionProvider).value ?? '';
 
     return FutureBuilder<Map<String, String>>(
       future: client.getHeaders(),
@@ -36,7 +40,7 @@ class UserAvatar extends ConsumerWidget {
           radius: radius,
           foregroundImage: snapshot.hasData && user.username.isNotEmpty
               ? AuthCachedImageProvider(
-                  user.avatarUrl(client.apiBase),
+                  user.avatarUrl(client.apiBase, cacheBuster: avatarVersion),
                   headers: snapshot.data!,
                   cache: cache,
                 )
