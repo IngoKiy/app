@@ -475,5 +475,23 @@
   "plannedFilterThisWeek": "This week",
   "plannedFilterLater": "Later",
   "hideEmptySmartLists": "Automatically hide empty smart lists",
-  "smartListsSection": "Smart lists"
+  "smartListsSection": "Smart lists",
+  "reminderNotificationTitle": "Reminder",
+  "reminderNotificationBody": "This is your reminder for “{title}”",
+  "dueNotificationTitle": "Due today",
+  "dueNotificationBody": "“{title}” is due.",
+  "@reminderNotificationBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "@dueNotificationBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  }
 }

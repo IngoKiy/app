@@ -11,7 +11,6 @@ import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/offline/offline_writer.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
-import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/utils/date_extensions.dart';
 import 'package:vikunja_app/core/utils/due_date_format.dart';
 import 'package:vikunja_app/core/utils/priority.dart';
@@ -23,13 +22,12 @@ import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/edit_description.dart';
 import 'package:vikunja_app/presentation/pages/task/task_comments_page.dart';
-import 'package:vikunja_app/presentation/widgets/date_time_field.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
-import 'package:vikunja_app/presentation/widgets/project/project_picker.dart';
 import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
@@ -356,14 +354,29 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           _buildRepeatRow(),
           if (_repeatPreset == _RepeatPreset.custom) _buildCustomRepeat(),
           const Divider(),
+          _buildPriorityRow(),
+          const Divider(),
+          _buildStartRow(),
+          const Divider(),
+          _buildEndRow(),
+          const Divider(),
+          _buildProjectRow(),
+          const Divider(),
+          _buildColorRow(),
+          const Divider(),
+          _buildAddLabel(context),
+          _buildLabelList(),
+          const Divider(),
           Padding(
             padding: EdgeInsets.symmetric(vertical: 8.0),
             child: TaskAttachmentsSection(task: widget.task),
           ),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: TaskAssigneesSection(task: widget.task),
+          ),
           const Divider(),
           _buildDescription(context),
-          const SizedBox(height: 8),
-          _buildMoreSection(context),
           _buildFooter(context),
         ],
       ),
@@ -637,20 +650,6 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     }
   }
 
-  // Projektauswahl: bei Änderung wird über updateTask die project_id
-  // mitgesendet (= Verschieben in ein anderes Projekt).
-  Widget _buildProject() {
-    return ProjectPickerField(
-      selectedProjectId: _projectId,
-      onChanged: (projectId) {
-        setState(() {
-          _projectId = projectId;
-          _scheduleAutosave(immediate: true);
-        });
-      },
-    );
-  }
-
   // Fälligkeit als To-Do-Aktionszeile: „Fälligkeitsdatum hinzufügen" bzw. das
   // gesetzte Datum („Gestern"/„Heute"/„Mi. 22. Juli", rot bei überfällig)
   // mit × zum Entfernen; Tipp öffnet das Preset-Sheet.
@@ -741,34 +740,6 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     if (picked == null) return;
     setState(() => _dueDate = picked);
     _scheduleAutosave(immediate: true);
-  }
-
-  Widget _buildStartDate() {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: VikunjaDateTimeField(
-        label: AppLocalizations.of(context).startDateLabel,
-        initialValue: widget.task.startDate,
-        onChanged: (startDate) {
-          _startDate = startDate;
-          _scheduleAutosave(immediate: true);
-        },
-      ),
-    );
-  }
-
-  Widget _buildEndDate() {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: VikunjaDateTimeField(
-        label: AppLocalizations.of(context).endDateLabel,
-        initialValue: widget.task.endDate,
-        onChanged: (endDate) {
-          _endDate = endDate;
-          _scheduleAutosave(immediate: true);
-        },
-      ),
-    );
   }
 
   // Wiederholen als To-Do-Aktionszeile + Preset-Sheet (Täglich/Wöchentlich/
@@ -862,36 +833,148 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     _scheduleAutosave(immediate: true);
   }
 
-  /// Eingeklappter „Mehr"-Bereich mit den Vikunja-Extras, die es in
-  /// Microsoft To Do nicht gibt: Liste/Projekt, Priorität, Start-/Enddatum,
-  /// Labels, Aufgabenfarbe und Zuweisungen.
-  Widget _buildMoreSection(BuildContext context) {
-    final theme = Theme.of(context);
-    return Theme(
-      data: theme.copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(bottom: 8),
-        title: Text(
-          AppLocalizations.of(context).moreSection,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+  // --- Vikunja-Extras als To-Do-Aktionszeilen ------------------------------
+
+  /// Priorität als Aktionszeile + Preset-Sheet (Keine … SOFORT).
+  Widget _buildPriorityRow() {
+    final l10n = AppLocalizations.of(context);
+    final isSet = _priority != null && _priority != 0;
+    return _actionRow(
+      icon: Icons.flag_outlined,
+      label: isSet ? priorityToString(l10n, _priority) : l10n.priority,
+      isSet: isSet,
+      onTap: _showPrioritySheet,
+      onClear: () {
+        setState(() => _priority = 0);
+        _scheduleAutosave(immediate: true);
+      },
+    );
+  }
+
+  Future<void> _showPrioritySheet() async {
+    final l10n = AppLocalizations.of(context);
+    final choice = await showPresetSheet<int>(
+      context,
+      title: l10n.priority,
+      options: [
+        for (final p in const [1, 2, 3, 4, 5])
+          PresetOption(
+            icon: p == 5
+                ? Icons.local_fire_department_outlined
+                : Icons.flag_outlined,
+            label: priorityToString(l10n, p),
+            value: p,
           ),
-        ),
-        children: [
-          _buildProject(),
-          _buildPriority(),
-          _buildStartDate(),
-          _buildEndDate(),
-          _buildAddLabel(context),
-          _buildLabelList(),
-          _buildColor(),
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.0),
-            child: TaskAssigneesSection(task: widget.task),
-          ),
-        ],
-      ),
+      ],
+    );
+    if (choice == null) return;
+    setState(() => _priority = choice);
+    _scheduleAutosave(immediate: true);
+  }
+
+  /// Start-/Enddatum als Aktionszeilen mit Datumswahl (To-Do-Format).
+  Widget _buildStartRow() {
+    final l10n = AppLocalizations.of(context);
+    final value = (_startDate != null && _startDate!.year > 1)
+        ? _startDate
+        : null;
+    return _actionRow(
+      icon: Icons.play_arrow_outlined,
+      label: value != null
+          ? '${l10n.startDateLabel}: ${formatDueDate(l10n, l10n.localeName, value)}'
+          : l10n.startDateLabel,
+      isSet: value != null,
+      onTap: () =>
+          _pickSimpleDate(initial: value, onPicked: (d) => _startDate = d),
+      onClear: () {
+        setState(() => _startDate = null);
+        _scheduleAutosave(immediate: true);
+      },
+    );
+  }
+
+  Widget _buildEndRow() {
+    final l10n = AppLocalizations.of(context);
+    final value = (_endDate != null && _endDate!.year > 1) ? _endDate : null;
+    return _actionRow(
+      icon: Icons.stop_outlined,
+      label: value != null
+          ? '${l10n.endDateLabel}: ${formatDueDate(l10n, l10n.localeName, value)}'
+          : l10n.endDateLabel,
+      isSet: value != null,
+      onTap: () =>
+          _pickSimpleDate(initial: value, onPicked: (d) => _endDate = d),
+      onClear: () {
+        setState(() => _endDate = null);
+        _scheduleAutosave(immediate: true);
+      },
+    );
+  }
+
+  Future<void> _pickSimpleDate({
+    required DateTime? initial,
+    required void Function(DateTime) onPicked,
+  }) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (date == null) return;
+    setState(() => onPicked(DateTime(date.year, date.month, date.day, 12)));
+    _scheduleAutosave(immediate: true);
+  }
+
+  /// Liste/Projekt als Aktionszeile + Auswahl-Sheet (= Verschieben).
+  Widget _buildProjectRow() {
+    final l10n = AppLocalizations.of(context);
+    final projects =
+        ref.watch(projectsControllerProvider).value?.projects ?? const [];
+    final current = projects.where((p) => p.id == _projectId).toList();
+    return _actionRow(
+      icon: Icons.format_list_bulleted,
+      label: current.isNotEmpty ? current.first.title : l10n.project,
+      isSet: current.isNotEmpty,
+      onTap: () async {
+        final candidates = projects
+            .where((p) => !p.isSavedFilter && p.id > 0)
+            .toList();
+        final choice = await showPresetSheet<int>(
+          context,
+          title: l10n.project,
+          options: [
+            for (final p in candidates)
+              PresetOption(
+                icon: p.id == _projectId
+                    ? Icons.radio_button_checked
+                    : Icons.format_list_bulleted,
+                label: p.title,
+                value: p.id,
+              ),
+          ],
+        );
+        if (choice == null || choice == _projectId) return;
+        setState(() => _projectId = choice);
+        _scheduleAutosave(immediate: true);
+      },
+    );
+  }
+
+  /// Aufgabenfarbe als Aktionszeile (farbiger Punkt statt Button).
+  Widget _buildColorRow() {
+    final l10n = AppLocalizations.of(context);
+    final hasColor = _color != null && _color != Colors.black;
+    return _actionRow(
+      icon: Icons.palette_outlined,
+      label: hasColor ? '#${_color!.toHexString()}' : l10n.setColor,
+      isSet: hasColor,
+      labelColor: hasColor ? _color : null,
+      onTap: _onColorEdit,
+      onClear: () {
+        setState(() => _color = null);
+        _scheduleAutosave(immediate: true);
+      },
     );
   }
 
@@ -1072,33 +1155,6 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
-  Widget _buildPriority() {
-    return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
-        icon: const Icon(Icons.flag),
-        labelText: AppLocalizations.of(context).priority,
-        border: InputBorder.none,
-      ),
-      initialValue: priorityToString(AppLocalizations.of(context), _priority),
-      isExpanded: true,
-      onChanged: (String? newValue) {
-        _priority = priorityFromString(AppLocalizations.of(context), newValue);
-        _scheduleAutosave(immediate: true);
-      },
-      items:
-          [
-            AppLocalizations.of(context).priorityUnset,
-            AppLocalizations.of(context).priorityLow,
-            AppLocalizations.of(context).priorityMedium,
-            AppLocalizations.of(context).priorityHigh,
-            AppLocalizations.of(context).priorityUrgent,
-            AppLocalizations.of(context).priorityDoNow,
-          ].map((String value) {
-            return DropdownMenuItem(value: value, child: Text(value));
-          }).toList(),
-    );
-  }
-
   Widget _buildAddLabel(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1141,6 +1197,19 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
               },
               focusNode: FocusNode(),
               textEditingController: _labelTypeAheadController,
+              // Randloses Feld im To-Do-Stil statt der grauen Formular-Box.
+              fieldViewBuilder:
+                  (context, controller, focusNode, onFieldSubmitted) =>
+                      TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        onSubmitted: (_) => onFieldSubmitted(),
+                        decoration: InputDecoration(
+                          hintText: AppLocalizations.of(context).addNewLabel,
+                          border: InputBorder.none,
+                          filled: false,
+                        ),
+                      ),
               onSelected: (String selection) {
                 _addLabel(selection);
               },
@@ -1149,57 +1218,6 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           IconButton(
             onPressed: () => _createAndAddLabel(_labelTypeAheadController.text),
             icon: Icon(Icons.add),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildColor() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(right: 15, left: 2),
-            child: Icon(
-              Icons.palette,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          ElevatedButton(
-            style: (_color == null || _color == Colors.black)
-                ? null
-                : ButtonStyle(
-                    backgroundColor: WidgetStateProperty.resolveWith(
-                      (_) => _color,
-                    ),
-                  ),
-            onPressed: _onColorEdit,
-            child: Text(
-              AppLocalizations.of(context).setColor,
-              style: (_color == null || _color == Colors.black)
-                  ? null
-                  : TextStyle(color: contrastingTextColor(_color!)),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 15),
-            child: () {
-              Color? color = (_color == null || _color == Colors.black)
-                  ? null
-                  : _color;
-
-              return Text(
-                color != null
-                    ? "#${color.toHexString()}"
-                    : AppLocalizations.of(context).none,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontStyle: FontStyle.italic,
-                ),
-              );
-            }(),
           ),
         ],
       ),

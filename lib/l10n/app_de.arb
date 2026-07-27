@@ -371,5 +371,23 @@
   "plannedFilterThisWeek": "Diese Woche",
   "plannedFilterLater": "Später",
   "hideEmptySmartLists": "Leere intelligente Listen automatisch ausblenden",
-  "smartListsSection": "Intelligente Listen"
+  "smartListsSection": "Intelligente Listen",
+  "reminderNotificationTitle": "Erinnerung",
+  "reminderNotificationBody": "Deine Erinnerung an „{title}“",
+  "dueNotificationTitle": "Fällig",
+  "dueNotificationBody": "„{title}“ ist fällig.",
+  "@reminderNotificationBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "@dueNotificationBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  }
 }
