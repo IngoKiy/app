@@ -9,6 +9,7 @@ import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/project/project_detail_page.dart';
+import 'package:vikunja_app/presentation/pages/settings_page.dart';
 import 'package:vikunja_app/presentation/pages/task/search_page.dart';
 import 'package:vikunja_app/presentation/widgets/project/add_project_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_card.dart';
@@ -42,9 +43,7 @@ class ProjectListPage extends ConsumerWidget {
       data: (model) {
         // Echte Projekte und gespeicherte Filter (Pseudo-Projekte) trennen,
         // damit Filter einen eigenen Abschnitt bekommen.
-        final projects = model.projects
-            .where((p) => !p.isSavedFilter)
-            .toList();
+        final projects = model.projects.where((p) => !p.isSavedFilter).toList();
         final filters = model.projects.where((p) => p.isSavedFilter).toList();
 
         final items = <Widget>[
@@ -114,6 +113,7 @@ class ProjectListPage extends ConsumerWidget {
             ),
             bottomNavigationBar: _NewListBar(
               onTap: () => _addProjectDialog(ref),
+              onNewGroup: () => _addProjectDialog(ref),
             ),
           );
         }
@@ -200,14 +200,32 @@ class _HomeHeader extends ConsumerWidget {
       child: Row(
         children: [
           if (user != null) ...[
-            UserAvatar(user: user, radius: 18),
-            const SizedBox(width: AppDimensions.sm),
+            // Avatar + Name öffnen die Einstellungen (wie in To Do, wo das
+            // Konto-/Einstellungs-Sheet hinter dem Profilkopf liegt).
             Expanded(
-              child: Text(
-                user.name.isNotEmpty ? user.name : user.username,
-                style: theme.textTheme.titleMedium,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (_) => const SettingsPage(),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    UserAvatar(user: user, radius: 18),
+                    const SizedBox(width: AppDimensions.sm),
+                    Expanded(
+                      child: Text(
+                        user.name.isNotEmpty ? user.name : user.username,
+                        style: theme.textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ] else
@@ -226,46 +244,56 @@ class _HomeHeader extends ConsumerWidget {
   }
 }
 
-/// Unten fixierte „+ Neue Liste"-Leiste der Listen-Übersicht (Home-Tab),
-/// optisch angelehnt an [AddTaskBar]: eigenes Widget, da die Aufgabenzeilen-
-/// Leiste dediziert für Aufgabenlisten bleibt.
+/// Unten fixierte Fußzeile der Listen-Übersicht im Stil von Microsoft To Do:
+/// links „+ Neue Liste" als dezenter Textlink in Akzentfarbe, rechts das
+/// Symbol für eine neue Gruppe.
 class _NewListBar extends StatelessWidget {
   final VoidCallback onTap;
+  final VoidCallback? onNewGroup;
 
-  const _NewListBar({required this.onTap});
+  const _NewListBar({required this.onTap, this.onNewGroup});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-        child: Material(
-          color: theme.colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.add, color: theme.colorScheme.onPrimaryContainer),
-                  const SizedBox(width: 12),
-                  Text(
-                    AppLocalizations.of(context).newListButton,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 12,
                   ),
-                ],
+                  child: Row(
+                    children: [
+                      Icon(Icons.add, color: accent),
+                      const SizedBox(width: 12),
+                      Text(
+                        AppLocalizations.of(context).newListButton,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+            if (onNewGroup != null)
+              IconButton(
+                tooltip: AppLocalizations.of(context).newListButton,
+                icon: Icon(Icons.create_new_folder_outlined, color: accent),
+                onPressed: onNewGroup,
+              ),
+          ],
         ),
       ),
     );
@@ -329,46 +357,44 @@ class _ProjectTreeTileState extends State<_ProjectTreeTile> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: EdgeInsets.only(
-            left: widget.depth * AppDimensions.md,
-            top: AppDimensions.xxs,
-            bottom: AppDimensions.xxs,
-          ),
-          child: ProjectCard(
-            project: project,
-            openTaskCount: widget.counts[project.id],
-            selected: project.id == widget.selectedProjectId,
-            onTap: () => widget.onOpen(project),
-            leading: hasChildren
-                ? IconButton(
-                    tooltip: _expanded
-                        ? AppLocalizations.of(context).collapseSubprojects
-                        : AppLocalizations.of(context).expandSubprojects,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    icon: Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_down
-                          : Icons.keyboard_arrow_right,
-                    ),
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                  )
-                : null,
-          ),
+        ProjectCard(
+          project: project,
+          openTaskCount: widget.counts[project.id],
+          selected: project.id == widget.selectedProjectId,
+          onTap: () => widget.onOpen(project),
+          expandable: hasChildren,
+          expanded: _expanded,
+          onToggleExpand: () => setState(() => _expanded = !_expanded),
         ),
+        // Kindlisten eingerückt mit vertikaler Führungslinie (wie To Do).
         if (hasChildren && _expanded)
-          for (final child in project.subprojects)
-            _ProjectTreeTile(
-              project: child,
-              counts: widget.counts,
-              selectedProjectId: widget.selectedProjectId,
-              onOpen: widget.onOpen,
-              depth: widget.depth + 1,
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    width: 2,
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.only(left: AppDimensions.xs),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final child in project.subprojects)
+                    _ProjectTreeTile(
+                      project: child,
+                      counts: widget.counts,
+                      selectedProjectId: widget.selectedProjectId,
+                      onOpen: widget.onOpen,
+                      depth: widget.depth + 1,
+                    ),
+                ],
+              ),
             ),
+          ),
       ],
     );
   }

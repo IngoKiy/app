@@ -41,10 +41,10 @@ void main() {
     await tester.pumpWidget(_wrap(ProjectListModel([parentProject])));
     await tester.pump();
 
-    // Projekt wird als Ordner-Karte dargestellt.
+    // Gruppe (Projekt mit Kindern) als flache Zeile mit Ordner-Icon.
     expect(find.byType(ProjectCard), findsOneWidget);
     expect(find.text('Parent Project'), findsOneWidget);
-    expect(find.byIcon(Icons.folder_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.folder_outlined), findsOneWidget);
 
     // Subprojekt zunächst eingeklappt, nach Tap auf Expand sichtbar.
     expect(find.text('Subproject 1'), findsNothing);
@@ -65,8 +65,9 @@ void main() {
 
     expect(find.text('Filters'), findsOneWidget); // Abschnitts-Überschrift
     expect(find.text('My Filter'), findsOneWidget);
-    // Filter bekommt das Trichter-Icon statt eines Ordner-Icons.
+    // Filter bekommt das Trichter-Icon; das Projekt ohne Kinder ein
+    // Listen-Icon (flache To-Do-Zeile statt Ordner-Karte).
     expect(find.byIcon(Icons.filter_alt_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.folder_rounded), findsOneWidget); // nur das Projekt
+    expect(find.byIcon(Icons.format_list_bulleted), findsOneWidget);
   });
 }

@@ -57,12 +57,23 @@ import 'package:vikunja_app/presentation/pages/task/smart_list_page.dart';
 class SmartListSection extends ConsumerWidget {
   const SmartListSection({super.key});
 
+  /// Anzeige-Reihenfolge wie in Microsoft To Do: Mein Tag, Wichtig, Geplant,
+  /// Alle, Abgeschlossen, Mir zugewiesen.
+  static const _displayOrder = [
+    SmartList.today,
+    SmartList.important,
+    SmartList.planned,
+    SmartList.all,
+    SmartList.completed,
+    SmartList.assignedToMe,
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final list in SmartList.values) _SmartListTile(list: list),
+        for (final list in _displayOrder) _SmartListTile(list: list),
         const Divider(),
       ],
     );

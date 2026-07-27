@@ -125,20 +125,10 @@ class HomePageState extends ConsumerState<HomePage> {
       );
     }
 
-    return Scaffold(
-      bottomNavigationBar: ClipRRect(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
-        child: NavigationBar(
-          destinations: navbarItems(context),
-          selectedIndex: _selectedDrawerIndex,
-          onDestinationSelected: _onDestinationSelected,
-        ),
-      ),
-      body: drawerItem,
-    );
+    // Kompakt (Telefon) wie Microsoft To Do: keine Bottom-Navigation — die
+    // Listen-Übersicht ist die einzige Wurzelseite, Einstellungen liegen
+    // hinter dem Avatar im Kopf der Übersicht.
+    return Scaffold(body: widgets[0]);
   }
 
   void _onDestinationSelected(int index) {
