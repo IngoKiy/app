@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/core/sync/sync_state.dart';
 import 'package:vikunja_app/core/sync/sync_state_provider.dart';
@@ -93,7 +94,14 @@ class _SyncBannerContent extends StatelessWidget {
       case SyncPhase.error:
         background = colorScheme.errorContainer;
         foreground = colorScheme.onErrorContainer;
-        message = loc.syncErrorBanner(state.errorMessage ?? '');
+        final raw = state.errorMessage ?? '';
+        // Drosselung (HTTP 429) verständlich statt als roher Serverfehler.
+        if (raw.startsWith('rate_limited')) {
+          final seconds = int.tryParse(raw.split(':').last) ?? 60;
+          message = loc.syncRateLimited(seconds);
+        } else {
+          message = loc.syncErrorBanner(raw);
+        }
         break;
       case SyncPhase.idle:
         background = colorScheme.secondaryContainer;
@@ -102,47 +110,54 @@ class _SyncBannerContent extends StatelessWidget {
         break;
     }
 
-    return Semantics(
-      liveRegion: true,
-      container: true,
-      button: true,
-      child: Material(
-        color: background,
-        child: InkWell(
-          onTap: () => SyncStatusSheet.show(context),
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.md,
-                vertical: AppDimensions.xs,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    message,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: foreground,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: background.computeLuminance() > 0.5
+          ? SystemUiOverlayStyle.dark
+          : SystemUiOverlayStyle.light,
+      child: Semantics(
+        liveRegion: true,
+        container: true,
+        button: true,
+        child: Material(
+          color: background,
+          child: InkWell(
+            onTap: () => SyncStatusSheet.show(context),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimensions.md,
+                  vertical: AppDimensions.xs,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      message,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: foreground,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (state.phase == SyncPhase.syncing) ...[
-                    const SizedBox(height: AppDimensions.xxs),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppDimensions.xxs),
-                      child: SizedBox(
-                        height: 3,
-                        child: LinearProgressIndicator(
-                          minHeight: 3,
-                          backgroundColor: foreground.withValues(alpha: 0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(foreground),
+                    if (state.phase == SyncPhase.syncing) ...[
+                      const SizedBox(height: AppDimensions.xxs),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppDimensions.xxs),
+                        child: SizedBox(
+                          height: 3,
+                          child: LinearProgressIndicator(
+                            minHeight: 3,
+                            backgroundColor: foreground.withValues(alpha: 0.2),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              foreground,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

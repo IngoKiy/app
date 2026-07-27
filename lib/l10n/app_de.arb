@@ -389,5 +389,13 @@
         "type": "String"
       }
     }
+  },
+  "syncRateLimited": "Zu viele Anfragen – Synchronisierung pausiert {seconds} s",
+  "@syncRateLimited": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
   }
 }

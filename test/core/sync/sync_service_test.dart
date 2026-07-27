@@ -685,4 +685,44 @@ void main() {
 
     expect((await db.usersDao.getById(7))?.username, 'alice');
   });
+
+  test(
+    'Pseudo-Projekte (Favoriten/Filter) verschieben keine fremden Aufgaben',
+    () async {
+      // Server liefert das echte Projekt 10 und das Favoriten-Pseudo-Projekt
+      // (id -1), dessen View die GLEICHE Aufgabe nochmals ausliefert.
+      project.getAllStub = (page) => page == 1
+          ? SuccessResponse(
+              [
+                _project(
+                  id: 10,
+                  views: [_view(id: 100, projectId: 10, kind: 'list')],
+                ),
+                _project(
+                  id: -1,
+                  title: 'Favorites',
+                  views: [_view(id: 900, projectId: -1, kind: 'list')],
+                ),
+              ],
+              200,
+              {},
+            )
+          : SuccessResponse(<ProjectDto>[], 200, {});
+
+      // Aufgabe 42 gehört zu Projekt 10, wird aber auch von der
+      // Favoriten-View geliefert (dort mit ihrer echten project_id).
+      task.viewStub = (projectId, view, page) {
+        if (page > 1) return SuccessResponse(<TaskDto>[], 200, {});
+        return SuccessResponse([_task(id: 42, projectId: 10)], 200, {});
+      };
+
+      await buildService().pullAll();
+
+      // Die Aufgabe muss bei ihrem echten Projekt liegen — nicht beim
+      // Pseudo-Projekt (das war die Ursache des Flackerns beim Sync).
+      final row = await db.tasksDao.getById(42);
+      expect(row, isNotNull);
+      expect(row!.projectId, 10);
+    },
+  );
 }

@@ -235,7 +235,12 @@ class Client {
           globalNavigatorKey.currentState?.pushNamed("/login");
         }
 
-        return ErrorResponse<T>(response.statusCode, await getHeaders(), error);
+        // Antwort-Header mitgeben (z. B. Retry-After bei HTTP 429); die
+        // Request-Header bleiben als Fallback erhalten.
+        return ErrorResponse<T>(response.statusCode, {
+          ...await getHeaders(),
+          ...response.headers,
+        }, error);
       } on FormatException catch (e, s) {
         return ExceptionResponse(e, s);
       }

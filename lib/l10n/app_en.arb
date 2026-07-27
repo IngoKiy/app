@@ -493,5 +493,13 @@
         "type": "String"
       }
     }
+  },
+  "syncRateLimited": "Too many requests — sync pauses for {seconds} s",
+  "@syncRateLimited": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
   }
 }
