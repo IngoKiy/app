@@ -20,6 +20,7 @@ import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_bar.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/task/smart_list_section.dart';
+import 'package:vikunja_app/presentation/widgets/task/suggestions_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
 import 'package:vikunja_app/presentation/widgets/task_bottom_sheet.dart';
 
@@ -47,7 +48,19 @@ class SmartListPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: accent,
-      appBar: AccentAppBar(accentColor: accent, foregroundColor: fg),
+      appBar: AccentAppBar(
+        accentColor: accent,
+        foregroundColor: fg,
+        actions: [
+          // Glühbirne auf „Mein Tag": öffnet die Vorschläge (wie To Do).
+          if (list == SmartList.today)
+            IconButton(
+              icon: const Icon(Icons.lightbulb_outline),
+              tooltip: l10n.suggestionsTitle,
+              onPressed: () => showSuggestionsSheet(context),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           accentListTitle(

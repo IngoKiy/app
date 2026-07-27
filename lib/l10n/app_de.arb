@@ -341,5 +341,8 @@
   "changeDesign": "Design ändern",
   "changeView": "Ansicht wechseln",
   "sortManual": "Manuelle Reihenfolge",
-  "untitledList": "Unbenannte Liste"
+  "untitledList": "Unbenannte Liste",
+  "suggestionsTitle": "Vorschläge",
+  "suggestionsLater": "Später",
+  "suggestionsEarlier": "Früher"
 }

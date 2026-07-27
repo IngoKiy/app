@@ -445,5 +445,8 @@
   "changeDesign": "Change design",
   "changeView": "Switch view",
   "sortManual": "Manual order",
-  "untitledList": "Untitled list"
+  "untitledList": "Untitled list",
+  "suggestionsTitle": "Suggestions",
+  "suggestionsLater": "Later",
+  "suggestionsEarlier": "Earlier"
 }
