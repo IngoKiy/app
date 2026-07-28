@@ -43,7 +43,10 @@ class _ProjectTaskListState extends ConsumerState<ProjectTaskList> {
   Widget build(BuildContext context) {
     var projectController = ref.watch(projectControllerProvider(project));
     final theme = Theme.of(context);
-    final accentColor = project.color ?? theme.colorScheme.primary;
+    final accentColor = listAccentColors(
+      context,
+      project.color ?? theme.colorScheme.primary,
+    ).surface;
     final sortKey = 'project/${project.id}';
     final sortMode = ref.watch(listSortModeProvider(sortKey)).value;
 

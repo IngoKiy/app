@@ -96,7 +96,10 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
             currentView?.viewKind == ViewKind.list ||
             data.project.views.isEmpty;
         final accentColor = isListView
-            ? (data.project.color ?? Theme.of(context).colorScheme.primary)
+            ? listAccentColors(
+                context,
+                data.project.color ?? Theme.of(context).colorScheme.primary,
+              ).surface
             : null;
         final bgAssetEarly = isListView
             ? ref

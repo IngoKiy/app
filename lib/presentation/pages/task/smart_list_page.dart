@@ -54,8 +54,17 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
   Widget build(BuildContext context) {
     final look = smartListLook(context, list);
     final tasks = ref.watch(smartListTasksProvider(list));
-    final accent = look.pageColor;
-    final fg = look.pageAccent == look.pageColor ? null : look.pageAccent;
+    // Im Dunkelmodus wird die Fläche abgedunkelt (siehe listAccentColors),
+    // damit die Karten wieder heller sind als ihr Grund.
+    final colors = listAccentColors(
+      context,
+      look.pageColor,
+      lightForeground: look.pageAccent == look.pageColor
+          ? null
+          : look.pageAccent,
+    );
+    final accent = colors.surface;
+    final fg = colors.foreground;
 
     // „Mein Tag" trägt wie in To Do das heutige Datum als Untertitel —
     // und (anders als die übrigen Listen) kein Icon neben dem Titel.
@@ -128,7 +137,9 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
               },
               child: withCardSurface(
                 context: context,
-                accent: look.pageAccent,
+                accent: Theme.of(context).brightness == Brightness.dark
+                    ? look.color
+                    : look.pageAccent,
                 child: tasks.when(
                   data: (tasks) => ConstrainedPage(
                     child: RefreshIndicator(

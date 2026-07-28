@@ -8,6 +8,34 @@ import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 /// Seitenhintergrund einfärbt; der Zurück-Button trägt dabei das Label
 /// „Listen" statt eines nackten Pfeils, die Aufgaben-Karten bleiben hell.
 
+/// Flächen- und Vordergrundfarbe einer akzentfarbenen Listen-Seite.
+///
+/// Im Hellmodus ist die Fläche die Listenfarbe selbst (weiße Karten heben
+/// sich davon ab). Im Dunkelmodus wird sie kräftig abgedunkelt: sonst
+/// leuchtet die Liste, während die Karten — die dort dunkel sind — wie
+/// Löcher wirken. Nach dem Abdunkeln ist die Fläche dunkler als die Karten,
+/// die Schichtung stimmt wieder, und der Farbcharakter der Liste bleibt.
+({Color surface, Color foreground}) listAccentColors(
+  BuildContext context,
+  Color accent, {
+
+  /// Vordergrund für helle Akzentflächen im Hellmodus (z. B. dunkles Teal
+  /// auf Mint bei „Geplant").
+  Color? lightForeground,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  if (!isDark) {
+    return (
+      surface: accent,
+      foreground: lightForeground ?? contrastingTextColor(accent),
+    );
+  }
+  return (
+    surface: Color.alphaBlend(Colors.black.withValues(alpha: 0.80), accent),
+    foreground: Colors.white,
+  );
+}
+
 /// AppBar für eine akzentfarbene Listen-Seite. Der eigentliche, große
 /// Listentitel sitzt darunter im Content (siehe [accentListTitle]), die
 /// AppBar selbst trägt nur Zurück-Navigation und Aktionen.
@@ -212,10 +240,20 @@ Widget withCardSurface({
   Color? accent,
 }) {
   final theme = Theme.of(context);
+  final isDark = theme.brightness == Brightness.dark;
+  // Karten müssen heller sein als ihr Grund — im Hellmodus ist das die
+  // weiße `surface` auf der Farbfläche, im Dunkelmodus eine aufgehellte
+  // Fläche über der (stark abgedunkelten) Akzentfläche.
+  final cardColor = isDark
+      ? Color.alphaBlend(
+          Colors.white.withValues(alpha: 0.14),
+          theme.colorScheme.surface,
+        )
+      : theme.colorScheme.surface;
   return Theme(
     data: theme.copyWith(
       colorScheme: theme.colorScheme.copyWith(
-        surfaceContainerLow: theme.colorScheme.surface,
+        surfaceContainerLow: cardColor,
         primary: accent ?? theme.colorScheme.primary,
       ),
     ),
