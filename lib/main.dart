@@ -23,7 +23,6 @@ import 'package:vikunja_app/data/data_sources/settings_data_source.dart';
 import 'package:vikunja_app/init_page.dart';
 import 'package:vikunja_app/presentation/pages/home_page.dart';
 import 'package:vikunja_app/presentation/pages/login/login_page.dart';
-import 'package:vikunja_app/presentation/widgets/sync_status_banner.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'core/background_work.dart';
@@ -158,14 +157,10 @@ class VikunjaApp extends ConsumerWidget {
             Intl.defaultLocale = locale.toString();
             initializeDateFormatting(locale.toString());
             return ResponsiveBreakpoints.builder(
-              child: Material(
-                child: Column(
-                  children: [
-                    const SyncStatusBanner(),
-                    Expanded(child: child ?? const SizedBox.shrink()),
-                  ],
-                ),
-              ),
+              // Kein globales Sync-Banner mehr: Zustände zeigt das
+              // SyncStatusIcon in der Kopfzeile, den laufenden Vorgang der
+              // Pull-to-Refresh-Kreisel (eine Anzeige je Information).
+              child: Material(child: child ?? const SizedBox.shrink()),
               breakpoints: [
                 const Breakpoint(
                   start: 0,

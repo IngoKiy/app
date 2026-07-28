@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:vikunja_app/core/utils/due_date_format.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
-import 'package:vikunja_app/core/di/sync_provider.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_reminder.dart';
@@ -16,6 +15,7 @@ import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/task/task_edit_page.dart';
 import 'package:vikunja_app/presentation/widgets/list_accent_scaffold.dart';
 import 'package:vikunja_app/presentation/widgets/sort_chip.dart';
+import 'package:vikunja_app/presentation/widgets/sync_status_icon.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/task/add_task_bar.dart';
@@ -134,9 +134,7 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
                     child: RefreshIndicator(
                       // Direkt unter der Kopfzeile statt mitten über den Einträgen.
                       displacement: 12,
-                      onRefresh: () => ref
-                          .read(syncServiceProvider)
-                          .syncNow(userInitiated: true),
+                      onRefresh: () => refreshWithSync(ref),
                       child: tasks.isEmpty
                           ? _buildEmptyState(context, look)
                           : _buildList(ref, context, tasks),

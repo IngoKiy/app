@@ -14,6 +14,7 @@ import 'package:vikunja_app/presentation/pages/settings_page.dart';
 import 'package:vikunja_app/presentation/pages/task/search_page.dart';
 import 'package:vikunja_app/presentation/widgets/project/add_project_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_card.dart';
+import 'package:vikunja_app/presentation/widgets/sync_status_icon.dart';
 import 'package:vikunja_app/presentation/widgets/task/smart_list_section.dart';
 import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 
@@ -98,8 +99,7 @@ class ProjectListPage extends ConsumerWidget {
               ),
               children: items,
             ),
-            onRefresh: () =>
-                ref.read(projectsControllerProvider.notifier).reload(),
+            onRefresh: () => refreshWithSync(ref),
           ),
         );
 
@@ -293,6 +293,7 @@ class _HomeHeader extends ConsumerWidget {
             ),
           ] else
             const Spacer(),
+          const SyncStatusIcon(),
           IconButton(
             icon: const Icon(Icons.search),
             tooltip: AppLocalizations.of(context).searchHint,

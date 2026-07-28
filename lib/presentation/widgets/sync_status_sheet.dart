@@ -8,7 +8,7 @@ import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 
 /// Bottom-Sheet mit dem detaillierten Sync-Status: ausstehende und
 /// fehlgeschlagene Outbox-Operationen samt Aktionen (jetzt synchronisieren,
-/// fehlgeschlagene Op verwerfen). Wird per Tap auf den [SyncStatusBanner]
+/// fehlgeschlagene Op verwerfen). Wird per Tap auf das [SyncStatusIcon]
 /// geöffnet.
 class SyncStatusSheet extends ConsumerStatefulWidget {
   const SyncStatusSheet({super.key});

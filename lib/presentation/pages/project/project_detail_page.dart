@@ -12,6 +12,7 @@ import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/theming/todo_colors.dart';
 import 'package:vikunja_app/domain/entities/task_sort.dart';
 import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
+import 'package:vikunja_app/presentation/widgets/sync_status_icon.dart';
 import 'package:vikunja_app/presentation/widgets/ui/preset_sheet.dart';
 
 import 'package:vikunja_app/core/di/notification_provider.dart';
@@ -122,13 +123,13 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
           child: RefreshIndicator(
             // Direkt unter der Kopfzeile statt mitten über den Einträgen.
             displacement: 12,
-            onRefresh: () {
-              // reload() stößt Push+Pull an (userInitiated: true) und baut
-              // die aktuelle View danach neu auf; vorher rief dies nur
-              // loadForView auf und triggerte gar keinen Sync.
-              return ref
+            onRefresh: () async {
+              // Einheitlich wie auf allen Listen-Seiten; danach die aktuelle
+              // View neu aufbauen.
+              await refreshWithSync(ref);
+              await ref
                   .read(projectControllerProvider(widget.project).notifier)
-                  .reload();
+                  .loadForView(widget.project, _viewIndex);
             },
             child: getBody(data.project, overPhoto: bgAssetEarly != null),
           ),
@@ -223,6 +224,11 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     // Wie Microsoft To Do: ein einzelnes „…" öffnet das Listenoptionen-Sheet
     // (Umbenennen, Sortieren, Design ändern, Mitglieder, Ansicht, Bearbeiten).
     final actions = <Widget>[
+      SyncStatusIcon(
+        foregroundColor: accentColor != null
+            ? contrastingTextColor(accentColor)
+            : null,
+      ),
       // Freigabe-Symbol wie in To Do (öffnet die Mitglieder-Verwaltung).
       if (project.id > 0)
         IconButton(
