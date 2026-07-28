@@ -108,26 +108,36 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
             // können als der Bildschirm.
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // „Geplant": Filter-Chip („Alles geplant" …) wie in To Do.
-                  if (list == SmartList.planned)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        left: 16,
-                        top: 8,
-                        bottom: 4,
+              // Ohne Mindestbreite zentriert der Scrollbereich seinen Inhalt,
+              // sobald er schmaler als der Bildschirm ist — die Chips sollen
+              // aber immer links stehen, bündig mit dem Titel darüber.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: MediaQuery.of(context).size.width,
+                ),
+                child: Row(
+                  children: [
+                    // „Geplant": Filter-Chip („Alles geplant" …) wie in To Do.
+                    if (list == SmartList.planned)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: 16,
+                          top: 8,
+                          bottom: 4,
+                        ),
+                        child: _PlannedFilterChip(
+                          accent: accent,
+                          fg: fg,
+                          value: _plannedFilter,
+                          onTap: _showPlannedFilterSheet,
+                        ),
                       ),
-                      child: _PlannedFilterChip(
-                        accent: accent,
-                        fg: fg,
-                        value: _plannedFilter,
-                        onTap: _showPlannedFilterSheet,
-                      ),
+                    SortChip(
+                      listKey: 'smart/${list.name}',
+                      accentColor: accent,
                     ),
-                  SortChip(listKey: 'smart/${list.name}', accentColor: accent),
-                ],
+                  ],
+                ),
               ),
             ),
           Expanded(
