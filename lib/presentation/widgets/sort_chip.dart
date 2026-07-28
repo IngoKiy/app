@@ -81,6 +81,9 @@ class SortChip extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
+        // Nur so breit wie nötig: der Chip steht teils neben anderen Chips
+        // (z. B. dem Filter auf „Geplant") in einer scrollbaren Zeile.
+        mainAxisSize: MainAxisSize.min,
         children: [
           PopupMenuButton<TaskSortMode?>(
             tooltip: l10n.sortByLabel,
@@ -130,7 +133,6 @@ class SortChip extends ConsumerWidget {
               ),
             ),
           ],
-          const Spacer(),
         ],
       ),
     );

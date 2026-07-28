@@ -68,11 +68,14 @@ class _ProjectTaskListState extends ConsumerState<ProjectTaskList> {
             ),
           ),
           SliverToBoxAdapter(
-            child: SortChip(
-              listKey: sortKey,
-              allowManualOrder: true,
-              accentColor: accentColor,
-              overPhoto: widget.overPhoto,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SortChip(
+                listKey: sortKey,
+                allowManualOrder: true,
+                accentColor: accentColor,
+                overPhoto: widget.overPhoto,
+              ),
             ),
           ),
         ];

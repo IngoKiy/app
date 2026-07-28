@@ -103,26 +103,32 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
           // "Erledigt" bleibt ohne Sortier-Chip (sie hat eine feste
           // Reihenfolge, siehe smartListTasksProvider).
           if (list != SmartList.completed)
-            Row(
-              children: [
-                // „Geplant": Filter-Chip („Alles geplant" …) wie in To Do.
-                if (list == SmartList.planned)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16, top: 8, bottom: 4),
-                    child: _PlannedFilterChip(
-                      accent: accent,
-                      fg: fg,
-                      value: _plannedFilter,
-                      onTap: _showPlannedFilterSheet,
+            // Chips scrollen horizontal: „Geplant" trägt Filter UND
+            // Sortierung, deren Beschriftungen zusammen breiter sein
+            // können als der Bildschirm.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // „Geplant": Filter-Chip („Alles geplant" …) wie in To Do.
+                  if (list == SmartList.planned)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        left: 16,
+                        top: 8,
+                        bottom: 4,
+                      ),
+                      child: _PlannedFilterChip(
+                        accent: accent,
+                        fg: fg,
+                        value: _plannedFilter,
+                        onTap: _showPlannedFilterSheet,
+                      ),
                     ),
-                  ),
-                Expanded(
-                  child: SortChip(
-                    listKey: 'smart/${list.name}',
-                    accentColor: accent,
-                  ),
-                ),
-              ],
+                  SortChip(listKey: 'smart/${list.name}', accentColor: accent),
+                ],
+              ),
             ),
           Expanded(
             child: NotificationListener<ScrollNotification>(
