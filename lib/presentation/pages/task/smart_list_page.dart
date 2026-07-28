@@ -217,6 +217,11 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
     final entries = list == SmartList.planned
         ? _plannedEntries(context, tasks)
         : [for (final t in tasks) _ListEntry.task(t)];
+    // Filtert der „Geplant"-Chip alles weg, ist die Liste zwar nicht leer,
+    // die Ansicht aber schon — dann denselben leeren Zustand zeigen.
+    if (entries.isEmpty) {
+      return _buildEmptyState(context, smartListLook(context, list));
+    }
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: entries.length,
