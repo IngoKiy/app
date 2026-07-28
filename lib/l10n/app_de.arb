@@ -403,5 +403,6 @@
   "avatarUpdateError": "Profilbild konnte nicht hochgeladen werden",
   "chooseFromLibrary": "Aus Mediathek wählen",
   "takePhoto": "Foto aufnehmen",
-  "useInitials": "Initialen verwenden"
+  "useInitials": "Initialen verwenden",
+  "searchEmptyHint": "Du kannst in Aufgaben, Schritten und Notizen suchen."
 }

@@ -507,5 +507,6 @@
   "avatarUpdateError": "Could not upload the profile picture",
   "chooseFromLibrary": "Choose from library",
   "takePhoto": "Take photo",
-  "useInitials": "Use initials"
+  "useInitials": "Use initials",
+  "searchEmptyHint": "You can search in tasks, steps and notes."
 }

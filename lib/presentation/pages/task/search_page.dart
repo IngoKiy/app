@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
@@ -48,23 +49,73 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
+    final theme = Theme.of(context);
+
+    // Kopfzeile im To-Do-Stil: helles Suchfeld, „Abbrechen" statt Pfeil.
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: AppTextField(
-            controller: _controller,
-            hint: l10n.searchHint,
-            autofocus: true,
-            prefixIcon: Icons.search,
-            onChanged: _onChanged,
-          ),
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.primary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: theme.brightness == Brightness.light
+            ? SystemUiOverlayStyle.dark
+            : SystemUiOverlayStyle.light,
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
+        title: AppTextField(
+          controller: _controller,
+          hint: l10n.searchHint,
+          autofocus: true,
+          prefixIcon: Icons.search,
+          onChanged: _onChanged,
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: Text(l10n.cancel),
+          ),
+        ],
       ),
       body: _query.trim().isEmpty
-          ? const SizedBox.shrink()
+          ? _SearchHint(text: l10n.searchEmptyHint)
           : _SearchResults(query: _query),
+    );
+  }
+}
+
+/// Hinweis bei leerer Eingabe (wie in To Do statt einer leeren Fläche).
+class _SearchHint extends StatelessWidget {
+  final String text;
+
+  const _SearchHint({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search,
+              size: 48,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
