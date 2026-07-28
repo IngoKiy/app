@@ -120,6 +120,8 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
             return false;
           },
           child: RefreshIndicator(
+            // Direkt unter der Kopfzeile statt mitten über den Einträgen.
+            displacement: 12,
             onRefresh: () {
               // reload() stößt Push+Pull an (userInitiated: true) und baut
               // die aktuelle View danach neu auf; vorher rief dies nur

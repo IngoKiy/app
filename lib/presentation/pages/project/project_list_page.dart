@@ -89,6 +89,8 @@ class ProjectListPage extends ConsumerWidget {
             return false;
           },
           child: RefreshIndicator(
+            // Direkt unter der Kopfzeile statt mitten über den Einträgen.
+            displacement: 12,
             child: ListView(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppDimensions.xs,

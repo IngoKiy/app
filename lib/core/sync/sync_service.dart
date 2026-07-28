@@ -212,13 +212,17 @@ class SyncService {
     // Server drosselt gerade: gar nicht erst anfragen.
     final until = _rateLimitedUntil;
     if (until != null && now.isBefore(until)) {
+      // Ohne Zustandswechsel bliebe die UI stumm: der Pull-to-Refresh-Kreisel
+      // verschwände sofort und niemand erführe, warum nichts passiert ist.
+      final left = until.difference(now).inSeconds;
+      _syncState.setError('rate_limited:$left');
       return Future.value(
         SyncResult(
           success: false,
           offline: false,
           duration: Duration.zero,
           stats: SyncStats(),
-          errorMessage: 'rate_limited',
+          errorMessage: 'rate_limited:$left',
         ),
       );
     }

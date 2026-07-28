@@ -132,6 +132,8 @@ class _SmartListPageState extends ConsumerState<SmartListPage> {
                 child: tasks.when(
                   data: (tasks) => ConstrainedPage(
                     child: RefreshIndicator(
+                      // Direkt unter der Kopfzeile statt mitten über den Einträgen.
+                      displacement: 12,
                       onRefresh: () => ref
                           .read(syncServiceProvider)
                           .syncNow(userInitiated: true),

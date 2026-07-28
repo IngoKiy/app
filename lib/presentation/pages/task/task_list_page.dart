@@ -31,6 +31,8 @@ class TaskListPage extends ConsumerWidget {
           appBar: _buildAppBar(ref, context, model.onlyDueDate),
           body: ConstrainedPage(
             child: RefreshIndicator(
+              // Direkt unter der Kopfzeile statt mitten über den Einträgen.
+              displacement: 12,
               onRefresh: () =>
                   ref.read(taskPageControllerProvider.notifier).reload(),
               child: NotificationListener<ScrollNotification>(
