@@ -13,7 +13,52 @@ Widget _wrap(Widget child) {
   );
 }
 
+/// Wie [_wrap], aber mit dem gefüllten, umrandeten Eingabefeld-Theme der App
+/// — genau das hatte die Schritte früher in graue Kästen gelegt.
+Widget _wrapWithFilledInputTheme(Widget child) {
+  return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('en'),
+    theme: ThemeData(
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: Color(0xFFEEEEEE),
+        border: OutlineInputBorder(),
+        enabledBorder: OutlineInputBorder(),
+        focusedBorder: OutlineInputBorder(),
+      ),
+    ),
+    home: Scaffold(body: child),
+  );
+}
+
 void main() {
+  testWidgets('Schritt-Zeilen bleiben ohne Kasten und Rahmen', (tester) async {
+    await tester.pumpWidget(
+      _wrapWithFilledInputTheme(
+        StepsEditor(
+          steps: const [TaskStep('Milch kaufen')],
+          onTextChanged: (_, _) {},
+          onToggle: (_, _) {},
+          onRemove: (_) {},
+          onAdd: () {},
+        ),
+      ),
+    );
+
+    // Der InputDecorator trägt die fertig aufgelöste Dekoration, also das
+    // Ergebnis aus Theme und den Angaben am Feld.
+    final decoration = tester
+        .widget<InputDecorator>(find.byType(InputDecorator))
+        .decoration;
+
+    expect(decoration.filled, isFalse, reason: 'kein grauer Kasten');
+    expect(decoration.border, InputBorder.none);
+    expect(decoration.enabledBorder, InputBorder.none);
+    expect(decoration.focusedBorder, InputBorder.none);
+  });
+
   testWidgets('zeigt bestehende Schritte, erledigte durchgestrichen', (
     tester,
   ) async {

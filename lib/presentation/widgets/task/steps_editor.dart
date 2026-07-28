@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/theming/dimensions.dart';
 import 'package:vikunja_app/core/utils/task_steps.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/presentation/widgets/task/round_checkbox.dart';
@@ -88,7 +89,15 @@ class _StepsEditorState extends State<StepsEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var i = 0; i < widget.steps.length; i++) _buildStepRow(theme, i),
+        for (var i = 0; i < widget.steps.length; i++) ...[
+          _buildStepRow(theme, i),
+          Divider(
+            height: 1,
+            thickness: 1,
+            indent: AppDimensions.taskRowTextInset,
+            color: theme.colorScheme.outlineVariant,
+          ),
+        ],
         _buildAddRow(context, theme),
       ],
     );
@@ -97,39 +106,51 @@ class _StepsEditorState extends State<StepsEditor> {
   Widget _buildStepRow(ThemeData theme, int index) {
     final step = widget.steps[index];
     final rowId = _rowIds[index];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        children: [
-          RoundCheckbox(
-            value: step.done,
-            onChanged: (value) => widget.onToggle(index, value),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: TextFormField(
-              key: ValueKey('step_row_$rowId'),
-              focusNode: _focusNodeFor(rowId),
-              initialValue: step.text,
-              style: step.done
-                  ? theme.textTheme.bodyMedium?.copyWith(
-                      decoration: TextDecoration.lineThrough,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    )
-                  : theme.textTheme.bodyMedium,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-              ),
-              onChanged: (text) => widget.onTextChanged(index, text),
+    final baseStyle = theme.textTheme.bodyLarge;
+    return Row(
+      children: [
+        RoundCheckbox(
+          value: step.done,
+          onChanged: (value) => widget.onToggle(index, value),
+        ),
+        const SizedBox(width: AppDimensions.taskRowGap),
+        Expanded(
+          child: TextFormField(
+            key: ValueKey('step_row_$rowId'),
+            focusNode: _focusNodeFor(rowId),
+            initialValue: step.text,
+            style: step.done
+                ? baseStyle?.copyWith(
+                    decoration: TextDecoration.lineThrough,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )
+                : baseStyle,
+            // Das globale InputDecorationTheme legt jede Zeile sonst in einen
+            // grauen, umrandeten Kasten — To Do zeigt hier schlichte Zeilen
+            // mit Trennlinie. `border` allein genügt nicht: enabledBorder und
+            // focusedBorder aus dem Theme haben Vorrang und müssen einzeln
+            // abgeräumt werden.
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              filled: false,
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 12),
             ),
+            onChanged: (text) => widget.onTextChanged(index, text),
           ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 20),
-            onPressed: () => _handleRemove(index),
-          ),
-        ],
-      ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.close, size: 18),
+          color: theme.colorScheme.onSurfaceVariant,
+          visualDensity: VisualDensity.compact,
+          onPressed: () => _handleRemove(index),
+        ),
+      ],
     );
   }
 
@@ -137,13 +158,19 @@ class _StepsEditorState extends State<StepsEditor> {
     return InkWell(
       onTap: _handleAdd,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
         child: Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 8, right: 16),
-              child: Icon(Icons.add, color: theme.colorScheme.onSurfaceVariant),
+            // Plus sitzt mittig über der Kreis-Spalte, damit es mit den
+            // Checkboxen darüber fluchtet.
+            SizedBox(
+              width: AppDimensions.taskRowLeadingWidth,
+              child: Icon(
+                Icons.add,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
+            const SizedBox(width: AppDimensions.taskRowGap),
             Text(
               AppLocalizations.of(context).stepAdd,
               style: TextStyle(

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:vikunja_app/core/theming/dimensions.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
@@ -28,7 +29,7 @@ import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 import 'package:vikunja_app/presentation/manager/smart_list_providers.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/edit_description.dart';
-import 'package:vikunja_app/presentation/pages/task/task_comments_page.dart';
+import 'package:vikunja_app/presentation/widgets/task/task_comments.dart';
 import 'package:vikunja_app/presentation/widgets/label_widget.dart';
 import 'package:vikunja_app/presentation/widgets/task_assignees_section.dart';
 import 'package:vikunja_app/presentation/widgets/task_attachments_section.dart';
@@ -243,24 +244,11 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           ],
         ),
       ),
-      actions: [
-        _buildSaveIndicator(),
-        IconButton(
-          icon: Icon(Icons.comment_outlined),
-          tooltip: AppLocalizations.of(context).comments,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TaskCommentsPage(
-                  taskId: widget.task.id,
-                  taskTitle: _title ?? widget.task.title,
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+      // Kopfzeile bleibt leer wie in To Do — die Kommentare stehen jetzt
+      // ausgeschrieben am Ende der Seite, das Sprechblasen-Icon wäre doppelt.
+      // Die eigenständige Kommentar-Seite gibt es weiterhin über das
+      // Kontextmenü einer Aufgabenzeile.
+      actions: [_buildSaveIndicator()],
     );
   }
 
@@ -340,10 +328,12 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   }
 
   // Aufbau im Stil von Microsoft To Do: Titelzeile mit Abhaken + Stern,
-  // Schritte, Mein Tag, dann Aktionszeilen (Erinnerung, Fälligkeit,
-  // Wiederholen), Anhänge und Notiz. Die Vikunja-Extras (Liste, Priorität,
-  // Start/Ende, Labels, Farbe, Personen) liegen eingeklappt unter „Mehr",
-  // damit die To-Do-Optik führt. Footer: Erstelldatum + Löschen.
+  // direkt darunter die Notiz (sie erläutert den Titel), dann die Schritte,
+  // Mein Tag und die Aktionszeilen (Erinnerung, Fälligkeit, Wiederholen).
+  // Die Vikunja-Extras (Liste, Priorität, Start/Ende, Labels, Farbe,
+  // Personen) liegen eingeklappt unter „Mehr", damit die To-Do-Optik führt.
+  // Ganz unten die Kommentare als Verlauf, danach der Footer mit
+  // Erstelldatum + Löschen.
   Form _buildForm(BuildContext context) {
     return Form(
       key: _formKey,
@@ -351,6 +341,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         padding: EdgeInsets.fromLTRB(16, 8, 16, 50),
         children: <Widget>[
           _buildTitle(),
+          _buildDescription(context),
           _buildSteps(),
           const Divider(),
           _buildMyDayRow(context),
@@ -384,7 +375,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
             child: TaskAssigneesSection(task: widget.task),
           ),
           const Divider(),
-          _buildDescription(context),
+          _buildComments(context),
           _buildFooter(context),
         ],
       ),
@@ -415,8 +406,13 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         padding: const EdgeInsets.symmetric(vertical: 6.0),
         child: Row(
           children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 16),
+            // Icon mittig in der gemeinsamen Spalte, damit es mit den
+            // Kreisen von Titel und Schritten fluchtet.
+            SizedBox(
+              width: AppDimensions.taskRowLeadingWidth,
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(width: AppDimensions.taskRowGap),
             Expanded(
               child: Text(label, style: TextStyle(color: color, fontSize: 16)),
             ),
@@ -456,7 +452,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
               },
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: AppDimensions.taskRowGap),
           Expanded(
             child: TextFormField(
               maxLines: null,
@@ -523,13 +519,18 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     );
   }
 
-  // Die Kachel zeigt nur noch die Notiz (ohne Schritte — die stehen im
-  // eigenen Editor darüber); beim Bearbeiten via EditDescription wird das
-  // Ergebnis als neue Notiz übernommen und mit den Schritten neu
-  // zusammengesetzt, damit sie erhalten bleiben.
+  // Die Notiz steht direkt unter dem Titel, den sie erläutert (ohne Schritte
+  // — die stehen im eigenen Editor darunter); beim Bearbeiten via
+  // EditDescription wird das Ergebnis als neue Notiz übernommen und mit den
+  // Schritten neu zusammengesetzt, damit sie erhalten bleiben.
   Widget _buildDescription(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
+      // Bündig unter dem Titel, den die Notiz erläutert — nicht unter dessen
+      // Checkbox.
+      padding: const EdgeInsets.only(
+        left: AppDimensions.taskRowTextInset,
+        bottom: 8.0,
+      ),
       child: InkWell(
         onTap: () async {
           var note = await Navigator.push<String>(
@@ -548,8 +549,11 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         },
         // Notiz-Bereich wie in To Do: nur der Inhalt bzw. der graue
         // Platzhalter „Notiz hinzufügen" — ohne Icon und Feldbeschriftung.
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 80),
+        // Direkt unter dem Titel wächst der Block mit dem Inhalt; die frühere
+        // Mindesthöhe von 80 stammt aus der Zeit, als er allein am Seitenende
+        // stand und dort eine große Trefferfläche brauchte.
+        child: SizedBox(
+          width: double.infinity,
           child: Align(
             alignment: Alignment.topLeft,
             child: _note.isNotEmpty
@@ -564,6 +568,18 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Kommentare als Verlauf am Ende der Aufgabe — anders als die Notiz, die
+  /// den Titel erläutert, sind sie fortlaufende Beiträge und stehen deshalb
+  /// unten. Offline angelegte Aufgaben tragen noch eine negative Temp-ID und
+  /// haben serverseitig nichts, was sich laden ließe.
+  Widget _buildComments(BuildContext context) {
+    if (widget.task.id <= 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TaskComments(taskId: widget.task.id),
     );
   }
 
@@ -1175,18 +1191,19 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(right: 15, left: 2),
+          // Gleiche Symbolspalte wie Titel, Schritte und Aktionszeilen.
+          SizedBox(
+            width: AppDimensions.taskRowLeadingWidth,
             child: Icon(
               Icons.label,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          SizedBox(
-            width:
-                MediaQuery.of(context).size.width -
-                80 -
-                ((IconTheme.of(context).size ?? 0) * 2),
+          const SizedBox(width: AppDimensions.taskRowGap),
+          // Nimmt den Rest der Zeile ein — die frühere Breitenrechnung aus
+          // Bildschirmbreite minus Konstanten wäre bei der breiteren
+          // Symbolspalte übergelaufen.
+          Expanded(
             child: Autocomplete<String>(
               optionsBuilder: (TextEditingValue textEditingValue) {
                 if (textEditingValue.text == '') {

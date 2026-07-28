@@ -17,4 +17,13 @@ abstract final class AppDimensions {
   // Layout
   static const double maxContentWidth = 840;
   static const double masterPaneWidth = 320;
+
+  // Aufgaben-Detailseite: In Microsoft To Do stehen Checkbox, Schritt-Kreise
+  // und die Icons der Aktionszeilen in einer gemeinsamen Spalte, alle Texte
+  // beginnen an derselben Kante. [taskRowLeadingWidth] ist die Breite dieser
+  // Spalte (24er Symbol + 8 Luft je Seite, wie in RoundCheckbox),
+  // [taskRowGap] der Abstand bis zum Text.
+  static const double taskRowLeadingWidth = 40;
+  static const double taskRowGap = 12;
+  static const double taskRowTextInset = taskRowLeadingWidth + taskRowGap;
 }

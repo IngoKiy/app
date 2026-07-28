@@ -11,9 +11,11 @@ import 'package:vikunja_app/core/utils/task_steps.dart';
 import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/data/models/project_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
+import 'package:vikunja_app/domain/entities/task_comment.dart';
 import 'package:vikunja_app/domain/entities/task_page_model.dart';
 import 'package:vikunja_app/domain/repositories/task_repository.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
+import 'package:vikunja_app/presentation/manager/task_comments_controller.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
 import 'package:vikunja_app/presentation/pages/task/task_edit_page.dart';
 
@@ -53,6 +55,13 @@ class _MockTaskPageController extends TaskPageController {
   }
 }
 
+/// Liefert eine leere Kommentarliste, damit die Sektion ohne Netzzugriff
+/// rendert.
+class _EmptyCommentsController extends TaskCommentsController {
+  @override
+  Future<List<TaskComment>> build(int taskId) async => const [];
+}
+
 class _FakeTaskRepository implements TaskRepository {
   @override
   Future<Map<String, String>> attachmentHeaders() async => const {};
@@ -74,14 +83,16 @@ Future<void> _seedProject(
 Future<_CapturedBox> _pumpEditPage(
   WidgetTester tester,
   AppDatabase db,
-  Task task,
-) async {
+  Task task, {
+  List<Override> extraOverrides = const [],
+}) async {
   final box = _CapturedBox();
   final navKey = GlobalKey<NavigatorState>();
 
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...extraOverrides,
         appDatabaseProvider.overrideWithValue(db),
         offlineWriterProvider.overrideWithValue(
           buildWriter(db, buildExecutor(db)),
@@ -189,20 +200,73 @@ void main() {
       expect(find.text('Getränke'), findsOneWidget);
       expect(find.text('Snacks'), findsOneWidget);
 
-      // Notiz-Kachel zeigt nur die Notiz — ohne die Checklisten-Tags, die
-      // stattdessen im Schritte-Editor darüber angezeigt werden. Die Kachel
-      // sitzt am Ende der langen Formularliste, also erst dorthin scrollen.
-      await tester.scrollUntilVisible(
-        find.byType(HtmlWidget),
-        400,
-        scrollable: find.byType(Scrollable).first,
-      );
+      // Die Notiz zeigt nur den Text — ohne die Checklisten-Tags, die
+      // stattdessen im Schritte-Editor darunter erscheinen.
       final htmlWidget = tester.widget<HtmlWidget>(find.byType(HtmlWidget));
       expect(htmlWidget.html, '<p>Wochenendplanung</p>');
       expect(htmlWidget.html, isNot(contains('taskList')));
+
+      // Reihenfolge wie in To Do: die Notiz erläutert den Titel und steht
+      // deshalb direkt darunter — vor den Schritten.
+      final noteY = tester.getTopLeft(find.byType(HtmlWidget)).dy;
+      final firstStepY = tester
+          .getTopLeft(find.widgetWithText(TextFormField, 'Getränke'))
+          .dy;
+      expect(
+        noteY,
+        lessThan(firstStepY),
+        reason: 'Notiz gehört zwischen Titel und Schritte',
+      );
 
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('Kommentare stehen als Verlauf am Ende der Aufgabe', (
+    tester,
+  ) async {
+    await _seedProject(db, id: 1, title: 'Projekt Eins');
+
+    final task = Task(
+      id: 9,
+      title: 'Aufgabe',
+      createdBy: null,
+      projectId: 1,
+      priority: 0,
+      description: buildDescription(
+        note: '',
+        steps: const [TaskStep('Getränke')],
+      ),
+      created: _t,
+      updated: _t,
+    );
+
+    await _pumpEditPage(
+      tester,
+      db,
+      task,
+      extraOverrides: [
+        taskCommentsControllerProvider(
+          9,
+        ).overrideWith(_EmptyCommentsController.new),
+      ],
+    );
+
+    // Oben stehen die Schritte, die Kommentare liegen außerhalb des
+    // sichtbaren Bereichs — anders als die Notiz sind sie ein fortlaufender
+    // Verlauf und gehören ans Ende.
+    expect(find.widgetWithText(TextFormField, 'Getränke'), findsOneWidget);
+    expect(find.text('Comments'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('Comments'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Comments'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
 }
