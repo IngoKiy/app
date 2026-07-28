@@ -883,7 +883,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         ? _startDate
         : null;
     return _actionRow(
-      icon: Icons.play_arrow_outlined,
+      icon: Icons.event_available_outlined,
       label: value != null
           ? '${l10n.startDateLabel}: ${formatDueDate(l10n, l10n.localeName, value)}'
           : l10n.startDateLabel,
@@ -901,7 +901,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     final l10n = AppLocalizations.of(context);
     final value = (_endDate != null && _endDate!.year > 1) ? _endDate : null;
     return _actionRow(
-      icon: Icons.stop_outlined,
+      icon: Icons.event_busy_outlined,
       label: value != null
           ? '${l10n.endDateLabel}: ${formatDueDate(l10n, l10n.localeName, value)}'
           : l10n.endDateLabel,
@@ -1049,7 +1049,12 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
         for (final r in reminders.where((r) => r.reminder.year > 1))
           _actionRow(
             icon: Icons.notifications_active_outlined,
-            label: r.reminder.toLocal().formatShort(),
+            // Gleiche Schreibweise wie die Fälligkeit („Heute", „Mi. 22.
+            // Juli") plus Uhrzeit — sonst stünde direkt untereinander
+            // „28. Juli 2026 09:00" und „Heute".
+            label:
+                '${formatDueDate(l10n, l10n.localeName, r.reminder.toLocal())} '
+                '${DateFormat.Hm(l10n.localeName).format(r.reminder.toLocal())}',
             isSet: true,
             onTap: () => _editReminder(r),
             onClear: () {
