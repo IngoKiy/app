@@ -14,7 +14,11 @@ import 'package:vikunja_app/presentation/widgets/ui/confirmation_dialog.dart';
 class TaskComments extends ConsumerWidget {
   final int taskId;
 
-  const TaskComments({super.key, required this.taskId});
+  /// Eigene Überschrift „Kommentare +" anzeigen. Auf der Kommentar-Seite
+  /// steht der Titel schon in der Kopfzeile — dort `false`.
+  final bool showHeader;
+
+  const TaskComments({super.key, required this.taskId, this.showHeader = true});
 
   Future<void> _navigateToCreatePage(BuildContext context, int taskId) async {
     await Navigator.push<String>(
@@ -77,25 +81,26 @@ class TaskComments extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            children: [
-              Text(
-                l10n.comments,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              IconButton(
-                icon: const Icon(Icons.add),
-                iconSize: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () => _navigateToCreatePage(context, taskId),
-                tooltip: l10n.addCommentTooltip,
-              ),
-            ],
+        if (showHeader)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                Text(
+                  l10n.comments,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  iconSize: 20,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _navigateToCreatePage(context, taskId),
+                  tooltip: l10n.addCommentTooltip,
+                ),
+              ],
+            ),
           ),
-        ),
         commentsAsync.when(
           data: (comments) => _buildCommentsList(context, ref, comments),
           loading: () => const Center(child: CircularProgressIndicator()),
