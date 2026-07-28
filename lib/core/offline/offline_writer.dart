@@ -53,9 +53,13 @@ enum OfflineWriteStatus {
 }
 
 class OfflineWriteResult {
-  const OfflineWriteResult(this.status, {this.body, this.error});
+  const OfflineWriteResult(this.status, {this.body, this.error, this.localId});
 
   final OfflineWriteStatus status;
+
+  /// Lokale (Temp-)ID der erzeugten Entität bei Create-Ops — erlaubt
+  /// Folgeaktionen wie „direkt zu Mein Tag" ohne auf den Sync zu warten.
+  final int? localId;
 
   /// Server-Antwort bei [OfflineWriteStatus.synced].
   final Object? body;
@@ -182,9 +186,7 @@ class OfflineWriter {
     // Nicht online adressierbar: Update/Delete auf einer Temp-Entität, eine
     // Temp-Referenz oder explizit erzwungen (z.B. Bulk mit Temp-Label).
     final hasTempRef = onlineRefs.values.any((v) => v < 0);
-    if (forceQueue ||
-        hasTempRef ||
-        (!op.type.isCreate && op.localId < 0)) {
+    if (forceQueue || hasTempRef || (!op.type.isCreate && op.localId < 0)) {
       await enqueue(op);
       return const OfflineWriteResult(OfflineWriteStatus.queued);
     }
@@ -259,6 +261,13 @@ class OfflineWriter {
             .copyWith(remoteId: const Value(null)),
       ),
       rollback: () => _deleteTaskLocal(tempId),
+    ).then(
+      (r) => OfflineWriteResult(
+        r.status,
+        body: r.body,
+        error: r.error,
+        localId: tempId,
+      ),
     );
   }
 
@@ -547,8 +556,9 @@ class OfflineWriter {
       op: op,
       onlinePrimaryId: commentId,
       onlineRefs: {'taskId': taskId},
-      applyLocal: () =>
-          commentId < 0 ? _deleteCommentLocal(commentId) : _tombstoneComment(commentId),
+      applyLocal: () => commentId < 0
+          ? _deleteCommentLocal(commentId)
+          : _tombstoneComment(commentId),
       rollback: () => _restoreComment(commentId, backup),
     );
   }
@@ -587,6 +597,31 @@ class OfflineWriter {
       onlinePrimaryId: project.id,
       applyLocal: () => _patchProjectLocal(dto, backup),
       rollback: () => _restoreProject(project.id, backup),
+    );
+  }
+
+  /// Löscht ein Projekt (lokal sofort, online über die Outbox). Die lokalen
+  /// Aufgaben des Projekts verschwinden mit; bei Server-Ablehnung stellt der
+  /// Rollback die Projektzeile wieder her (Aufgaben kommen mit dem nächsten
+  /// Pull zurück).
+  Future<OfflineWriteResult> deleteProject(int id) async {
+    final backup = await _projectsDao.getById(id);
+    final op = PendingOp(
+      type: PendingOpType.projectDelete,
+      localId: id,
+      payload: const {},
+      createdAt: _nowIso,
+    );
+    return _execute(
+      op: op,
+      onlinePrimaryId: id,
+      applyLocal: () async {
+        await _deleteProjectLocal(id);
+        await (_db.delete(
+          _db.tasks,
+        )..where((t) => t.projectId.equals(id))).go();
+      },
+      rollback: () => _restoreProject(id, backup),
     );
   }
 
@@ -696,15 +731,18 @@ class OfflineWriter {
       op: op,
       onlinePrimaryId: bucketId,
       onlineRefs: {'projectId': projectId, 'viewId': viewId},
-      applyLocal: () =>
-          bucketId < 0 ? _deleteBucketLocal(bucketId) : _tombstoneBucket(bucketId),
+      applyLocal: () => bucketId < 0
+          ? _deleteBucketLocal(bucketId)
+          : _tombstoneBucket(bucketId),
       rollback: () => _restoreBucket(bucketId, backup),
     );
   }
 
   // --- User-Settings ---------------------------------------------------------
 
-  Future<OfflineWriteResult> updateUserSettings(UserSettingsDto settings) async {
+  Future<OfflineWriteResult> updateUserSettings(
+    UserSettingsDto settings,
+  ) async {
     final backup = await _keyValueDao.get(_kvCurrentUser);
     final op = PendingOp(
       type: PendingOpType.userSettings,
@@ -828,10 +866,9 @@ class OfflineWriter {
   }) async {
     // Noch nicht synchronisierter Platzhalter (negative ID): Zeile + Kopie weg.
     if (attachmentId < 0) {
-      final row =
-          await (_db.select(
-            _db.taskAttachments,
-          )..where((a) => a.id.equals(attachmentId))).getSingleOrNull();
+      final row = await (_db.select(
+        _db.taskAttachments,
+      )..where((a) => a.id.equals(attachmentId))).getSingleOrNull();
       await (_db.delete(
         _db.taskAttachments,
       )..where((a) => a.id.equals(attachmentId))).go();
@@ -854,7 +891,9 @@ class OfflineWriter {
       applyLocal: () => _setAttachmentDeleted(attachmentId, true),
       rollback: () => _setAttachmentDeleted(attachmentId, false),
     );
-    return res.ok ? const AttachmentDeleted() : AttachmentFailed(res.error?.statusCode);
+    return res.ok
+        ? const AttachmentDeleted()
+        : AttachmentFailed(res.error?.statusCode);
   }
 
   /// Merkt sich den Pfad einer heruntergeladenen Datei am Anhang (für „Öffnen"
@@ -964,6 +1003,7 @@ class OfflineWriter {
       case PendingOpType.taskCreate:
         await _deleteTaskLocal(id);
       case PendingOpType.projectCreate:
+      case PendingOpType.projectDelete:
         await _deleteProjectLocal(id);
       case PendingOpType.bucketCreate:
         await _deleteBucketLocal(id);
@@ -985,22 +1025,29 @@ class OfflineWriter {
             .write(const TaskLabelsCompanion(isDirty: Value(false)));
       case PendingOpType.projectUpdate:
         await (_db.update(_db.projects)..where((p) => p.id.equals(id))).write(
-          const ProjectsCompanion(isDirty: Value(false), isDeleted: Value(false)),
+          const ProjectsCompanion(
+            isDirty: Value(false),
+            isDeleted: Value(false),
+          ),
         );
       case PendingOpType.bucketUpdate:
       case PendingOpType.bucketDelete:
         await (_db.update(_db.buckets)..where((b) => b.id.equals(id))).write(
-          const BucketsCompanion(isDirty: Value(false), isDeleted: Value(false)),
+          const BucketsCompanion(
+            isDirty: Value(false),
+            isDeleted: Value(false),
+          ),
         );
       case PendingOpType.commentUpdate:
       case PendingOpType.commentDelete:
-        await (_db.update(_db.taskComments)..where((c) => c.id.equals(id)))
-            .write(
-              const TaskCommentsCompanion(
-                isDirty: Value(false),
-                isDeleted: Value(false),
-              ),
-            );
+        await (_db.update(
+          _db.taskComments,
+        )..where((c) => c.id.equals(id))).write(
+          const TaskCommentsCompanion(
+            isDirty: Value(false),
+            isDeleted: Value(false),
+          ),
+        );
       case PendingOpType.attachmentUpload:
         // Platzhalter-Zeilen + Kopien der verworfenen Upload-Op entfernen.
         final paths = op.localFilePaths ?? const <String>[];
@@ -1038,7 +1085,10 @@ class OfflineWriter {
           projectId: dto.projectId ?? backup?.projectId ?? 0,
           bucketId: dto.bucketId ?? backup?.bucketId,
         )
-        .copyWith(remoteId: Value(backup?.remoteId), isDirty: const Value(true));
+        .copyWith(
+          remoteId: Value(backup?.remoteId),
+          isDirty: const Value(true),
+        );
     await _db.into(_db.tasks).insertOnConflictUpdate(companion);
   }
 
@@ -1076,9 +1126,12 @@ class OfflineWriter {
   Future<void> _deleteTaskLocal(int id) async {
     await (_db.delete(_db.tasks)..where((t) => t.id.equals(id))).go();
     await (_db.delete(_db.taskLabels)..where((r) => r.taskId.equals(id))).go();
-    await (_db.delete(_db.taskAssignees)..where((r) => r.taskId.equals(id)))
-        .go();
-    await (_db.delete(_db.taskComments)..where((c) => c.taskId.equals(id))).go();
+    await (_db.delete(
+      _db.taskAssignees,
+    )..where((r) => r.taskId.equals(id))).go();
+    await (_db.delete(
+      _db.taskComments,
+    )..where((c) => c.taskId.equals(id))).go();
   }
 
   Future<void> _restoreTask(int id, TaskRow? backup) async {
@@ -1161,7 +1214,10 @@ class OfflineWriter {
   ) async {
     final companion = _mapper
         .taskComment(dto, _now, taskId: taskId)
-        .copyWith(remoteId: Value(backup?.remoteId), isDirty: const Value(true));
+        .copyWith(
+          remoteId: Value(backup?.remoteId),
+          isDirty: const Value(true),
+        );
     await _db.into(_db.taskComments).insertOnConflictUpdate(companion);
   }
 
@@ -1189,7 +1245,10 @@ class OfflineWriter {
   Future<void> _patchProjectLocal(ProjectDto dto, ProjectRow? backup) async {
     final companion = _mapper
         .project(dto, _now)
-        .copyWith(remoteId: Value(backup?.remoteId), isDirty: const Value(true));
+        .copyWith(
+          remoteId: Value(backup?.remoteId),
+          isDirty: const Value(true),
+        );
     await _db.into(_db.projects).insertOnConflictUpdate(companion);
   }
 
@@ -1216,7 +1275,10 @@ class OfflineWriter {
   ) async {
     final companion = _mapper
         .bucket(dto, _now, projectId: projectId, viewId: viewId)
-        .copyWith(remoteId: Value(backup?.remoteId), isDirty: const Value(true));
+        .copyWith(
+          remoteId: Value(backup?.remoteId),
+          isDirty: const Value(true),
+        );
     await _db.into(_db.buckets).insertOnConflictUpdate(companion);
   }
 

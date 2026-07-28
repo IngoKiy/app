@@ -9,15 +9,15 @@ class ImageCacheDao extends DatabaseAccessor<AppDatabase>
     with _$ImageCacheDaoMixin {
   ImageCacheDao(super.db);
 
-  Future<ImageCacheRow?> getByHash(String urlHash) =>
-      (select(imageCaches)..where((i) => i.urlHash.equals(urlHash)))
-          .getSingleOrNull();
+  Future<ImageCacheRow?> getByHash(String urlHash) => (select(
+    imageCaches,
+  )..where((i) => i.urlHash.equals(urlHash))).getSingleOrNull();
 
   /// Alle Registry-Einträge, älteste (nach `fetchedAt`) zuerst — Grundlage der
   /// Eviction.
-  Future<List<ImageCacheRow>> getAllOldestFirst() =>
-      (select(imageCaches)..orderBy([(i) => OrderingTerm.asc(i.fetchedAt)]))
-          .get();
+  Future<List<ImageCacheRow>> getAllOldestFirst() => (select(
+    imageCaches,
+  )..orderBy([(i) => OrderingTerm.asc(i.fetchedAt)])).get();
 
   Future<void> put(ImageCachesCompanion data) =>
       into(imageCaches).insertOnConflictUpdate(data);

@@ -108,7 +108,10 @@ void main() {
       // Kein Speichern-Button mehr — Änderungen werden automatisch gesichert.
       expect(find.byIcon(Icons.save), findsNothing);
 
-      // Aktuelles Projekt wird angezeigt; Feld antippen öffnet die Auswahl.
+      // Projekt ist jetzt eine To-Do-Aktionszeile im Hauptteil; Tipp öffnet
+      // das Auswahl-Sheet.
+      await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+      await tester.pumpAndSettle();
       expect(find.text('Projekt Eins'), findsOneWidget);
       await tester.tap(find.text('Projekt Eins'));
       await tester.pumpAndSettle();

@@ -50,6 +50,7 @@ enum PendingOpType {
   commentDelete,
   projectCreate,
   projectUpdate,
+  projectDelete,
   bucketCreate,
   bucketUpdate,
   bucketDelete,
@@ -90,6 +91,7 @@ extension PendingOpTypeX on PendingOpType {
         return 'comment';
       case PendingOpType.projectCreate:
       case PendingOpType.projectUpdate:
+      case PendingOpType.projectDelete:
         return 'project';
       case PendingOpType.bucketCreate:
       case PendingOpType.bucketUpdate:

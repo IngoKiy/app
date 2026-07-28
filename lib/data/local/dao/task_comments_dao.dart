@@ -11,9 +11,7 @@ class TaskCommentsDao extends DatabaseAccessor<AppDatabase>
 
   Stream<List<TaskCommentRow>> watchCommentsByTask(int taskId) =>
       (select(taskComments)
-            ..where(
-              (c) => c.taskId.equals(taskId) & c.isDeleted.equals(false),
-            )
+            ..where((c) => c.taskId.equals(taskId) & c.isDeleted.equals(false))
             ..orderBy([(c) => OrderingTerm(expression: c.createdAt)]))
           .watch();
 

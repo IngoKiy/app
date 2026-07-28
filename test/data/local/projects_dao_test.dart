@@ -45,13 +45,16 @@ void main() {
     expect(row!.title, 'Lokal');
   });
 
-  test('deleteMissingClean entfernt nur nicht-dirty, fehlende Projekte', () async {
-    await db.projectsDao.upsertFromServer(_project(id: 1, remoteId: 1));
-    await db.projectsDao.upsertLocal(_project(id: 2, remoteId: 2));
+  test(
+    'deleteMissingClean entfernt nur nicht-dirty, fehlende Projekte',
+    () async {
+      await db.projectsDao.upsertFromServer(_project(id: 1, remoteId: 1));
+      await db.projectsDao.upsertLocal(_project(id: 2, remoteId: 2));
 
-    await db.projectsDao.deleteMissingClean([]);
+      await db.projectsDao.deleteMissingClean([]);
 
-    expect(await db.projectsDao.getById(1), isNull);
-    expect(await db.projectsDao.getById(2), isNotNull);
-  });
+      expect(await db.projectsDao.getById(1), isNull);
+      expect(await db.projectsDao.getById(2), isNotNull);
+    },
+  );
 }

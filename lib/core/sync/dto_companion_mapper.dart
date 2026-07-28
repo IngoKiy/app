@@ -55,7 +55,12 @@ class DtoCompanionMapper {
     final raw = dto.toJSON();
     return TasksCompanion.insert(
       id: Value(dto.id),
-      projectId: projectId ?? dto.projectId ?? 0,
+      // Die echte Zugehörigkeit steht IMMER im DTO. [projectId] ist nur der
+      // Fallback für Antworten ohne project_id — sonst würden Aufgaben, die
+      // über ein Pseudo-Projekt (Favoriten/gespeicherter Filter) oder eine
+      // gefilterte View geliefert werden, der falschen Liste zugeordnet und
+      // flackerten beim Sync zwischen den Listen.
+      projectId: dto.projectId ?? projectId ?? 0,
       title: dto.title,
       createdAt: _iso(dto.created),
       updatedAt: _iso(dto.updated),
@@ -64,6 +69,7 @@ class DtoCompanionMapper {
       bucketId: Value(bucketId ?? dto.bucketId),
       description: Value(dto.description),
       done: Value(dto.done),
+      isFavorite: Value(dto.isFavorite),
       dueDate: Value(_isoDate(dto.dueDate)),
       startDate: Value(_isoDate(dto.startDate)),
       endDate: Value(_isoDate(dto.endDate)),

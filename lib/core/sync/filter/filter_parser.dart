@@ -22,7 +22,9 @@ class FilterParser {
     final parser = _Parser(tokens);
     final expr = parser._parseOr();
     if (parser._cur.type != _TokType.eof) {
-      throw UnsupportedFilterException('Unerwartetes Token: ${parser._cur.text}');
+      throw UnsupportedFilterException(
+        'Unerwartetes Token: ${parser._cur.text}',
+      );
     }
     return expr;
   }
@@ -167,7 +169,9 @@ class _Parser {
 
   FilterExpr _parseCondition() {
     if (_cur.type != _TokType.word) {
-      throw UnsupportedFilterException('Feldname erwartet, war: "${_cur.text}"');
+      throw UnsupportedFilterException(
+        'Feldname erwartet, war: "${_cur.text}"',
+      );
     }
     final field = _cur.text;
     pos++;
@@ -288,7 +292,9 @@ class _Parser {
   }
 
   FilterValue _parseDateOrNow(String raw) {
-    if (raw == 'now' || raw.startsWith('now/') || raw.startsWith('now+') ||
+    if (raw == 'now' ||
+        raw.startsWith('now/') ||
+        raw.startsWith('now+') ||
         raw.startsWith('now-')) {
       return _parseNow(raw);
     }

@@ -6,20 +6,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/notification_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/utils/constants.dart';
+import 'package:vikunja_app/domain/entities/smart_list.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
+import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/main.dart';
 import 'package:vikunja_app/presentation/manager/notifications.dart';
 import 'package:vikunja_app/presentation/manager/settings_controller.dart';
 import 'package:vikunja_app/presentation/manager/task_page_controller.dart';
+import 'package:vikunja_app/presentation/pages/project/project_list_page.dart';
 import 'package:vikunja_app/presentation/pages/project/project_split_page.dart';
 import 'package:vikunja_app/presentation/pages/settings_page.dart';
-import 'package:vikunja_app/presentation/pages/task/task_list_page.dart';
-import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/task/add_task_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -36,7 +39,14 @@ class HomePageState extends ConsumerState<HomePage> {
   Widget? drawerItem;
   NotificationHandler? _notificationHandler;
 
-  List<Widget> widgets = [TaskListPage(), ProjectSplitPage(), SettingsPage()];
+  // Home-Tab ist die Listen-Übersicht im MS-To-Do-Stil (Smart-Lists +
+  // Projekte); die klassische Aufgaben-Übersicht steckt in der Smart-List
+  // "Alle".
+  List<Widget> widgets = [
+    ProjectListPage(showSmartLists: true),
+    ProjectSplitPage(),
+    SettingsPage(),
+  ];
 
   List<NavigationDestination> navbarItems(BuildContext context) => [
     NavigationDestination(
@@ -56,6 +66,11 @@ class HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
+
+    // Der TaskPageController plant beim ersten Aufbau Home-Widget- und
+    // Notification-Updates. Seit die Listen-Übersicht der Home-Tab ist, baut
+    // ihn keine Seite mehr automatisch auf — daher hier einmal anstoßen.
+    ref.read(taskPageControllerProvider);
 
     Future.delayed(Duration.zero, () {
       scheduleIntent();
@@ -113,20 +128,10 @@ class HomePageState extends ConsumerState<HomePage> {
       );
     }
 
-    return Scaffold(
-      bottomNavigationBar: ClipRRect(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
-        child: NavigationBar(
-          destinations: navbarItems(context),
-          selectedIndex: _selectedDrawerIndex,
-          onDestinationSelected: _onDestinationSelected,
-        ),
-      ),
-      body: drawerItem,
-    );
+    // Kompakt (Telefon) wie Microsoft To Do: keine Bottom-Navigation — die
+    // Listen-Übersicht ist die einzige Wurzelseite, Einstellungen liegen
+    // hinter dem Avatar im Kopf der Übersicht.
+    return Scaffold(body: widgets[0]);
   }
 
   void _onDestinationSelected(int index) {
@@ -171,15 +176,28 @@ class HomePageState extends ConsumerState<HomePage> {
     int defaultProjectId, [
     String? title,
   ]) {
-    showDialog(
-      context: context,
-      builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate, projectId) =>
-            _addTask(title, dueDate, projectId, context),
-        title: title,
-        defaultProjectId: defaultProjectId,
-        selectableProject: true,
-      ),
+    showAddTaskSheet(
+      context,
+      onAddTask:
+          (
+            title,
+            dueDate,
+            projectId, {
+            reminder,
+            description,
+            addToMyDay = false,
+          }) => _addTask(
+            title,
+            dueDate,
+            projectId,
+            context,
+            reminder: reminder,
+            description: description,
+            addToMyDay: addToMyDay,
+          ),
+      initialTitle: title,
+      defaultProjectId: defaultProjectId,
+      selectableProject: true,
     );
   }
 
@@ -187,8 +205,11 @@ class HomePageState extends ConsumerState<HomePage> {
     String title,
     DateTime? dueDate,
     int projectId,
-    BuildContext context,
-  ) async {
+    BuildContext context, {
+    DateTime? reminder,
+    String? description,
+    bool addToMyDay = false,
+  }) async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) {
       return;
@@ -197,13 +218,25 @@ class HomePageState extends ConsumerState<HomePage> {
     var task = Task(
       title: title,
       dueDate: dueDate,
+      description: description ?? '',
+      reminderDates: reminder != null ? [TaskReminder(reminder)] : [],
       createdBy: currentUser,
       projectId: projectId,
     );
 
-    var success = await ref
-        .read(taskPageControllerProvider.notifier)
-        .addTask(projectId, task);
+    final controller = ref.read(taskPageControllerProvider.notifier);
+    bool success;
+    if (addToMyDay) {
+      final id = await controller.addTaskReturningId(projectId, task);
+      success = id != null;
+      if (id != null) {
+        await ref
+            .read(tasksDaoProvider)
+            .addToMyDay(id, localDayKey(DateTime.now()));
+      }
+    } else {
+      success = await controller.addTask(projectId, task);
+    }
 
     if (context.mounted) {
       if (success) {

@@ -116,9 +116,7 @@ void main() {
         ImageCachesCompanion.insert(
           urlHash: entry.$1,
           filePath: f.path,
-          fetchedAt: now
-              .add(Duration(minutes: entry.$2))
-              .toIso8601String(),
+          fetchedAt: now.add(Duration(minutes: entry.$2)).toIso8601String(),
         ),
       );
     }
@@ -156,11 +154,9 @@ void main() {
 
   test('loadWithProgress: fällt offline auf gecachte Datei zurück', () async {
     final online = MockClient((_) async => http.Response.bytes(bytes, 200));
-    await cacheWith(online).loadWithProgress(
-      'https://x/img',
-      const {},
-      onProgress: (_, _) {},
-    );
+    await cacheWith(
+      online,
+    ).loadWithProgress('https://x/img', const {}, onProgress: (_, _) {});
 
     final offline = MockClient(
       (_) async => throw http.ClientException('offline'),

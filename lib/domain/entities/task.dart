@@ -16,6 +16,7 @@ class Task {
   String identifier;
   String title, description;
   bool done;
+  bool isFavorite;
   Color? color;
   double? position;
   double? percentDone;
@@ -32,6 +33,7 @@ class Task {
     this.title = '',
     this.description = '',
     this.done = false,
+    this.isFavorite = false,
     this.reminderDates = const [],
     this.dueDate,
     this.startDate,
@@ -89,6 +91,7 @@ class Task {
     String? description,
     String? identifier,
     bool? done,
+    bool? isFavorite,
     Color? color,
     double? position,
     double? percentDone,
@@ -115,6 +118,7 @@ class Task {
       description: description ?? this.description,
       identifier: identifier ?? this.identifier,
       done: done ?? this.done,
+      isFavorite: isFavorite ?? this.isFavorite,
       color: color ?? this.color,
       position: position ?? this.position,
       percentDone: percentDone ?? this.percentDone,

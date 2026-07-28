@@ -3,7 +3,9 @@ import 'dart:isolate';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -277,12 +279,19 @@ class NotificationHandler {
 
     await notificationsPlugin.cancelAll();
     final currentTimeZone = await FlutterTimezone.getLocalTimezone();
+    // Lokalisierte Texte ohne BuildContext: Systemsprache auflösen.
+    final l10n = lookupAppLocalizations(
+      basicLocaleListResolution(
+        PlatformDispatcher.instance.locales,
+        AppLocalizations.supportedLocales,
+      ),
+    );
     for (final task in tasks) {
       for (final reminder in task.reminderDates) {
         await scheduleNotification(
           (reminder.reminder.millisecondsSinceEpoch / 1000).floor(),
-          "Reminder",
-          "This is your reminder for '${task.title}'",
+          l10n.reminderNotificationTitle,
+          l10n.reminderNotificationBody(task.title),
           notificationsPlugin,
           reminder.reminder,
           currentTimeZone,
@@ -292,8 +301,8 @@ class NotificationHandler {
       if (task.hasDueDate) {
         await scheduleNotification(
           task.id,
-          "Due Reminder",
-          "The task '${task.title}' is due.",
+          l10n.dueNotificationTitle,
+          l10n.dueNotificationBody(task.title),
           notificationsPlugin,
           task.dueDate!,
           currentTimeZone,

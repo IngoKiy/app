@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:vikunja_app/core/utils/misc.dart';
+import 'package:vikunja_app/core/utils/due_date_format.dart';
+import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 
+/// Fälligkeit in der Aufgaben-Metazeile im Stil von Microsoft To Do:
+/// kleines Kalender-Icon + Text („Gestern", „Heute", „Mi. 22. Juli"),
+/// rot bei Überfälligkeit, sonst dezent — ohne Badge-Hintergrund.
 class DueDateCard extends StatelessWidget {
   final DateTime dueDate;
 
@@ -8,30 +12,21 @@ class DueDateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var difference = dueDate.difference(DateTime.now());
-    var textStyle = _getTextStyle(context, difference);
-    var bgColor = _getBackgroundColor(difference, context);
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final overdue = isOverdue(dueDate);
+    final color = overdue
+        ? theme.colorScheme.error
+        : theme.colorScheme.onSurfaceVariant;
+    final label = formatDueDate(l10n, l10n.localeName, dueDate);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      color: bgColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.0)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2),
-        child: Text(durationToHumanReadable(difference), style: textStyle),
-      ),
-    );
-  }
-
-  Color? _getBackgroundColor(Duration difference, BuildContext context) {
-    return difference.isNegative
-        ? Theme.of(context).colorScheme.errorContainer
-        : Theme.of(context).colorScheme.surfaceContainerHighest;
-  }
-
-  TextStyle? _getTextStyle(BuildContext context, Duration difference) {
-    return Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: difference.isNegative ? Theme.of(context).colorScheme.error : null,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.calendar_today_outlined, size: 12, color: color),
+        const SizedBox(width: 3),
+        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: color)),
+      ],
     );
   }
 }

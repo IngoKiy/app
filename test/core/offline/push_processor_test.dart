@@ -31,8 +31,13 @@ TaskDto _task(int id, {int projectId = 10, String title = 'srv'}) => TaskDto(
   updated: _t,
 );
 
-TaskCommentDto _comment(int id, {String text = 'hi'}) =>
-    TaskCommentDto(id: id, comment: text, author: _user(1), created: _t, updated: _t);
+TaskCommentDto _comment(int id, {String text = 'hi'}) => TaskCommentDto(
+  id: id,
+  comment: text,
+  author: _user(1),
+  created: _t,
+  updated: _t,
+);
 
 // --- Fakes -------------------------------------------------------------------
 
@@ -162,37 +167,39 @@ void main() {
     int projectId = 10,
     String title = 'seed',
     bool isDirty = true,
-  }) => db.into(db.tasks).insert(
-    TasksCompanion.insert(
-      id: Value(id),
-      projectId: projectId,
-      title: title,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      rawJson: '{}',
-      remoteId: Value(remoteId),
-      isDirty: Value(isDirty),
-    ),
-    mode: InsertMode.insertOrReplace,
-  );
+  }) => db
+      .into(db.tasks)
+      .insert(
+        TasksCompanion.insert(
+          id: Value(id),
+          projectId: projectId,
+          title: title,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          rawJson: '{}',
+          remoteId: Value(remoteId),
+          isDirty: Value(isDirty),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
 
-  Future<void> seedComment({
-    required int id,
-    required int taskId,
-  }) => db.into(db.taskComments).insert(
-    TaskCommentsCompanion.insert(
-      id: Value(id),
-      taskId: taskId,
-      authorJson: '{}',
-      comment: 'local',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      rawJson: '{}',
-      isDirty: const Value(true),
-    ),
-    mode: InsertMode.insertOrReplace,
-  );
+  Future<void> seedComment({required int id, required int taskId}) => db
+      .into(db.taskComments)
+      .insert(
+        TaskCommentsCompanion.insert(
+          id: Value(id),
+          taskId: taskId,
+          authorJson: '{}',
+          comment: 'local',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          rawJson: '{}',
+          isDirty: const Value(true),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
 
-  Future<int> enqueue(PendingOp op) => db.pendingOpsDao.enqueue(op.toCompanion());
+  Future<int> enqueue(PendingOp op) =>
+      db.pendingOpsDao.enqueue(op.toCompanion());
 
   PendingOp createTaskOp(int tempId, {int projectId = 10}) => PendingOp(
     type: PendingOpType.taskCreate,
@@ -234,58 +241,65 @@ void main() {
     expect(log, ['update(id=5)', 'update(id=6)', 'update(id=7)']);
   });
 
-  test('Create-Erfolg: Mapping auf DB-Zeile, abhängige Zeilen, Op entfernt', () async {
-    await seedTask(id: -5, remoteId: null, title: 'offline');
-    await seedComment(id: -7, taskId: -5);
-    await db.taskLabelsDao.upsertLocal(-5, 1); // task_labels.taskId = -5
+  test(
+    'Create-Erfolg: Mapping auf DB-Zeile, abhängige Zeilen, Op entfernt',
+    () async {
+      await seedTask(id: -5, remoteId: null, title: 'offline');
+      await seedComment(id: -7, taskId: -5);
+      await db.taskLabelsDao.upsertLocal(-5, 1); // task_labels.taskId = -5
 
-    task.addStub = (projectId, t) => SuccessResponse(_task(42), 200, {});
-    await enqueue(createTaskOp(-5));
+      task.addStub = (projectId, t) => SuccessResponse(_task(42), 200, {});
+      await enqueue(createTaskOp(-5));
 
-    final result = await build().pushAll();
+      final result = await build().pushAll();
 
-    expect(result.success, isTrue);
-    // (a) DB-Zeile umgezogen.
-    expect(await db.tasksDao.getById(-5), isNull);
-    final migrated = await db.tasksDao.getById(42);
-    expect(migrated, isNotNull);
-    expect(migrated!.remoteId, 42);
-    expect(migrated.isDirty, isFalse);
-    // (b) abhängige Zeilen umgezogen.
-    final comments = await db.taskCommentsDao.watchCommentsByTask(42).first;
-    expect(comments, hasLength(1));
-    final labels = await db.taskLabelsDao.watchLabelsForTask(42).first;
-    expect(labels.map((e) => e.labelId), [1]);
-    // Op entfernt.
-    expect(await db.pendingOpsDao.nextBatch(), isEmpty);
-    // Mapping persistiert.
-    expect(await db.keyValueDao.get(kvTempIdMapping), contains('42'));
-  });
+      expect(result.success, isTrue);
+      // (a) DB-Zeile umgezogen.
+      expect(await db.tasksDao.getById(-5), isNull);
+      final migrated = await db.tasksDao.getById(42);
+      expect(migrated, isNotNull);
+      expect(migrated!.remoteId, 42);
+      expect(migrated.isDirty, isFalse);
+      // (b) abhängige Zeilen umgezogen.
+      final comments = await db.taskCommentsDao.watchCommentsByTask(42).first;
+      expect(comments, hasLength(1));
+      final labels = await db.taskLabelsDao.watchLabelsForTask(42).first;
+      expect(labels.map((e) => e.labelId), [1]);
+      // Op entfernt.
+      expect(await db.pendingOpsDao.nextBatch(), isEmpty);
+      // Mapping persistiert.
+      expect(await db.keyValueDao.get(kvTempIdMapping), contains('42'));
+    },
+  );
 
-  test('Kommentar auf offline erzeugten Task: richtige Server-Task-ID', () async {
-    await seedTask(id: -5, remoteId: null, title: 'offline');
-    await seedComment(id: -7, taskId: -5);
+  test(
+    'Kommentar auf offline erzeugten Task: richtige Server-Task-ID',
+    () async {
+      await seedTask(id: -5, remoteId: null, title: 'offline');
+      await seedComment(id: -7, taskId: -5);
 
-    task.addStub = (projectId, t) => SuccessResponse(_task(42), 200, {});
-    comment.createStub = (taskId, c) => SuccessResponse(_comment(99), 200, {});
+      task.addStub = (projectId, t) => SuccessResponse(_task(42), 200, {});
+      comment.createStub = (taskId, c) =>
+          SuccessResponse(_comment(99), 200, {});
 
-    await enqueue(createTaskOp(-5));
-    await enqueue(createCommentOp(-7, -5));
+      await enqueue(createTaskOp(-5));
+      await enqueue(createCommentOp(-7, -5));
 
-    final result = await build().pushAll();
+      final result = await build().pushAll();
 
-    expect(result.success, isTrue);
-    // Create sendet id=0 (Temp-ID bleibt lokal), sonst 404 vom Server.
-    expect(log, ['add(project=10,id=0)', 'comment.create(task=42)']);
-    expect(await db.pendingOpsDao.nextBatch(), isEmpty);
-  });
+      expect(result.success, isTrue);
+      // Create sendet id=0 (Temp-ID bleibt lokal), sonst 404 vom Server.
+      expect(log, ['add(project=10,id=0)', 'comment.create(task=42)']);
+      expect(await db.pendingOpsDao.nextBatch(), isEmpty);
+    },
+  );
 
   test('Spätere Op-Payloads werden persistent umgeschrieben', () async {
     await seedTask(id: -5, remoteId: null);
     task.addStub = (projectId, t) => SuccessResponse(_task(42), 200, {});
     // Zweite Op bricht offline ab, bleibt daher (umgeschrieben) liegen.
-    comment.createStub =
-        (taskId, c) => ExceptionResponse(Exception('offline'), StackTrace.empty);
+    comment.createStub = (taskId, c) =>
+        ExceptionResponse(Exception('offline'), StackTrace.empty);
 
     await enqueue(createTaskOp(-5));
     await enqueue(createCommentOp(-7, -5));
@@ -301,120 +315,134 @@ void main() {
     expect(op.payload['task_id'], 42);
   });
 
-  test('4xx auf Create: Op failed + Kaskade; unabhängige Op läuft weiter', () async {
-    await seedTask(id: -5, remoteId: null);
-    await seedTask(id: 9, remoteId: 9);
+  test(
+    '4xx auf Create: Op failed + Kaskade; unabhängige Op läuft weiter',
+    () async {
+      await seedTask(id: -5, remoteId: null);
+      await seedTask(id: 9, remoteId: 9);
 
-    task.addStub = (projectId, t) => ErrorResponse(400, {}, {'message': 'bad'});
-    task.updateStub = (t) => SuccessResponse(_task(t.id), 200, {});
+      task.addStub = (projectId, t) =>
+          ErrorResponse(400, {}, {'message': 'bad'});
+      task.updateStub = (t) => SuccessResponse(_task(t.id), 200, {});
 
-    await enqueue(createTaskOp(-5)); // op1 -> 4xx
-    await enqueue(createCommentOp(-7, -5)); // op2 -> Kaskade (unresolvable)
-    await enqueue(updateTaskOp(9)); // op3 -> unabhängig, ok
+      await enqueue(createTaskOp(-5)); // op1 -> 4xx
+      await enqueue(createCommentOp(-7, -5)); // op2 -> Kaskade (unresolvable)
+      await enqueue(updateTaskOp(9)); // op3 -> unabhängig, ok
 
-    final result = await build().pushAll();
+      final result = await build().pushAll();
 
-    expect(result.success, isFalse);
-    expect(result.failed, 2);
-    expect(result.pushed, 1);
-    // op1 + op2 bleiben mit lastError.
-    final rows = await db.pendingOpsDao.nextBatch();
-    expect(rows, hasLength(2));
-    expect(rows.every((r) => r.lastError != null), isTrue);
-    // Kommentar wurde nie gesendet. Create sendet id=0 (Temp-ID bleibt lokal).
-    expect(log, ['add(project=10,id=0)', 'update(id=9)']);
-  });
+      expect(result.success, isFalse);
+      expect(result.failed, 2);
+      expect(result.pushed, 1);
+      // op1 + op2 bleiben mit lastError.
+      final rows = await db.pendingOpsDao.nextBatch();
+      expect(rows, hasLength(2));
+      expect(rows.every((r) => r.lastError != null), isTrue);
+      // Kommentar wurde nie gesendet. Create sendet id=0 (Temp-ID bleibt lokal).
+      expect(log, ['add(project=10,id=0)', 'update(id=9)']);
+    },
+  );
 
-  test('Offline mitten im Push: Abbruch, Rest pending, kein retryCount++', () async {
-    await seedTask(id: 5, remoteId: 5);
-    await seedTask(id: 6, remoteId: 6);
-    await seedTask(id: 7, remoteId: 7);
+  test(
+    'Offline mitten im Push: Abbruch, Rest pending, kein retryCount++',
+    () async {
+      await seedTask(id: 5, remoteId: 5);
+      await seedTask(id: 6, remoteId: 6);
+      await seedTask(id: 7, remoteId: 7);
 
-    task.updateStub = (t) {
-      if (t.id == 6) {
-        return ExceptionResponse(Exception('offline'), StackTrace.empty);
-      }
-      return SuccessResponse(_task(t.id), 200, {});
-    };
+      task.updateStub = (t) {
+        if (t.id == 6) {
+          return ExceptionResponse(Exception('offline'), StackTrace.empty);
+        }
+        return SuccessResponse(_task(t.id), 200, {});
+      };
 
-    await enqueue(updateTaskOp(5));
-    await enqueue(updateTaskOp(6));
-    await enqueue(updateTaskOp(7));
+      await enqueue(updateTaskOp(5));
+      await enqueue(updateTaskOp(6));
+      await enqueue(updateTaskOp(7));
 
-    final result = await build().pushAll();
+      final result = await build().pushAll();
 
-    expect(result.offline, isTrue);
-    final rows = await db.pendingOpsDao.nextBatch();
-    expect(rows, hasLength(2)); // op2 + op3 bleiben
-    expect(rows.every((r) => r.retryCount == 0), isTrue);
-    expect(log, ['update(id=5)', 'update(id=6)']); // op3 nicht mehr erreicht
-  });
+      expect(result.offline, isTrue);
+      final rows = await db.pendingOpsDao.nextBatch();
+      expect(rows, hasLength(2)); // op2 + op3 bleiben
+      expect(rows.every((r) => r.retryCount == 0), isTrue);
+      expect(log, ['update(id=5)', 'update(id=6)']); // op3 nicht mehr erreicht
+    },
+  );
 
-  test('Delete auf ungesyncten Create: beide Ops weg, kein Server-Call', () async {
-    await seedTask(id: -5, remoteId: null);
+  test(
+    'Delete auf ungesyncten Create: beide Ops weg, kein Server-Call',
+    () async {
+      await seedTask(id: -5, remoteId: null);
 
-    await enqueue(createTaskOp(-5));
-    await enqueue(PendingOp(
-      type: PendingOpType.taskDelete,
-      localId: -5,
-      payload: const {},
-      createdAt: '2026-01-01T00:00:00.000Z',
-    ));
+      await enqueue(createTaskOp(-5));
+      await enqueue(
+        PendingOp(
+          type: PendingOpType.taskDelete,
+          localId: -5,
+          payload: const {},
+          createdAt: '2026-01-01T00:00:00.000Z',
+        ),
+      );
 
-    final result = await build().pushAll();
+      final result = await build().pushAll();
 
-    expect(result.success, isTrue);
-    expect(result.pushed, 0);
-    expect(log, isEmpty); // weder add noch delete
-    expect(await db.pendingOpsDao.nextBatch(), isEmpty);
-    expect(await db.tasksDao.getById(-5), isNull); // Temp-Zeile entfernt
-  });
+      expect(result.success, isTrue);
+      expect(result.pushed, 0);
+      expect(log, isEmpty); // weder add noch delete
+      expect(await db.pendingOpsDao.nextBatch(), isEmpty);
+      expect(await db.tasksDao.getById(-5), isNull); // Temp-Zeile entfernt
+    },
+  );
 
-  test('Crash-Sicherheit: neuer Processor setzt über persistiertem Mapping fort',
-      () async {
-    await seedTask(id: -5, remoteId: null);
-    task.addStub = (projectId, t) => SuccessResponse(_task(42), 200, {});
-    comment.createStub =
-        (taskId, c) => ExceptionResponse(Exception('offline'), StackTrace.empty);
+  test(
+    'Crash-Sicherheit: neuer Processor setzt über persistiertem Mapping fort',
+    () async {
+      await seedTask(id: -5, remoteId: null);
+      task.addStub = (projectId, t) => SuccessResponse(_task(42), 200, {});
+      comment.createStub = (taskId, c) =>
+          ExceptionResponse(Exception('offline'), StackTrace.empty);
 
-    await enqueue(createTaskOp(-5));
-    await enqueue(createCommentOp(-7, -5));
+      await enqueue(createTaskOp(-5));
+      await enqueue(createCommentOp(-7, -5));
 
-    // Lauf 1: Create ok, Kommentar bricht offline ab.
-    final r1 = await build().pushAll();
-    expect(r1.offline, isTrue);
-    expect(await db.keyValueDao.get(kvTempIdMapping), isNotNull);
+      // Lauf 1: Create ok, Kommentar bricht offline ab.
+      final r1 = await build().pushAll();
+      expect(r1.offline, isTrue);
+      expect(await db.keyValueDao.get(kvTempIdMapping), isNotNull);
 
-    // Lauf 2: neuer Processor, Kommentar jetzt online.
-    final log2 = <String>[];
-    final task2 = _FakeTaskDataSource(log2);
-    final comment2 = _FakeCommentDataSource(log2)
-      ..createStub = (taskId, c) => SuccessResponse(_comment(99), 200, {});
-    final processor2 = PushProcessor(
-      db: db,
-      taskDataSource: task2,
-      taskCommentDataSource: comment2,
-      projectDataSource: _FakeProjectDataSource(),
-      bucketDataSource: _FakeBucketDataSource(),
-      taskLabelBulkDataSource: _FakeTaskLabelBulkDataSource(),
-      labelDataSource: _FakeLabelDataSource(),
-      projectViewDataSource: _FakeProjectViewDataSource(),
-      userDataSource: _FakeUserDataSource(),
-      tasksDao: db.tasksDao,
-      projectsDao: db.projectsDao,
-      bucketsDao: db.bucketsDao,
-      labelsDao: db.labelsDao,
-      taskCommentsDao: db.taskCommentsDao,
-      pendingOpsDao: db.pendingOpsDao,
-      keyValueDao: db.keyValueDao,
-    );
+      // Lauf 2: neuer Processor, Kommentar jetzt online.
+      final log2 = <String>[];
+      final task2 = _FakeTaskDataSource(log2);
+      final comment2 = _FakeCommentDataSource(log2)
+        ..createStub = (taskId, c) => SuccessResponse(_comment(99), 200, {});
+      final processor2 = PushProcessor(
+        db: db,
+        taskDataSource: task2,
+        taskCommentDataSource: comment2,
+        projectDataSource: _FakeProjectDataSource(),
+        bucketDataSource: _FakeBucketDataSource(),
+        taskLabelBulkDataSource: _FakeTaskLabelBulkDataSource(),
+        labelDataSource: _FakeLabelDataSource(),
+        projectViewDataSource: _FakeProjectViewDataSource(),
+        userDataSource: _FakeUserDataSource(),
+        tasksDao: db.tasksDao,
+        projectsDao: db.projectsDao,
+        bucketsDao: db.bucketsDao,
+        labelsDao: db.labelsDao,
+        taskCommentsDao: db.taskCommentsDao,
+        pendingOpsDao: db.pendingOpsDao,
+        keyValueDao: db.keyValueDao,
+      );
 
-    final r2 = await processor2.pushAll();
+      final r2 = await processor2.pushAll();
 
-    expect(r2.success, isTrue);
-    expect(log2, ['comment.create(task=42)']); // Server-ID aus Mapping
-    expect(await db.pendingOpsDao.nextBatch(), isEmpty);
-  });
+      expect(r2.success, isTrue);
+      expect(log2, ['comment.create(task=42)']); // Server-ID aus Mapping
+      expect(await db.pendingOpsDao.nextBatch(), isEmpty);
+    },
+  );
 
   test('Single-Flight: zwei parallele pushAll -> ein Durchlauf', () async {
     await seedTask(id: 5, remoteId: 5);

@@ -57,20 +57,27 @@ void main() {
     },
   );
 
-  test('Stream-Update: neu geseedete offene Tasks erscheinen ohne reload', () async {
-    await seedProject(db, id: 1, title: 'Projekt A');
-    await seedTask(db, id: 10, projectId: 1, done: false);
+  test(
+    'Stream-Update: neu geseedete offene Tasks erscheinen ohne reload',
+    () async {
+      await seedProject(db, id: 1, title: 'Projekt A');
+      await seedTask(db, id: 10, projectId: 1, done: false);
 
-    final container = createContainer();
-    container.listen(taskPageControllerProvider, (_, _) {}, fireImmediately: true);
-    await container.read(taskPageControllerProvider.future);
+      final container = createContainer();
+      container.listen(
+        taskPageControllerProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      await container.read(taskPageControllerProvider.future);
 
-    await seedTask(db, id: 20, projectId: 1, done: false);
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+      await seedTask(db, id: 20, projectId: 1, done: false);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    final model = container.read(taskPageControllerProvider).value!;
-    expect(model.tasks.length, 2);
-  });
+      final model = container.read(taskPageControllerProvider).value!;
+      expect(model.tasks.length, 2);
+    },
+  );
 
   test(
     'gespeicherter Übersichts-Filter wird offline lokal ausgewertet',

@@ -1,28 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/core/theming/dimensions.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
-import 'package:vikunja_app/presentation/widgets/ui/app_card.dart';
 
-/// Projekt als Ordner-Karte: farbiges Ordner-Icon (Projektfarbe), Titel,
-/// optionaler Untertitel mit der Anzahl offener Aufgaben, Favoriten-Stern und
-/// eine „öffnen"-Affordanz (Chevron). Gespeicherte Filter werden über
-/// [Project.isSavedFilter] als solche gekennzeichnet (Trichter-Icon).
+/// Projekt-Zeile in der Listen-Übersicht im Stil von Microsoft To Do: flache
+/// Zeile mit kleinem Listen-Icon in der Projektfarbe, Titel und dezentem
+/// Zähler rechts — keine Karte, kein Ordner-Badge. Gruppen (Projekte mit
+/// Unterprojekten) zeigen ein Ordner-Icon und einen Auf-/Zuklapp-Chevron
+/// rechts; gespeicherte Filter ein Trichter-Icon.
 ///
 /// Rein präsentational: Aufklappen/Einrücken von Subprojekten liegt beim
-/// Aufrufer ([leading] nimmt z.B. einen Expand-Button auf).
+/// Aufrufer.
 class ProjectCard extends StatelessWidget {
   final Project project;
 
-  /// Anzahl offener Aufgaben; `null` blendet den Untertitel aus.
+  /// Anzahl offener Aufgaben; `null` oder 0 blendet den Zähler aus.
   final int? openTaskCount;
 
   /// Master-Detail-Auswahl hervorheben.
   final bool selected;
 
-  /// Führendes Widget vor dem Ordner-Icon (z.B. Expand-Button bei Subprojekten).
-  final Widget? leading;
+  /// Liste wurde mit mir geteilt (fremder Besitzer) → Personen-Symbol.
+  final bool sharedWithMe;
+
+  /// Gruppe: zeigt Ordner-Icon und Chevron rechts.
+  final bool expandable;
+  final bool expanded;
+  final VoidCallback? onToggleExpand;
 
   final VoidCallback? onTap;
 
@@ -31,7 +35,10 @@ class ProjectCard extends StatelessWidget {
     required this.project,
     this.openTaskCount,
     this.selected = false,
-    this.leading,
+    this.sharedWithMe = false,
+    this.expandable = false,
+    this.expanded = false,
+    this.onToggleExpand,
     this.onTap,
   });
 
@@ -42,74 +49,83 @@ class ProjectCard extends StatelessWidget {
     final isFilter = project.isSavedFilter;
     final accent = project.color ?? theme.colorScheme.primary;
 
-    final subtitle = isFilter
-        ? l10n.savedFilterLabel
-        : (openTaskCount != null && openTaskCount! > 0
-              ? l10n.openTasksCount(openTaskCount!)
-              : null);
+    final icon = isFilter
+        ? Icons.filter_alt_outlined
+        : (expandable ? Icons.folder_outlined : Icons.format_list_bulleted);
 
-    return AppCard(
-      color: selected ? theme.colorScheme.secondaryContainer : null,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.sm,
-        vertical: AppDimensions.xs,
-      ),
-      onTap: onTap,
-      child: Row(
-        children: [
-          ?leading,
-          _iconBadge(accent, isFilter),
-          const SizedBox(width: AppDimensions.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
+    return Material(
+      color: selected
+          ? theme.colorScheme.secondaryContainer
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.sm,
+            vertical: 12,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 24, color: accent),
+              const SizedBox(width: AppDimensions.md),
+              Expanded(
+                child: Text(
                   project.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: expandable ? FontWeight.w600 : null,
+                  ),
                 ),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
+              ),
+              // Geteilte Liste (fremder Besitzer): Personen-Symbol wie To Do.
+              if (sharedWithMe)
+                Padding(
+                  padding: const EdgeInsets.only(left: AppDimensions.xxs),
+                  child: Icon(
+                    Icons.people_outline,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              if (project.isFavourite)
+                Padding(
+                  padding: const EdgeInsets.only(left: AppDimensions.xxs),
+                  child: Icon(Icons.star, size: 18, color: accent),
+                ),
+              if (openTaskCount != null && openTaskCount! > 0)
+                Padding(
+                  padding: const EdgeInsets.only(left: AppDimensions.xs),
+                  child: Text(
+                    '$openTaskCount',
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-              ],
-            ),
+                ),
+              if (expandable)
+                IconButton(
+                  tooltip: expanded
+                      ? l10n.collapseSubprojects
+                      : l10n.expandSubprojects,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  icon: Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_down
+                        : Icons.keyboard_arrow_right,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: onToggleExpand,
+                ),
+            ],
           ),
-          if (project.isFavourite)
-            Padding(
-              padding: const EdgeInsets.only(left: AppDimensions.xxs),
-              child: Icon(Icons.star, size: 18, color: accent),
-            ),
-          const SizedBox(width: AppDimensions.xxs),
-          Icon(
-            Icons.chevron_right,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Farbiges, abgerundetes Quadrat mit Ordner- bzw. Filter-Icon. Die
-  /// Icon-Farbe wird gegen die Projektfarbe auf Lesbarkeit gewählt.
-  Widget _iconBadge(Color accent, bool isFilter) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: accent,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
-      ),
-      child: Icon(
-        isFilter ? Icons.filter_alt_outlined : Icons.folder_rounded,
-        size: 22,
-        color: contrastingTextColor(accent),
+        ),
       ),
     );
   }

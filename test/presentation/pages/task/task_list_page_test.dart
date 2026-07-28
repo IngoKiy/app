@@ -1,6 +1,9 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vikunja_app/core/di/database_provider.dart';
+import 'package:vikunja_app/data/local/database.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_page_model.dart';
@@ -38,9 +41,14 @@ void main() {
 
     final model = TaskPageModel([task], false, 1, false);
 
+    // In-Memory-DB: die Zeilen beobachten den Mein-Tag-Stream (Drift).
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appDatabaseProvider.overrideWithValue(db),
           taskPageControllerProvider.overrideWith(
             () => MockTaskPageController(model),
           ),
@@ -61,5 +69,9 @@ void main() {
 
     // Verify subproject title is displayed in the subtitle
     expect(find.text('Subproject A'), findsOneWidget);
+
+    // Widget-Baum vor dem DB-Close abbauen (Drift-Stream der Zeilen).
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 }

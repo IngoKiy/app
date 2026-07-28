@@ -14,7 +14,7 @@ import 'package:vikunja_app/presentation/pages/task/task_edit_page.dart';
 import 'package:vikunja_app/presentation/widgets/ui/adaptive.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 import 'package:vikunja_app/presentation/widgets/ui/empty_state.dart';
-import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/task/add_task_sheet.dart';
 import 'package:vikunja_app/presentation/widgets/task/task_list_item.dart';
 import 'package:vikunja_app/presentation/widgets/task_bottom_sheet.dart';
 
@@ -31,6 +31,8 @@ class TaskListPage extends ConsumerWidget {
           appBar: _buildAppBar(ref, context, model.onlyDueDate),
           body: ConstrainedPage(
             child: RefreshIndicator(
+              // Direkt unter der Kopfzeile statt mitten über den Einträgen.
+              displacement: 12,
               onRefresh: () =>
                   ref.read(taskPageControllerProvider.notifier).reload(),
               child: NotificationListener<ScrollNotification>(
@@ -72,10 +74,8 @@ class TaskListPage extends ConsumerWidget {
       );
     } else {
       final itemCount = model.tasks.length + (model.isLoadingNextPage ? 1 : 0);
-      return ListView.separated(
+      return ListView.builder(
         itemCount: itemCount,
-        separatorBuilder: (BuildContext context, int index) =>
-            const Divider(height: 8),
         itemBuilder: (context, index) {
           if (index == model.tasks.length) {
             return Padding(
@@ -141,14 +141,19 @@ class TaskListPage extends ConsumerWidget {
     BuildContext context,
     int defaultProjectId,
   ) {
-    showDialog(
-      context: context,
-      builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate, projectId) =>
-            _addTask(ref, title, dueDate, projectId),
-        defaultProjectId: defaultProjectId,
-        selectableProject: true,
-      ),
+    showAddTaskSheet(
+      context,
+      onAddTask:
+          (
+            title,
+            dueDate,
+            projectId, {
+            reminder,
+            description,
+            addToMyDay = false,
+          }) => _addTask(ref, title, dueDate, projectId),
+      defaultProjectId: defaultProjectId,
+      selectableProject: true,
     );
   }
 
@@ -200,6 +205,10 @@ class TaskListPage extends ConsumerWidget {
       onTap: () => _onEdit(context, task),
       onShowDetails: () => _showTaskBottomSheet(context, task),
       onEdit: () => _onEdit(context, task),
+      onFavoriteToggle: () {
+        task.isFavorite = !task.isFavorite;
+        ref.read(taskPageControllerProvider.notifier).updateTask(task);
+      },
       onCheckedChanged: (value) async {
         var success = await ref
             .read(taskPageControllerProvider.notifier)

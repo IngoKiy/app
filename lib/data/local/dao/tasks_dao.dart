@@ -1,10 +1,13 @@
 import 'package:drift/drift.dart';
 import 'package:vikunja_app/data/local/database.dart';
+import 'package:vikunja_app/data/local/tables/my_day_entries_table.dart';
+import 'package:vikunja_app/data/local/tables/task_assignees_table.dart';
 import 'package:vikunja_app/data/local/tables/tasks_table.dart';
+import 'package:vikunja_app/domain/entities/smart_list.dart';
 
 part 'tasks_dao.g.dart';
 
-@DriftAccessor(tables: [Tasks])
+@DriftAccessor(tables: [Tasks, MyDayEntries, TaskAssignees])
 class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
   TasksDao(super.db);
 
@@ -37,6 +40,151 @@ class TasksDao extends DatabaseAccessor<AppDatabase> with _$TasksDaoMixin {
       (t) => OrderingTerm(expression: t.id),
     ]);
     return query.watch();
+  }
+
+  /// Filterbedingung einer [SmartList]. [endOfTodayIso] ist die (UTC-ISO-)
+  /// Grenze für „Mein Tag" (heute fällig oder überfällig), [dayKey] der
+  /// lokale Kalendertag für manuelle Mein-Tag-Einträge, [userId] der aktuelle
+  /// Benutzer für „Mir zugewiesen". Die Spalte `dueDate` ist null, wenn keine
+  /// echte Fälligkeit gesetzt ist.
+  Expression<bool> _smartListPredicate(
+    $TasksTable t,
+    SmartList list, {
+    required String endOfTodayIso,
+    required String dayKey,
+    int? userId,
+  }) {
+    final visible = t.isDeleted.equals(false);
+    switch (list) {
+      case SmartList.today:
+        final dueToday =
+            t.dueDate.isNotNull() & t.dueDate.isSmallerThanValue(endOfTodayIso);
+        final addedManually = existsQuery(
+          select(myDayEntries)
+            ..where((e) => e.taskId.equalsExp(t.id) & e.day.equals(dayKey)),
+        );
+        return visible & t.done.equals(false) & (dueToday | addedManually);
+      case SmartList.important:
+        return visible & t.done.equals(false) & t.isFavorite.equals(true);
+      case SmartList.planned:
+        return visible & t.done.equals(false) & t.dueDate.isNotNull();
+      case SmartList.assignedToMe:
+        final assigned = userId == null
+            ? const Constant(false)
+            : existsQuery(
+                select(taskAssignees)..where(
+                  (a) => a.taskId.equalsExp(t.id) & a.userId.equals(userId),
+                ),
+              );
+        return visible & t.done.equals(false) & assigned;
+      case SmartList.all:
+        return visible & t.done.equals(false);
+      case SmartList.completed:
+        return visible & t.done.equals(true);
+    }
+  }
+
+  /// Reaktive Smart-List (MS-To-Do-Stil). Offene Listen sortieren nach
+  /// Fälligkeit (ohne Fälligkeit ans Ende), „Erledigt" nach letzter Änderung.
+  Stream<List<TaskRow>> watchSmartList(
+    SmartList list, {
+    required String endOfTodayIso,
+    required String dayKey,
+    int? userId,
+  }) {
+    final query = select(tasks)
+      ..where(
+        (t) => _smartListPredicate(
+          t,
+          list,
+          endOfTodayIso: endOfTodayIso,
+          dayKey: dayKey,
+          userId: userId,
+        ),
+      );
+    if (list == SmartList.completed) {
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.updatedAt, mode: OrderingMode.desc),
+      ]);
+    } else {
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.dueDate.isNull()),
+        (t) => OrderingTerm(expression: t.dueDate),
+        (t) => OrderingTerm(expression: t.id),
+      ]);
+    }
+    return query.watch();
+  }
+
+  /// Zähler einer Smart-List für die Listen-Übersicht.
+  Stream<int> watchSmartListCount(
+    SmartList list, {
+    required String endOfTodayIso,
+    required String dayKey,
+    int? userId,
+  }) {
+    final count = countAll();
+    return (selectOnly(tasks)
+          ..addColumns([count])
+          ..where(
+            _smartListPredicate(
+              tasks,
+              list,
+              endOfTodayIso: endOfTodayIso,
+              dayKey: dayKey,
+              userId: userId,
+            ),
+          ))
+        .map((row) => row.read(count) ?? 0)
+        .watchSingle();
+  }
+
+  // --- Mein Tag (manuelle Einträge, rein lokal) ------------------------------
+
+  /// Nimmt [taskId] für den Tag [dayKey] manuell in „Mein Tag" auf und räumt
+  /// dabei abgelaufene Einträge früherer Tage weg.
+  Future<void> addToMyDay(int taskId, String dayKey) async {
+    await pruneMyDay(dayKey);
+    await into(myDayEntries).insertOnConflictUpdate(
+      MyDayEntriesCompanion.insert(taskId: taskId, day: dayKey),
+    );
+  }
+
+  /// Entfernt [taskId] aus den manuellen Mein-Tag-Einträgen des Tages.
+  Future<void> removeFromMyDay(int taskId, String dayKey) => (delete(
+    myDayEntries,
+  )..where((e) => e.taskId.equals(taskId) & e.day.equals(dayKey))).go();
+
+  /// Reaktiv: ist [taskId] für [dayKey] manuell in „Mein Tag"?
+  Stream<bool> watchInMyDay(int taskId, String dayKey) =>
+      (select(myDayEntries)
+            ..where((e) => e.taskId.equals(taskId) & e.day.equals(dayKey)))
+          .watch()
+          .map((rows) => rows.isNotEmpty);
+
+  /// Löscht Einträge, die nicht (mehr) zum Tag [dayKey] gehören.
+  Future<int> pruneMyDay(String dayKey) =>
+      (delete(myDayEntries)..where((e) => e.day.equals(dayKey).not())).go();
+
+  // --- Suche -----------------------------------------------------------------
+
+  /// Lokale Volltextsuche über Titel und Beschreibung (case-insensitiv).
+  /// Offene Aufgaben zuerst, danach nach Fälligkeit.
+  Stream<List<TaskRow>> watchSearch(String query) {
+    final pattern = '%${query.replaceAll('%', r'\%')}%';
+    return (select(tasks)
+          ..where(
+            (t) =>
+                t.isDeleted.equals(false) &
+                (t.title.like(pattern) | t.description.like(pattern)),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.done),
+            (t) => OrderingTerm(expression: t.dueDate.isNull()),
+            (t) => OrderingTerm(expression: t.dueDate),
+            (t) => OrderingTerm(expression: t.id),
+          ]))
+        .watch();
   }
 
   /// Anzahl offener (nicht erledigter, nicht gelöschter) Tasks je projectId.

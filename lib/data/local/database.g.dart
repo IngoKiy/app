@@ -1001,6 +1001,21 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _doneAtMeta = const VerificationMeta('doneAt');
   @override
   late final GeneratedColumn<String> doneAt = GeneratedColumn<String>(
@@ -1145,6 +1160,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     title,
     description,
     done,
+    isFavorite,
     doneAt,
     dueDate,
     startDate,
@@ -1241,6 +1257,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
       context.handle(
         _doneMeta,
         done.isAcceptableOrUnknown(data['done']!, _doneMeta),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
       );
     }
     if (data.containsKey('done_at')) {
@@ -1380,6 +1402,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         DriftSqlType.bool,
         data['${effectivePrefix}done'],
       )!,
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
       doneAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}done_at'],
@@ -1449,6 +1475,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
   final String title;
   final String description;
   final bool done;
+  final bool isFavorite;
   final String? doneAt;
   final String? dueDate;
   final String? startDate;
@@ -1476,6 +1503,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     required this.title,
     required this.description,
     required this.done,
+    required this.isFavorite,
     this.doneAt,
     this.dueDate,
     this.startDate,
@@ -1511,6 +1539,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     map['title'] = Variable<String>(title);
     map['description'] = Variable<String>(description);
     map['done'] = Variable<bool>(done);
+    map['is_favorite'] = Variable<bool>(isFavorite);
     if (!nullToAbsent || doneAt != null) {
       map['done_at'] = Variable<String>(doneAt);
     }
@@ -1563,6 +1592,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       title: Value(title),
       description: Value(description),
       done: Value(done),
+      isFavorite: Value(isFavorite),
       doneAt: doneAt == null && nullToAbsent
           ? const Value.absent()
           : Value(doneAt),
@@ -1611,6 +1641,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       title: serializer.fromJson<String>(json['title']),
       description: serializer.fromJson<String>(json['description']),
       done: serializer.fromJson<bool>(json['done']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       doneAt: serializer.fromJson<String?>(json['doneAt']),
       dueDate: serializer.fromJson<String?>(json['dueDate']),
       startDate: serializer.fromJson<String?>(json['startDate']),
@@ -1640,6 +1671,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       'title': serializer.toJson<String>(title),
       'description': serializer.toJson<String>(description),
       'done': serializer.toJson<bool>(done),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
       'doneAt': serializer.toJson<String?>(doneAt),
       'dueDate': serializer.toJson<String?>(dueDate),
       'startDate': serializer.toJson<String?>(startDate),
@@ -1667,6 +1699,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     String? title,
     String? description,
     bool? done,
+    bool? isFavorite,
     Value<String?> doneAt = const Value.absent(),
     Value<String?> dueDate = const Value.absent(),
     Value<String?> startDate = const Value.absent(),
@@ -1693,6 +1726,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     title: title ?? this.title,
     description: description ?? this.description,
     done: done ?? this.done,
+    isFavorite: isFavorite ?? this.isFavorite,
     doneAt: doneAt.present ? doneAt.value : this.doneAt,
     dueDate: dueDate.present ? dueDate.value : this.dueDate,
     startDate: startDate.present ? startDate.value : this.startDate,
@@ -1725,6 +1759,9 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           ? data.description.value
           : this.description,
       done: data.done.present ? data.done.value : this.done,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
       doneAt: data.doneAt.present ? data.doneAt.value : this.doneAt,
       dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
@@ -1760,6 +1797,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('done: $done, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('doneAt: $doneAt, ')
           ..write('dueDate: $dueDate, ')
           ..write('startDate: $startDate, ')
@@ -1789,6 +1827,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     title,
     description,
     done,
+    isFavorite,
     doneAt,
     dueDate,
     startDate,
@@ -1817,6 +1856,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           other.title == this.title &&
           other.description == this.description &&
           other.done == this.done &&
+          other.isFavorite == this.isFavorite &&
           other.doneAt == this.doneAt &&
           other.dueDate == this.dueDate &&
           other.startDate == this.startDate &&
@@ -1843,6 +1883,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
   final Value<String> title;
   final Value<String> description;
   final Value<bool> done;
+  final Value<bool> isFavorite;
   final Value<String?> doneAt;
   final Value<String?> dueDate;
   final Value<String?> startDate;
@@ -1867,6 +1908,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.title = const Value.absent(),
     this.description = const Value.absent(),
     this.done = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.doneAt = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.startDate = const Value.absent(),
@@ -1892,6 +1934,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     required String title,
     this.description = const Value.absent(),
     this.done = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.doneAt = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.startDate = const Value.absent(),
@@ -1921,6 +1964,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Expression<String>? title,
     Expression<String>? description,
     Expression<bool>? done,
+    Expression<bool>? isFavorite,
     Expression<String>? doneAt,
     Expression<String>? dueDate,
     Expression<String>? startDate,
@@ -1946,6 +1990,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (done != null) 'done': done,
+      if (isFavorite != null) 'is_favorite': isFavorite,
       if (doneAt != null) 'done_at': doneAt,
       if (dueDate != null) 'due_date': dueDate,
       if (startDate != null) 'start_date': startDate,
@@ -1973,6 +2018,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Value<String>? title,
     Value<String>? description,
     Value<bool>? done,
+    Value<bool>? isFavorite,
     Value<String?>? doneAt,
     Value<String?>? dueDate,
     Value<String?>? startDate,
@@ -1998,6 +2044,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       title: title ?? this.title,
       description: description ?? this.description,
       done: done ?? this.done,
+      isFavorite: isFavorite ?? this.isFavorite,
       doneAt: doneAt ?? this.doneAt,
       dueDate: dueDate ?? this.dueDate,
       startDate: startDate ?? this.startDate,
@@ -2048,6 +2095,9 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     }
     if (done.present) {
       map['done'] = Variable<bool>(done.value);
+    }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
     }
     if (doneAt.present) {
       map['done_at'] = Variable<String>(doneAt.value);
@@ -2102,6 +2152,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('done: $done, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('doneAt: $doneAt, ')
           ..write('dueDate: $dueDate, ')
           ..write('startDate: $startDate, ')
@@ -6828,6 +6879,214 @@ class ImageCachesCompanion extends UpdateCompanion<ImageCacheRow> {
   }
 }
 
+class $MyDayEntriesTable extends MyDayEntries
+    with TableInfo<$MyDayEntriesTable, MyDayEntryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MyDayEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<int> taskId = GeneratedColumn<int>(
+    'task_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dayMeta = const VerificationMeta('day');
+  @override
+  late final GeneratedColumn<String> day = GeneratedColumn<String>(
+    'day',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [taskId, day];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'my_day_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MyDayEntryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('task_id')) {
+      context.handle(
+        _taskIdMeta,
+        taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_taskIdMeta);
+    }
+    if (data.containsKey('day')) {
+      context.handle(
+        _dayMeta,
+        day.isAcceptableOrUnknown(data['day']!, _dayMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dayMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {taskId, day};
+  @override
+  MyDayEntryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MyDayEntryRow(
+      taskId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}task_id'],
+      )!,
+      day: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}day'],
+      )!,
+    );
+  }
+
+  @override
+  $MyDayEntriesTable createAlias(String alias) {
+    return $MyDayEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class MyDayEntryRow extends DataClass implements Insertable<MyDayEntryRow> {
+  final int taskId;
+  final String day;
+  const MyDayEntryRow({required this.taskId, required this.day});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['task_id'] = Variable<int>(taskId);
+    map['day'] = Variable<String>(day);
+    return map;
+  }
+
+  MyDayEntriesCompanion toCompanion(bool nullToAbsent) {
+    return MyDayEntriesCompanion(taskId: Value(taskId), day: Value(day));
+  }
+
+  factory MyDayEntryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MyDayEntryRow(
+      taskId: serializer.fromJson<int>(json['taskId']),
+      day: serializer.fromJson<String>(json['day']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'taskId': serializer.toJson<int>(taskId),
+      'day': serializer.toJson<String>(day),
+    };
+  }
+
+  MyDayEntryRow copyWith({int? taskId, String? day}) =>
+      MyDayEntryRow(taskId: taskId ?? this.taskId, day: day ?? this.day);
+  MyDayEntryRow copyWithCompanion(MyDayEntriesCompanion data) {
+    return MyDayEntryRow(
+      taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      day: data.day.present ? data.day.value : this.day,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MyDayEntryRow(')
+          ..write('taskId: $taskId, ')
+          ..write('day: $day')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(taskId, day);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MyDayEntryRow &&
+          other.taskId == this.taskId &&
+          other.day == this.day);
+}
+
+class MyDayEntriesCompanion extends UpdateCompanion<MyDayEntryRow> {
+  final Value<int> taskId;
+  final Value<String> day;
+  final Value<int> rowid;
+  const MyDayEntriesCompanion({
+    this.taskId = const Value.absent(),
+    this.day = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MyDayEntriesCompanion.insert({
+    required int taskId,
+    required String day,
+    this.rowid = const Value.absent(),
+  }) : taskId = Value(taskId),
+       day = Value(day);
+  static Insertable<MyDayEntryRow> custom({
+    Expression<int>? taskId,
+    Expression<String>? day,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (taskId != null) 'task_id': taskId,
+      if (day != null) 'day': day,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MyDayEntriesCompanion copyWith({
+    Value<int>? taskId,
+    Value<String>? day,
+    Value<int>? rowid,
+  }) {
+    return MyDayEntriesCompanion(
+      taskId: taskId ?? this.taskId,
+      day: day ?? this.day,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (taskId.present) {
+      map['task_id'] = Variable<int>(taskId.value);
+    }
+    if (day.present) {
+      map['day'] = Variable<String>(day.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MyDayEntriesCompanion(')
+          ..write('taskId: $taskId, ')
+          ..write('day: $day, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6845,6 +7104,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $KeyValuesTable keyValues = $KeyValuesTable(this);
   late final $PendingOpsTable pendingOps = $PendingOpsTable(this);
   late final $ImageCachesTable imageCaches = $ImageCachesTable(this);
+  late final $MyDayEntriesTable myDayEntries = $MyDayEntriesTable(this);
   late final ProjectsDao projectsDao = ProjectsDao(this as AppDatabase);
   late final TasksDao tasksDao = TasksDao(this as AppDatabase);
   late final LabelsDao labelsDao = LabelsDao(this as AppDatabase);
@@ -6880,6 +7140,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     keyValues,
     pendingOps,
     imageCaches,
+    myDayEntries,
   ];
 }
 
@@ -7285,6 +7546,7 @@ typedef $$TasksTableCreateCompanionBuilder =
       required String title,
       Value<String> description,
       Value<bool> done,
+      Value<bool> isFavorite,
       Value<String?> doneAt,
       Value<String?> dueDate,
       Value<String?> startDate,
@@ -7311,6 +7573,7 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String> description,
       Value<bool> done,
+      Value<bool> isFavorite,
       Value<String?> doneAt,
       Value<String?> dueDate,
       Value<String?> startDate,
@@ -7385,6 +7648,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<bool> get done => $composableBuilder(
     column: $table.done,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7513,6 +7781,11 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get doneAt => $composableBuilder(
     column: $table.doneAt,
     builder: (column) => ColumnOrderings(column),
@@ -7620,6 +7893,11 @@ class $$TasksTableAnnotationComposer
   GeneratedColumn<bool> get done =>
       $composableBuilder(column: $table.done, builder: (column) => column);
 
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get doneAt =>
       $composableBuilder(column: $table.doneAt, builder: (column) => column);
 
@@ -7702,6 +7980,7 @@ class $$TasksTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<bool> done = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<String?> doneAt = const Value.absent(),
                 Value<String?> dueDate = const Value.absent(),
                 Value<String?> startDate = const Value.absent(),
@@ -7726,6 +8005,7 @@ class $$TasksTableTableManager
                 title: title,
                 description: description,
                 done: done,
+                isFavorite: isFavorite,
                 doneAt: doneAt,
                 dueDate: dueDate,
                 startDate: startDate,
@@ -7752,6 +8032,7 @@ class $$TasksTableTableManager
                 required String title,
                 Value<String> description = const Value.absent(),
                 Value<bool> done = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<String?> doneAt = const Value.absent(),
                 Value<String?> dueDate = const Value.absent(),
                 Value<String?> startDate = const Value.absent(),
@@ -7776,6 +8057,7 @@ class $$TasksTableTableManager
                 title: title,
                 description: description,
                 done: done,
+                isFavorite: isFavorite,
                 doneAt: doneAt,
                 dueDate: dueDate,
                 startDate: startDate,
@@ -10200,6 +10482,146 @@ typedef $$ImageCachesTableProcessedTableManager =
       ImageCacheRow,
       PrefetchHooks Function()
     >;
+typedef $$MyDayEntriesTableCreateCompanionBuilder =
+    MyDayEntriesCompanion Function({
+      required int taskId,
+      required String day,
+      Value<int> rowid,
+    });
+typedef $$MyDayEntriesTableUpdateCompanionBuilder =
+    MyDayEntriesCompanion Function({
+      Value<int> taskId,
+      Value<String> day,
+      Value<int> rowid,
+    });
+
+class $$MyDayEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $MyDayEntriesTable> {
+  $$MyDayEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get day => $composableBuilder(
+    column: $table.day,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MyDayEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $MyDayEntriesTable> {
+  $$MyDayEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get day => $composableBuilder(
+    column: $table.day,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MyDayEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MyDayEntriesTable> {
+  $$MyDayEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get taskId =>
+      $composableBuilder(column: $table.taskId, builder: (column) => column);
+
+  GeneratedColumn<String> get day =>
+      $composableBuilder(column: $table.day, builder: (column) => column);
+}
+
+class $$MyDayEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MyDayEntriesTable,
+          MyDayEntryRow,
+          $$MyDayEntriesTableFilterComposer,
+          $$MyDayEntriesTableOrderingComposer,
+          $$MyDayEntriesTableAnnotationComposer,
+          $$MyDayEntriesTableCreateCompanionBuilder,
+          $$MyDayEntriesTableUpdateCompanionBuilder,
+          (
+            MyDayEntryRow,
+            BaseReferences<_$AppDatabase, $MyDayEntriesTable, MyDayEntryRow>,
+          ),
+          MyDayEntryRow,
+          PrefetchHooks Function()
+        > {
+  $$MyDayEntriesTableTableManager(_$AppDatabase db, $MyDayEntriesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MyDayEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MyDayEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MyDayEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> taskId = const Value.absent(),
+                Value<String> day = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) =>
+                  MyDayEntriesCompanion(taskId: taskId, day: day, rowid: rowid),
+          createCompanionCallback:
+              ({
+                required int taskId,
+                required String day,
+                Value<int> rowid = const Value.absent(),
+              }) => MyDayEntriesCompanion.insert(
+                taskId: taskId,
+                day: day,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MyDayEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MyDayEntriesTable,
+      MyDayEntryRow,
+      $$MyDayEntriesTableFilterComposer,
+      $$MyDayEntriesTableOrderingComposer,
+      $$MyDayEntriesTableAnnotationComposer,
+      $$MyDayEntriesTableCreateCompanionBuilder,
+      $$MyDayEntriesTableUpdateCompanionBuilder,
+      (
+        MyDayEntryRow,
+        BaseReferences<_$AppDatabase, $MyDayEntriesTable, MyDayEntryRow>,
+      ),
+      MyDayEntryRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10228,4 +10650,6 @@ class $AppDatabaseManager {
       $$PendingOpsTableTableManager(_db, _db.pendingOps);
   $$ImageCachesTableTableManager get imageCaches =>
       $$ImageCachesTableTableManager(_db, _db.imageCaches);
+  $$MyDayEntriesTableTableManager get myDayEntries =>
+      $$MyDayEntriesTableTableManager(_db, _db.myDayEntries);
 }

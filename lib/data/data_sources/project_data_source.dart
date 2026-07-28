@@ -36,6 +36,10 @@ class ProjectDataSource extends RemoteDataSource {
     );
   }
 
+  Future<Response<Object>> delete(int projectId) {
+    return client.delete(url: '/projects/$projectId');
+  }
+
   Future<Response<ProjectDto>> update(ProjectDto p) {
     return client.post(
       url: '/projects/${p.id}',

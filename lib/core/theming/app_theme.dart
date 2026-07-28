@@ -14,7 +14,10 @@ ThemeData buildAppTheme({
     useMaterial3: true,
     brightness: colorScheme.brightness,
     colorScheme: colorScheme,
-    fontFamily: 'Quicksand',
+    // System-Schrift wie Microsoft To Do (SF Pro auf iOS, Roboto auf
+    // Android) — die runde Quicksand bleibt im Bundle, falls Ingo die
+    // Markenschrift zurück möchte.
+    fontFamily: null,
     scaffoldBackgroundColor: colorScheme.surface,
     canvasColor: colorScheme.surface,
     appBarTheme: AppBarTheme(

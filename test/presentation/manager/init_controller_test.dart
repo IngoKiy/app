@@ -58,39 +58,56 @@ void main() {
   setUp(() => db = createTestDatabase());
   tearDown(() => db.close());
 
-  test('offline mit gefüllter DB -> InitGoHome und currentUser gesetzt', () async {
-    // Wie der Sync ablegt: current_user als UserDto-JSON.
-    final user = UserDto(
-      id: 1,
-      username: 'offline-user',
-      name: 'Offline',
-      created: testTime,
-      updated: testTime,
-    );
-    await db.keyValueDao.set(kvCurrentUser, jsonEncode(user.toJSON()));
-    await db.keyValueDao.set(
-      kvServerInfo,
-      jsonEncode(
-        ServerDto(
-          null, null, null, null, null, null, null, null, null, null, null,
-          '1.0',
-        ).toJSON(),
-      ),
-    );
+  test(
+    'offline mit gefüllter DB -> InitGoHome und currentUser gesetzt',
+    () async {
+      // Wie der Sync ablegt: current_user als UserDto-JSON.
+      final user = UserDto(
+        id: 1,
+        username: 'offline-user',
+        name: 'Offline',
+        created: testTime,
+        updated: testTime,
+      );
+      await db.keyValueDao.set(kvCurrentUser, jsonEncode(user.toJSON()));
+      await db.keyValueDao.set(
+        kvServerInfo,
+        jsonEncode(
+          ServerDto(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            '1.0',
+          ).toJSON(),
+        ),
+      );
 
-    final container = ProviderContainer(
-      overrides: [
-        appDatabaseProvider.overrideWithValue(db),
-        settingsRepositoryProvider.overrideWithValue(_FakeSettingsRepository()),
-        connectivityStatusProvider.overrideWith(() => _StubConnectivity()),
-        serverDataSourceProvider.overrideWithValue(_OfflineServerDataSource()),
-      ],
-    );
-    addTearDown(container.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(
+            _FakeSettingsRepository(),
+          ),
+          connectivityStatusProvider.overrideWith(() => _StubConnectivity()),
+          serverDataSourceProvider.overrideWithValue(
+            _OfflineServerDataSource(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    final outcome = await container.read(initControllerProvider.future);
+      final outcome = await container.read(initControllerProvider.future);
 
-    expect(outcome, isA<InitGoHome>());
-    expect(container.read(currentUserProvider)?.username, 'offline-user');
-  });
+      expect(outcome, isA<InitGoHome>());
+      expect(container.read(currentUserProvider)?.username, 'offline-user');
+    },
+  );
 }

@@ -8,7 +8,7 @@ import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 
 /// Bottom-Sheet mit dem detaillierten Sync-Status: ausstehende und
 /// fehlgeschlagene Outbox-Operationen samt Aktionen (jetzt synchronisieren,
-/// fehlgeschlagene Op verwerfen). Wird per Tap auf den [SyncStatusBanner]
+/// fehlgeschlagene Op verwerfen). Wird per Tap auf das [SyncStatusIcon]
 /// geöffnet.
 class SyncStatusSheet extends ConsumerStatefulWidget {
   const SyncStatusSheet({super.key});
@@ -91,9 +91,8 @@ class _SyncStatusSheetState extends ConsumerState<SyncStatusSheet> {
                           ...failed.map(
                             (op) => _OpTile(
                               op: op,
-                              onDiscard: () => ref
-                                  .read(offlineWriterProvider)
-                                  .discardOp(op),
+                              onDiscard: () =>
+                                  ref.read(offlineWriterProvider).discardOp(op),
                             ),
                           ),
                         ],
@@ -184,8 +183,7 @@ class _OpTile extends StatelessWidget {
   /// Payload (Task-/Projekt-/Bucket-Titel bzw. Kommentartext).
   String _opTitle(AppLocalizations loc, PendingOp op) {
     final label = _opLabel(loc, op.type);
-    final subject =
-        (op.payload['title'] ?? op.payload['comment']) as String?;
+    final subject = (op.payload['title'] ?? op.payload['comment']) as String?;
     if (subject == null || subject.isEmpty) return label;
     return '$label · $subject';
   }
@@ -212,6 +210,7 @@ class _OpTile extends StatelessWidget {
         return loc.syncOpComment;
       case PendingOpType.projectCreate:
       case PendingOpType.projectUpdate:
+      case PendingOpType.projectDelete:
       case PendingOpType.projectViewUpdate:
         return loc.syncOpProject;
       case PendingOpType.bucketCreate:

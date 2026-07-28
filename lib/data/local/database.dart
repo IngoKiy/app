@@ -16,6 +16,7 @@ import 'package:vikunja_app/data/local/tables/buckets_table.dart';
 import 'package:vikunja_app/data/local/tables/image_cache_table.dart';
 import 'package:vikunja_app/data/local/tables/key_value_table.dart';
 import 'package:vikunja_app/data/local/tables/labels_table.dart';
+import 'package:vikunja_app/data/local/tables/my_day_entries_table.dart';
 import 'package:vikunja_app/data/local/tables/pending_ops_table.dart';
 import 'package:vikunja_app/data/local/tables/projects_table.dart';
 import 'package:vikunja_app/data/local/tables/task_assignees_table.dart';
@@ -43,6 +44,7 @@ part 'database.g.dart';
     KeyValues,
     PendingOps,
     ImageCaches,
+    MyDayEntries,
   ],
   daos: [
     ProjectsDao,
@@ -67,7 +69,22 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // v2: Task-Favoriten (Smart-List "Wichtig").
+        await m.addColumn(tasks, tasks.isFavorite);
+      }
+      if (from < 3) {
+        // v3: manuell kuratiertes "Mein Tag" (lokal, ohne Server-Sync).
+        await m.createTable(myDayEntries);
+      }
+    },
+  );
 
   /// Löscht sämtliche lokalen Daten (Logout / Kontowechsel). Läuft in einer
   /// Transaktion, damit die DB nie halb geleert zurückbleibt.

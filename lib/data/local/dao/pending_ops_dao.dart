@@ -15,16 +15,15 @@ class PendingOpsDao extends DatabaseAccessor<AppDatabase>
 
   Stream<int> watchCount() {
     final count = countAll();
-    return (selectOnly(pendingOps)..addColumns([count]))
-        .map((row) => row.read(count) ?? 0)
-        .watchSingle();
+    return (selectOnly(
+      pendingOps,
+    )..addColumns([count])).map((row) => row.read(count) ?? 0).watchSingle();
   }
 
   /// Reaktive Gesamtliste in FIFO-Reihenfolge (für das Sync-Status-Sheet).
-  Stream<List<PendingOpRow>> watchAll() =>
-      (select(pendingOps)
-            ..orderBy([(t) => OrderingTerm(expression: t.opId)]))
-          .watch();
+  Stream<List<PendingOpRow>> watchAll() => (select(
+    pendingOps,
+  )..orderBy([(t) => OrderingTerm(expression: t.opId)])).watch();
 
   /// Jüngste wartende Op derselben Entität (höchste [opId]) — Grundlage der
   /// Enqueue-Koaleszierung von Voll-Updates.
@@ -34,8 +33,7 @@ class PendingOpsDao extends DatabaseAccessor<AppDatabase>
             (t) => t.entityType.equals(entityType) & t.localId.equals(localId),
           )
           ..orderBy([
-            (t) =>
-                OrderingTerm(expression: t.opId, mode: OrderingMode.desc),
+            (t) => OrderingTerm(expression: t.opId, mode: OrderingMode.desc),
           ])
           ..limit(1))
         .getSingleOrNull();

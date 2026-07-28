@@ -71,7 +71,15 @@ class User {
   }) : created = created ?? DateTime.now(),
        updated = updated ?? DateTime.now();
 
-  String avatarUrl(String baseUrl) {
-    return "$baseUrl/avatar/$username";
+  /// Avatar-Endpunkt des Servers: `GET /avatar/<username>` (gegen den
+  /// laufenden Server verifiziert — die Swagger-Doku nennt fälschlich
+  /// `/{username}/avatar`, das liefert dort 404). [cacheBuster] hängt einen
+  /// Query-Parameter an, damit nach einem Upload nicht das alte Bild aus
+  /// dem Cache kommt.
+  String avatarUrl(String baseUrl, {String? cacheBuster}) {
+    final url = "$baseUrl/avatar/$username";
+    return cacheBuster == null || cacheBuster.isEmpty
+        ? url
+        : "$url?v=$cacheBuster";
   }
 }

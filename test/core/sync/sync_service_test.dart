@@ -43,8 +43,8 @@ class _FakeServerDataSource implements ServerDataSource {
 }
 
 class _FakeUserDataSource implements UserDataSource {
-  Response<UserDto> Function() getCurrentUserStub =
-      () => SuccessResponse(_user(id: 1), 200, {});
+  Response<UserDto> Function() getCurrentUserStub = () =>
+      SuccessResponse(_user(id: 1), 200, {});
   @override
   Future<Response<UserDto>> getCurrentUser() async => getCurrentUserStub();
 
@@ -54,8 +54,8 @@ class _FakeUserDataSource implements UserDataSource {
 }
 
 class _FakeLabelDataSource implements LabelDataSource {
-  Response<List<LabelDto>> Function() getAllStub =
-      () => SuccessResponse(<LabelDto>[], 200, {});
+  Response<List<LabelDto>> Function() getAllStub = () =>
+      SuccessResponse(<LabelDto>[], 200, {});
   @override
   Future<Response<List<LabelDto>>> getAll({String? query}) async =>
       getAllStub();
@@ -66,8 +66,8 @@ class _FakeLabelDataSource implements LabelDataSource {
 }
 
 class _FakeProjectDataSource implements ProjectDataSource {
-  Response<List<ProjectDto>> Function(int page) getAllStub =
-      (page) => SuccessResponse(<ProjectDto>[], 200, {});
+  Response<List<ProjectDto>> Function(int page) getAllStub = (page) =>
+      SuccessResponse(<ProjectDto>[], 200, {});
   @override
   Future<Response<List<ProjectDto>>> getAll({int page = 1}) async =>
       getAllStub(page);
@@ -119,8 +119,8 @@ class _FakeTaskDataSource implements TaskDataSource {
 }
 
 class _FakeBucketDataSource implements BucketDataSource {
-  Response<List<BucketDto>> Function(int projectId, int viewId) getAllByListStub =
-      (_, _) => SuccessResponse(<BucketDto>[], 200, {});
+  Response<List<BucketDto>> Function(int projectId, int viewId)
+  getAllByListStub = (_, _) => SuccessResponse(<BucketDto>[], 200, {});
   @override
   Future<Response<List<BucketDto>>> getAllByList(
     int projectId,
@@ -157,8 +157,20 @@ final _t = DateTime.utc(2026, 1, 1);
 UserDto _user({required int id, String username = 'user'}) =>
     UserDto(id: id, username: username, created: _t, updated: _t);
 
-ServerDto _server() =>
-    ServerDto(null, null, null, null, null, null, null, null, null, null, null, '1.0');
+ServerDto _server() => ServerDto(
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  '1.0',
+);
 
 ProjectViewDto _view({
   required int id,
@@ -203,19 +215,27 @@ TaskDto _task({
   updated: _t,
 );
 
-LabelDto _label({required int id, String title = 'Label'}) =>
-    LabelDto(id: id, title: title, createdBy: _user(id: 1), created: _t, updated: _t);
+LabelDto _label({required int id, String title = 'Label'}) => LabelDto(
+  id: id,
+  title: title,
+  createdBy: _user(id: 1),
+  created: _t,
+  updated: _t,
+);
 
-BucketDto _bucket({required int id, required int viewId, String title = 'Bucket'}) =>
-    BucketDto(
-      id: id,
-      projectViewId: viewId,
-      title: title,
-      limit: 0,
-      createdBy: _user(id: 1),
-      created: _t,
-      updated: _t,
-    );
+BucketDto _bucket({
+  required int id,
+  required int viewId,
+  String title = 'Bucket',
+}) => BucketDto(
+  id: id,
+  projectViewId: viewId,
+  title: title,
+  limit: 0,
+  createdBy: _user(id: 1),
+  created: _t,
+  updated: _t,
+);
 
 // --- Test-Setup --------------------------------------------------------------
 
@@ -325,18 +345,29 @@ void main() {
     ); // -> nicht wiederbelebt
 
     project.getAllStub = (page) => page == 1
-        ? SuccessResponse([
-            _project(id: 10, views: [_view(id: 100, projectId: 10, kind: 'list')]),
-          ], 200, {})
+        ? SuccessResponse(
+            [
+              _project(
+                id: 10,
+                views: [_view(id: 100, projectId: 10, kind: 'list')],
+              ),
+            ],
+            200,
+            {},
+          )
         : SuccessResponse(<ProjectDto>[], 200, {});
 
     task.viewStub = (projectId, viewId, page) => page == 1
-        ? SuccessResponse([
-            _task(id: 1, projectId: 10, title: 'neu1'),
-            _task(id: 2, projectId: 10, title: 'neu2'),
-            _task(id: 3, projectId: 10, title: 'server3'),
-            _task(id: 6, projectId: 10, title: 'server6'),
-          ], 200, {})
+        ? SuccessResponse(
+            [
+              _task(id: 1, projectId: 10, title: 'neu1'),
+              _task(id: 2, projectId: 10, title: 'neu2'),
+              _task(id: 3, projectId: 10, title: 'server3'),
+              _task(id: 6, projectId: 10, title: 'server6'),
+            ],
+            200,
+            {},
+          )
         : SuccessResponse(<TaskDto>[], 200, {});
 
     final result = await buildService().pullAll();
@@ -364,18 +395,26 @@ void main() {
 
   test('Pagination: Tasks über 2 Seiten werden vollständig gemergt', () async {
     project.getAllStub = (page) => page == 1
-        ? SuccessResponse([
-            _project(id: 10, views: [_view(id: 100, projectId: 10, kind: 'list')]),
-          ], 200, {})
+        ? SuccessResponse(
+            [
+              _project(
+                id: 10,
+                views: [_view(id: 100, projectId: 10, kind: 'list')],
+              ),
+            ],
+            200,
+            {},
+          )
         : SuccessResponse(<ProjectDto>[], 200, {});
 
     task.viewStub = (projectId, viewId, page) {
       switch (page) {
         case 1:
-          return SuccessResponse([
-            _task(id: 1, projectId: 10),
-            _task(id: 2, projectId: 10),
-          ], 200, {});
+          return SuccessResponse(
+            [_task(id: 1, projectId: 10), _task(id: 2, projectId: 10)],
+            200,
+            {},
+          );
         case 2:
           return SuccessResponse([_task(id: 3, projectId: 10)], 200, {});
         default:
@@ -391,48 +430,59 @@ void main() {
     expect(await db.tasksDao.getById(3), isNotNull);
   });
 
-  test(
-    'Abbruch mitten im Pull (ExceptionResponse) -> Teilmerge, kein Error, '
-    'kein last_full_sync',
-    () async {
-      project.getAllStub = (page) => page == 1
-          ? SuccessResponse([
-              _project(id: 1, views: [_view(id: 11, projectId: 1, kind: 'list')]),
-              _project(id: 2, views: [_view(id: 22, projectId: 2, kind: 'list')]),
-              _project(id: 3, views: [_view(id: 33, projectId: 3, kind: 'list')]),
-            ], 200, {})
-          : SuccessResponse(<ProjectDto>[], 200, {});
+  test('Abbruch mitten im Pull (ExceptionResponse) -> Teilmerge, kein Error, '
+      'kein last_full_sync', () async {
+    project.getAllStub = (page) => page == 1
+        ? SuccessResponse(
+            [
+              _project(
+                id: 1,
+                views: [_view(id: 11, projectId: 1, kind: 'list')],
+              ),
+              _project(
+                id: 2,
+                views: [_view(id: 22, projectId: 2, kind: 'list')],
+              ),
+              _project(
+                id: 3,
+                views: [_view(id: 33, projectId: 3, kind: 'list')],
+              ),
+            ],
+            200,
+            {},
+          )
+        : SuccessResponse(<ProjectDto>[], 200, {});
 
-      task.viewStub = (projectId, viewId, page) {
-        if (projectId == 1) {
-          return page == 1
-              ? SuccessResponse([_task(id: 111, projectId: 1)], 200, {})
-              : SuccessResponse(<TaskDto>[], 200, {});
-        }
-        if (projectId == 2) {
-          return ExceptionResponse(Exception('offline'), StackTrace.empty);
-        }
-        return SuccessResponse(<TaskDto>[], 200, {});
-      };
+    task.viewStub = (projectId, viewId, page) {
+      if (projectId == 1) {
+        return page == 1
+            ? SuccessResponse([_task(id: 111, projectId: 1)], 200, {})
+            : SuccessResponse(<TaskDto>[], 200, {});
+      }
+      if (projectId == 2) {
+        return ExceptionResponse(Exception('offline'), StackTrace.empty);
+      }
+      return SuccessResponse(<TaskDto>[], 200, {});
+    };
 
-      final result = await buildService().pullAll();
+    final result = await buildService().pullAll();
 
-      expect(result.offline, isTrue);
-      expect(result.success, isFalse);
-      // Projekt 1 gemergt.
-      expect(await db.tasksDao.getById(111), isNotNull);
-      // Kein Error-State.
-      expect(
-        container.read(syncStateNotifierProvider).phase,
-        isNot(SyncPhase.error),
-      );
-      // Kein last_full_sync.
-      expect(await db.keyValueDao.get(kvLastFullSync), isNull);
-    },
-  );
+    expect(result.offline, isTrue);
+    expect(result.success, isFalse);
+    // Projekt 1 gemergt.
+    expect(await db.tasksDao.getById(111), isNotNull);
+    // Kein Error-State.
+    expect(
+      container.read(syncStateNotifierProvider).phase,
+      isNot(SyncPhase.error),
+    );
+    // Kein last_full_sync.
+    expect(await db.keyValueDao.get(kvLastFullSync), isNull);
+  });
 
   test('4xx-Fehler setzt Error-State', () async {
-    server.getInfoStub = () async => ErrorResponse(403, {}, {'message': 'nope'});
+    server.getInfoStub = () async =>
+        ErrorResponse(403, {}, {'message': 'nope'});
 
     final result = await buildService().pullAll();
 
@@ -462,32 +512,29 @@ void main() {
     expect(server.callCount, 1);
   });
 
-  test(
-    'userInitiated: true wird während des Pulls in den SyncState '
-    'durchgereicht und danach wieder zurückgesetzt',
-    () async {
-      final gate = Completer<void>();
-      server.getInfoStub = () async {
-        await gate.future;
-        return SuccessResponse(_server(), 200, {});
-      };
+  test('userInitiated: true wird während des Pulls in den SyncState '
+      'durchgereicht und danach wieder zurückgesetzt', () async {
+    final gate = Completer<void>();
+    server.getInfoStub = () async {
+      await gate.future;
+      return SuccessResponse(_server(), 200, {});
+    };
 
-      final future = buildService().pullAll(userInitiated: true);
+    final future = buildService().pullAll(userInitiated: true);
 
-      // Während des Pulls: syncing + userInitiated gesetzt.
-      final duringPull = container.read(syncStateNotifierProvider);
-      expect(duringPull.phase, SyncPhase.syncing);
-      expect(duringPull.userInitiated, isTrue);
+    // Während des Pulls: syncing + userInitiated gesetzt.
+    final duringPull = container.read(syncStateNotifierProvider);
+    expect(duringPull.phase, SyncPhase.syncing);
+    expect(duringPull.userInitiated, isTrue);
 
-      gate.complete();
-      await future;
+    gate.complete();
+    await future;
 
-      // Nach Abschluss: idle, userInitiated zurückgesetzt.
-      final afterPull = container.read(syncStateNotifierProvider);
-      expect(afterPull.phase, SyncPhase.idle);
-      expect(afterPull.userInitiated, isFalse);
-    },
-  );
+    // Nach Abschluss: idle, userInitiated zurückgesetzt.
+    final afterPull = container.read(syncStateNotifierProvider);
+    expect(afterPull.phase, SyncPhase.idle);
+    expect(afterPull.userInitiated, isFalse);
+  });
 
   test(
     'userInitiated bleibt standardmäßig false (automatischer Sync)',
@@ -518,28 +565,38 @@ void main() {
     await db.taskAssigneesDao.upsertFromServer(1, 99); // clean, soll weg
 
     project.getAllStub = (page) => page == 1
-        ? SuccessResponse([
-            _project(id: 10, views: [_view(id: 100, projectId: 10, kind: 'list')]),
-          ], 200, {})
+        ? SuccessResponse(
+            [
+              _project(
+                id: 10,
+                views: [_view(id: 100, projectId: 10, kind: 'list')],
+              ),
+            ],
+            200,
+            {},
+          )
         : SuccessResponse(<ProjectDto>[], 200, {});
 
     task.viewStub = (projectId, viewId, page) => page == 1
-        ? SuccessResponse([
-            _task(
-              id: 1,
-              projectId: 10,
-              labels: [_label(id: 1), _label(id: 2)],
-              assignees: [_user(id: 5)],
-            ),
-          ], 200, {})
+        ? SuccessResponse(
+            [
+              _task(
+                id: 1,
+                projectId: 10,
+                labels: [_label(id: 1), _label(id: 2)],
+                assignees: [_user(id: 5)],
+              ),
+            ],
+            200,
+            {},
+          )
         : SuccessResponse(<TaskDto>[], 200, {});
 
     await buildService().pullAll();
 
-    final labelIds =
-        (await db.taskLabelsDao.watchLabelsForTask(1).first)
-            .map((e) => e.labelId)
-            .toSet();
+    final labelIds = (await db.taskLabelsDao.watchLabelsForTask(1).first)
+        .map((e) => e.labelId)
+        .toSet();
     // Server-Labels 1,2 gesetzt; dirty 7 bleibt; clean 9 entfernt.
     expect(labelIds, {1, 2, 7});
 
@@ -563,18 +620,34 @@ void main() {
     );
 
     project.getAllStub = (page) => page == 1
-        ? SuccessResponse([
-            _project(id: 10, views: [
-              _view(id: 100, projectId: 10, kind: 'list'),
-              _view(id: 200, projectId: 10, kind: 'kanban', doneBucketId: 2),
-            ]),
-          ], 200, {})
+        ? SuccessResponse(
+            [
+              _project(
+                id: 10,
+                views: [
+                  _view(id: 100, projectId: 10, kind: 'list'),
+                  _view(
+                    id: 200,
+                    projectId: 10,
+                    kind: 'kanban',
+                    doneBucketId: 2,
+                  ),
+                ],
+              ),
+            ],
+            200,
+            {},
+          )
         : SuccessResponse(<ProjectDto>[], 200, {});
 
-    bucket.getAllByListStub = (projectId, viewId) => SuccessResponse([
-      _bucket(id: 1, viewId: 200, title: 'Todo'),
-      _bucket(id: 2, viewId: 200, title: 'Done'),
-    ], 200, {});
+    bucket.getAllByListStub = (projectId, viewId) => SuccessResponse(
+      [
+        _bucket(id: 1, viewId: 200, title: 'Todo'),
+        _bucket(id: 2, viewId: 200, title: 'Done'),
+      ],
+      200,
+      {},
+    );
 
     final result = await buildService().pullAll();
 
@@ -590,9 +663,11 @@ void main() {
   test('pullTaskDetails upsertet Task + Kommentare', () async {
     task.getTaskStub = (id) =>
         SuccessResponse(_task(id: id, projectId: 10, title: 'Detail'), 200, {});
-    comment.getAllStub = (taskId) => SuccessResponse([
-      TaskCommentDto(id: 1, comment: 'Hallo', author: _user(id: 1)),
-    ], 200, {});
+    comment.getAllStub = (taskId) => SuccessResponse(
+      [TaskCommentDto(id: 1, comment: 'Hallo', author: _user(id: 1))],
+      200,
+      {},
+    );
 
     await buildService().pullTaskDetails(42);
 
@@ -610,4 +685,44 @@ void main() {
 
     expect((await db.usersDao.getById(7))?.username, 'alice');
   });
+
+  test(
+    'Pseudo-Projekte (Favoriten/Filter) verschieben keine fremden Aufgaben',
+    () async {
+      // Server liefert das echte Projekt 10 und das Favoriten-Pseudo-Projekt
+      // (id -1), dessen View die GLEICHE Aufgabe nochmals ausliefert.
+      project.getAllStub = (page) => page == 1
+          ? SuccessResponse(
+              [
+                _project(
+                  id: 10,
+                  views: [_view(id: 100, projectId: 10, kind: 'list')],
+                ),
+                _project(
+                  id: -1,
+                  title: 'Favorites',
+                  views: [_view(id: 900, projectId: -1, kind: 'list')],
+                ),
+              ],
+              200,
+              {},
+            )
+          : SuccessResponse(<ProjectDto>[], 200, {});
+
+      // Aufgabe 42 gehört zu Projekt 10, wird aber auch von der
+      // Favoriten-View geliefert (dort mit ihrer echten project_id).
+      task.viewStub = (projectId, view, page) {
+        if (page > 1) return SuccessResponse(<TaskDto>[], 200, {});
+        return SuccessResponse([_task(id: 42, projectId: 10)], 200, {});
+      };
+
+      await buildService().pullAll();
+
+      // Die Aufgabe muss bei ihrem echten Projekt liegen — nicht beim
+      // Pseudo-Projekt (das war die Ursache des Flackerns beim Sync).
+      final row = await db.tasksDao.getById(42);
+      expect(row, isNotNull);
+      expect(row!.projectId, 10);
+    },
+  );
 }

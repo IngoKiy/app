@@ -44,36 +44,40 @@ void main() {
   }
 
   group('projectPickerItemsProvider', () {
-    test('listet nur echte Projekte (id > 0), keine Filter/Favoriten/Temp',
-        () async {
-      await _seedProject(db, id: 1, title: 'Echt A');
-      await _seedProject(db, id: 2, title: 'Echt B');
-      // Favoriten-Pseudo (-1), gespeicherter Filter (-2), offline Temp (-5).
-      await _seedProject(db, id: -1, title: 'Favoriten');
-      await _seedProject(db, id: -2, title: 'Gespeicherter Filter');
-      await _seedProject(db, id: -5, title: 'Offline-Temp');
+    test(
+      'listet nur echte Projekte (id > 0), keine Filter/Favoriten/Temp',
+      () async {
+        await _seedProject(db, id: 1, title: 'Echt A');
+        await _seedProject(db, id: 2, title: 'Echt B');
+        // Favoriten-Pseudo (-1), gespeicherter Filter (-2), offline Temp (-5).
+        await _seedProject(db, id: -1, title: 'Favoriten');
+        await _seedProject(db, id: -2, title: 'Gespeicherter Filter');
+        await _seedProject(db, id: -5, title: 'Offline-Temp');
 
-      final items = await container().read(projectPickerItemsProvider.future);
+        final items = await container().read(projectPickerItemsProvider.future);
 
-      expect(items.map((i) => i.project.id).toSet(), {1, 2});
-    });
+        expect(items.map((i) => i.project.id).toSet(), {1, 2});
+      },
+    );
 
-    test('sortiert Unterprojekte unter ihr Elternprojekt (mit Tiefe)',
-        () async {
-      await _seedProject(db, id: 1, title: 'Eltern');
-      await _seedProject(db, id: 2, title: 'Kind', parentProjectId: 1);
-      await _seedProject(db, id: 3, title: 'Solo');
+    test(
+      'sortiert Unterprojekte unter ihr Elternprojekt (mit Tiefe)',
+      () async {
+        await _seedProject(db, id: 1, title: 'Eltern');
+        await _seedProject(db, id: 2, title: 'Kind', parentProjectId: 1);
+        await _seedProject(db, id: 3, title: 'Solo');
 
-      final items = await container().read(projectPickerItemsProvider.future);
-      final byId = {for (final i in items) i.project.id: i};
+        final items = await container().read(projectPickerItemsProvider.future);
+        final byId = {for (final i in items) i.project.id: i};
 
-      // Kind folgt direkt auf Eltern und ist tiefer eingerückt.
-      final ids = items.map((i) => i.project.id).toList();
-      expect(ids.indexOf(2), ids.indexOf(1) + 1);
-      expect(byId[1]!.depth, 0);
-      expect(byId[2]!.depth, 1);
-      expect(byId[3]!.depth, 0);
-    });
+        // Kind folgt direkt auf Eltern und ist tiefer eingerückt.
+        final ids = items.map((i) => i.project.id).toList();
+        expect(ids.indexOf(2), ids.indexOf(1) + 1);
+        expect(byId[1]!.depth, 0);
+        expect(byId[2]!.depth, 1);
+        expect(byId[3]!.depth, 0);
+      },
+    );
   });
 
   group('AddTaskDialog mit Projektauswahl', () {

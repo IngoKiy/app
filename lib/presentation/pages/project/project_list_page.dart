@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
@@ -9,8 +10,13 @@ import 'package:vikunja_app/presentation/manager/projects_controller.dart';
 import 'package:vikunja_app/presentation/pages/error_widget.dart';
 import 'package:vikunja_app/presentation/pages/loading_widget.dart';
 import 'package:vikunja_app/presentation/pages/project/project_detail_page.dart';
+import 'package:vikunja_app/presentation/pages/settings_page.dart';
+import 'package:vikunja_app/presentation/pages/task/search_page.dart';
 import 'package:vikunja_app/presentation/widgets/project/add_project_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/project/project_card.dart';
+import 'package:vikunja_app/presentation/widgets/sync_status_icon.dart';
+import 'package:vikunja_app/presentation/widgets/task/smart_list_section.dart';
+import 'package:vikunja_app/presentation/widgets/user_avatar.dart';
 
 class ProjectListPage extends ConsumerWidget {
   /// When set, tapping a project reports it to the parent (master-detail
@@ -18,7 +24,16 @@ class ProjectListPage extends ConsumerWidget {
   final ValueChanged<Project>? onProjectTap;
   final int? selectedProjectId;
 
-  const ProjectListPage({super.key, this.onProjectTap, this.selectedProjectId});
+  /// Listen-Übersicht im MS-To-Do-Stil: Smart-Lists über den Projekten und
+  /// „Listen" als Titel (Home-Tab). Ohne Flag die klassische Projektliste.
+  final bool showSmartLists;
+
+  const ProjectListPage({
+    super.key,
+    this.onProjectTap,
+    this.selectedProjectId,
+    this.showSmartLists = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,16 +45,16 @@ class ProjectListPage extends ConsumerWidget {
       data: (model) {
         // Echte Projekte und gespeicherte Filter (Pseudo-Projekte) trennen,
         // damit Filter einen eigenen Abschnitt bekommen.
-        final projects = model.projects
-            .where((p) => !p.isSavedFilter)
-            .toList();
+        final projects = model.projects.where((p) => !p.isSavedFilter).toList();
         final filters = model.projects.where((p) => p.isSavedFilter).toList();
 
         final items = <Widget>[
+          if (showSmartLists) const SmartListSection(),
           for (final p in projects)
             _ProjectTreeTile(
               project: p,
               counts: counts,
+              currentUserId: ref.read(currentUserProvider)?.id,
               selectedProjectId: selectedProjectId,
               onOpen: (project) => _navigateToProject(ref, project),
             ),
@@ -49,6 +64,7 @@ class ProjectListPage extends ConsumerWidget {
               _ProjectTreeTile(
                 project: f,
                 counts: counts,
+                currentUserId: ref.read(currentUserProvider)?.id,
                 selectedProjectId: selectedProjectId,
                 onOpen: (project) => _navigateToProject(ref, project),
               ),
@@ -65,27 +81,58 @@ class ProjectListPage extends ConsumerWidget {
             ),
         ];
 
-        return Scaffold(
-          body: NotificationListener<ScrollNotification>(
-            onNotification: (ScrollNotification scrollInfo) {
-              if (scrollInfo.metrics.pixels ==
-                  scrollInfo.metrics.maxScrollExtent) {
-                ref.read(projectsControllerProvider.notifier).loadNextPage();
-              }
-              return false;
-            },
-            child: RefreshIndicator(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.xs,
-                  vertical: AppDimensions.xs,
-                ),
-                children: items,
+        final content = NotificationListener<ScrollNotification>(
+          onNotification: (ScrollNotification scrollInfo) {
+            if (scrollInfo.metrics.pixels ==
+                scrollInfo.metrics.maxScrollExtent) {
+              ref.read(projectsControllerProvider.notifier).loadNextPage();
+            }
+            return false;
+          },
+          child: RefreshIndicator(
+            // Direkt unter der Kopfzeile statt mitten über den Einträgen.
+            displacement: 12,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.xs,
+                vertical: AppDimensions.xs,
               ),
-              onRefresh: () =>
-                  ref.read(projectsControllerProvider.notifier).reload(),
+              children: items,
             ),
+            onRefresh: () => refreshWithSync(ref),
           ),
+        );
+
+        // Home-Tab (Listen-Übersicht) im MS-To-Do-Stil: eigener Kopf statt
+        // AppBar (Avatar + Name + Suche) und unten fixiert "+ Neue Liste"
+        // statt Plus-Button.
+        if (showSmartLists) {
+          // Ohne AppBar setzt niemand den Statusleisten-Stil — explizit
+          // passend zur Flächenhelligkeit wählen (dunkle Icons auf hell).
+          final overlay = Theme.of(context).brightness == Brightness.light
+              ? SystemUiOverlayStyle.dark
+              : SystemUiOverlayStyle.light;
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: overlay,
+            child: Scaffold(
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    const _HomeHeader(),
+                    Expanded(child: content),
+                  ],
+                ),
+              ),
+              bottomNavigationBar: _NewListBar(
+                onTap: () => _createListInline(ref),
+                onNewGroup: () => _addProjectDialog(ref),
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          body: content,
           appBar: AppBar(
             title: Text(AppLocalizations.of(context).projectsTitle),
             actions: [
@@ -103,6 +150,58 @@ class ProjectListPage extends ConsumerWidget {
       ),
       loading: () => const LoadingWidget(),
     );
+  }
+
+  /// „+ Neue Liste" wie in Microsoft To Do: sofort eine Liste
+  /// „Unbenannte Liste [n]" anlegen und öffnen — benennen ist Umbenennen
+  /// (Listenoptionen), kein vorgeschalteter Dialog.
+  Future<void> _createListInline(WidgetRef ref) async {
+    final l10n = AppLocalizations.of(ref.context);
+    final messenger = ScaffoldMessenger.of(ref.context);
+    final currentUser = ref.read(currentUserProvider);
+    final model = ref.read(projectsControllerProvider).value;
+
+    // Eindeutigen Namen bestimmen: „Unbenannte Liste", „… 1", „… 2", …
+    final existing = <String>{
+      if (model != null)
+        for (final p in model.projects) p.title,
+    };
+    var name = l10n.untitledList;
+    var i = 1;
+    while (existing.contains(name)) {
+      name = '${l10n.untitledList} $i';
+      i++;
+    }
+
+    final result = await ref
+        .read(projectsControllerProvider.notifier)
+        .create(Project(title: name, owner: currentUser));
+    if (!result.ok) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.projectCreateError)));
+      return;
+    }
+
+    // Die neue Liste öffnen, sobald sie im Stream angekommen ist.
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final projects = ref.read(projectsControllerProvider).value?.projects;
+      final created = projects?.where((p) => p.title == name).toList();
+      if (created != null && created.isNotEmpty) {
+        if (!ref.context.mounted) return;
+        // Wie To Do: Liste öffnen und den Titel direkt benennen lassen.
+        Navigator.push(
+          ref.context,
+          MaterialPageRoute(
+            builder: (context) => ProjectDetailPage(
+              key: Key(created.first.id.toString()),
+              project: created.first,
+              autoRename: true,
+            ),
+          ),
+        );
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   void _addProjectDialog(WidgetRef ref) {
@@ -146,6 +245,125 @@ class ProjectListPage extends ConsumerWidget {
   }
 }
 
+/// Kopfzeile der Listen-Übersicht (Home-Tab) im MS-To-Do-Stil: Avatar +
+/// Benutzername links, Such-Symbol rechts (öffnet die globale Suche).
+class _HomeHeader extends ConsumerWidget {
+  const _HomeHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimensions.md,
+        AppDimensions.xs,
+        AppDimensions.sm,
+        AppDimensions.xs,
+      ),
+      child: Row(
+        children: [
+          if (user != null) ...[
+            // Avatar + Name öffnen die Einstellungen (wie in To Do, wo das
+            // Konto-/Einstellungs-Sheet hinter dem Profilkopf liegt).
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
+                // Einstellungen als eigene Vollbild-Seite.
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsPage()),
+                ),
+                child: Row(
+                  children: [
+                    UserAvatar(user: user, radius: 18),
+                    const SizedBox(width: AppDimensions.sm),
+                    Expanded(
+                      child: Text(
+                        user.name.isNotEmpty ? user.name : user.username,
+                        style: theme.textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else
+            const Spacer(),
+          const SyncStatusIcon(),
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: AppLocalizations.of(context).searchHint,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SearchPage()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Unten fixierte Fußzeile der Listen-Übersicht im Stil von Microsoft To Do:
+/// links „+ Neue Liste" als dezenter Textlink in Akzentfarbe, rechts das
+/// Symbol für eine neue Gruppe.
+class _NewListBar extends StatelessWidget {
+  final VoidCallback onTap;
+  final VoidCallback? onNewGroup;
+
+  const _NewListBar({required this.onTap, this.onNewGroup});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.add, color: accent),
+                      const SizedBox(width: 12),
+                      Text(
+                        AppLocalizations.of(context).newListButton,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (onNewGroup != null)
+              IconButton(
+                tooltip: AppLocalizations.of(context).newListButton,
+                icon: Icon(Icons.create_new_folder_outlined, color: accent),
+                onPressed: onNewGroup,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Abschnitts-Überschrift (z.B. „Filter") zwischen den Karten-Gruppen.
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -176,6 +394,7 @@ class _SectionHeader extends StatelessWidget {
 class _ProjectTreeTile extends StatefulWidget {
   final Project project;
   final Map<int, int> counts;
+  final int? currentUserId;
   final int? selectedProjectId;
   final ValueChanged<Project> onOpen;
   final int depth;
@@ -183,6 +402,7 @@ class _ProjectTreeTile extends StatefulWidget {
   const _ProjectTreeTile({
     required this.project,
     required this.counts,
+    this.currentUserId,
     required this.selectedProjectId,
     required this.onOpen,
     this.depth = 0,
@@ -203,46 +423,49 @@ class _ProjectTreeTileState extends State<_ProjectTreeTile> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: EdgeInsets.only(
-            left: widget.depth * AppDimensions.md,
-            top: AppDimensions.xxs,
-            bottom: AppDimensions.xxs,
-          ),
-          child: ProjectCard(
-            project: project,
-            openTaskCount: widget.counts[project.id],
-            selected: project.id == widget.selectedProjectId,
-            onTap: () => widget.onOpen(project),
-            leading: hasChildren
-                ? IconButton(
-                    tooltip: _expanded
-                        ? AppLocalizations.of(context).collapseSubprojects
-                        : AppLocalizations.of(context).expandSubprojects,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    icon: Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_down
-                          : Icons.keyboard_arrow_right,
-                    ),
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                  )
-                : null,
-          ),
+        ProjectCard(
+          project: project,
+          openTaskCount: widget.counts[project.id],
+          sharedWithMe:
+              widget.currentUserId != null &&
+              project.owner != null &&
+              project.owner!.id != widget.currentUserId,
+          selected: project.id == widget.selectedProjectId,
+          onTap: () => widget.onOpen(project),
+          expandable: hasChildren,
+          expanded: _expanded,
+          onToggleExpand: () => setState(() => _expanded = !_expanded),
         ),
+        // Kindlisten eingerückt mit vertikaler Führungslinie (wie To Do).
         if (hasChildren && _expanded)
-          for (final child in project.subprojects)
-            _ProjectTreeTile(
-              project: child,
-              counts: widget.counts,
-              selectedProjectId: widget.selectedProjectId,
-              onOpen: widget.onOpen,
-              depth: widget.depth + 1,
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    width: 2,
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.only(left: AppDimensions.xs),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final child in project.subprojects)
+                    _ProjectTreeTile(
+                      project: child,
+                      counts: widget.counts,
+                      currentUserId: widget.currentUserId,
+                      selectedProjectId: widget.selectedProjectId,
+                      onOpen: widget.onOpen,
+                      depth: widget.depth + 1,
+                    ),
+                ],
+              ),
             ),
+          ),
       ],
     );
   }

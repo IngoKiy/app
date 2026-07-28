@@ -16,6 +16,7 @@ class TaskDto extends Dto<Task> {
   final String identifier;
   final String title, description;
   final bool done;
+  final bool isFavorite;
   Color? color;
   final double? position;
   final double? percentDone;
@@ -32,6 +33,7 @@ class TaskDto extends Dto<Task> {
     this.title = '',
     this.description = '',
     this.done = false,
+    this.isFavorite = false,
     this.reminderDates = const [],
     this.dueDate,
     this.startDate,
@@ -60,6 +62,7 @@ class TaskDto extends Dto<Task> {
       description = json['description'],
       identifier = json['identifier'] ?? '',
       done = json['done'] ?? false,
+      isFavorite = json['is_favorite'] ?? false,
       reminderDates = json['reminders'] != null
           ? (json['reminders'] as List<dynamic>)
                 .map((ts) => TaskReminderDto.fromJson(ts))
@@ -124,6 +127,7 @@ class TaskDto extends Dto<Task> {
     'description': description,
     'identifier': identifier.isNotEmpty ? identifier : null,
     'done': done,
+    'is_favorite': isFavorite,
     'reminders': reminderDates.map((date) => date.toJSON()).toList(),
     'due_date': dueDate?.toUtc().toIso8601String(),
     'start_date': startDate?.toUtc().toIso8601String(),
@@ -157,6 +161,7 @@ class TaskDto extends Dto<Task> {
     description: description,
     identifier: identifier,
     done: done,
+    isFavorite: isFavorite,
     reminderDates: reminderDates.map((e) => e.toDomain()).toList(),
     dueDate: dueDate,
     startDate: startDate,
@@ -184,6 +189,7 @@ class TaskDto extends Dto<Task> {
     description: b.description,
     identifier: b.identifier,
     done: b.done,
+    isFavorite: b.isFavorite,
     reminderDates: b.reminderDates
         .map((e) => TaskReminderDto.fromDomain(e))
         .toList(),

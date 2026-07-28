@@ -12,6 +12,7 @@ import 'package:vikunja_app/core/di/offline_provider.dart';
 import 'package:vikunja_app/core/di/repository_provider.dart';
 import 'package:vikunja_app/core/di/sync_provider.dart';
 import 'package:vikunja_app/data/local/row_mappers.dart';
+import 'package:vikunja_app/data/models/task_dto.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_page_model.dart';
 import 'package:vikunja_app/presentation/manager/widget_controller.dart';
@@ -120,9 +121,15 @@ class TaskPageController extends _$TaskPageController {
     final dao = ref.read(tasksDaoProvider);
     final completer = Completer<TaskPageModel>();
 
-    final sub = dao.watchOverviewTasks(onlyDueDate: onlyDue).listen((rows) async {
+    final sub = dao.watchOverviewTasks(onlyDueDate: onlyDue).listen((
+      rows,
+    ) async {
       final tasks = rows.map(taskFromRow).toList();
-      final model = await _createPageModel(tasks, onlyDue, isInitial: !completer.isCompleted);
+      final model = await _createPageModel(
+        tasks,
+        onlyDue,
+        isInitial: !completer.isCompleted,
+      );
       if (!completer.isCompleted) {
         completer.complete(model);
       } else {
@@ -141,13 +148,14 @@ class TaskPageController extends _$TaskPageController {
         .read(settingsRepositoryProvider)
         .getLandingPageOnlyDueDateTasks();
 
-    final response = await ref
-        .read(taskRepositoryProvider)
-        .getAllByProject(filterId, {
-          "sort_by": ["due_date", "id"],
-          "order_by": ["asc", "desc"],
-          "page": ["1"],
-        });
+    final response = await ref.read(taskRepositoryProvider).getAllByProject(
+      filterId,
+      {
+        "sort_by": ["due_date", "id"],
+        "order_by": ["asc", "desc"],
+        "page": ["1"],
+      },
+    );
 
     if (response.isSuccessful) {
       return _createPageModel(
@@ -215,6 +223,19 @@ class TaskPageController extends _$TaskPageController {
         .read(offlineWriterProvider)
         .addTask(projectId, task);
     return result.ok;
+  }
+
+  /// Wie [addTask], liefert aber die ID der angelegten Aufgabe zurück
+  /// (Server-ID wenn direkt gesynct, sonst die lokale Temp-ID) — für
+  /// Folgeaktionen wie „direkt zu Mein Tag" aus dem Composer.
+  Future<int?> addTaskReturningId(int projectId, Task task) async {
+    final result = await ref
+        .read(offlineWriterProvider)
+        .addTask(projectId, task);
+    if (!result.ok) return null;
+    final body = result.body;
+    if (body is TaskDto) return body.id;
+    return result.localId;
   }
 
   Future<bool> deleteTask(int id) async {

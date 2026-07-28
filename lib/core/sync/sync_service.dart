@@ -78,6 +78,13 @@ class _ServerAbort implements Exception {
   _ServerAbort(this.message);
 }
 
+/// Server hat gedrosselt (HTTP 429). [retryAfter] kommt aus dem gleichnamigen
+/// Header, sonst greift ein Standard-Backoff.
+class _RateLimited implements Exception {
+  final Duration retryAfter;
+  _RateLimited(this.retryAfter);
+}
+
 /// Pull-Vollabgleich (Vikunja hat keine Delta-API). Merge-Regeln stecken in
 /// den DAOs (`upsertFromServer` respektiert lokale dirty-Datensätze,
 /// `deleteMissingClean*` löscht nur clean+synchronisierte Datensätze). Siehe
@@ -160,6 +167,27 @@ class SyncService {
   /// Future statt einen weiteren Durchlauf zu starten.
   Future<SyncResult>? _pullInFlight;
 
+  /// Zeitpunkt des letzten erfolgreich gestarteten Pulls. Automatische
+  /// (nicht nutzerausgelöste) Pulls halten [_autoPullCooldown] Abstand —
+  /// ein Voll-Pull kostet je nach Projektzahl ein Dutzend Requests, und
+  /// mehrere Trigger kurz hintereinander laufen sonst in das Rate-Limit
+  /// des Servers (HTTP 429).
+  DateTime? _lastPullStartedAt;
+  static const _autoPullCooldown = Duration(seconds: 45);
+
+  /// Bis hierhin hat der Server gedrosselt (429) — bis dahin werden ALLE
+  /// Pulls übersprungen, auch nutzerausgelöste (ein weiterer Versuch würde
+  /// das Limit nur verlängern).
+  DateTime? _rateLimitedUntil;
+
+  /// Verbleibende Drosselzeit (für die UI), sonst `null`.
+  Duration? get rateLimitCooldown {
+    final until = _rateLimitedUntil;
+    if (until == null) return null;
+    final left = until.difference(DateTime.now());
+    return left.isNegative ? null : left;
+  }
+
   /// Manueller Auslöser (Pull-to-Refresh / "jetzt synchronisieren"): erst
   /// Push (Outbox), dann voller Pull.
   ///
@@ -174,15 +202,59 @@ class SyncService {
   }
 
   Future<SyncResult> pullAll({bool userInitiated = false}) {
-    return _pullInFlight ??= _pullAll(userInitiated: userInitiated).whenComplete(() {
-      _pullInFlight = null;
-    });
+    // Läuft schon einer? Dann diesen teilen (Single-Flight hat Vorrang vor
+    // allen Gates — sonst bekämen parallele Aufrufer verschiedene Futures).
+    final inFlight = _pullInFlight;
+    if (inFlight != null) return inFlight;
+
+    final now = DateTime.now();
+
+    // Server drosselt gerade: gar nicht erst anfragen.
+    final until = _rateLimitedUntil;
+    if (until != null && now.isBefore(until)) {
+      // Ohne Zustandswechsel bliebe die UI stumm: der Pull-to-Refresh-Kreisel
+      // verschwände sofort und niemand erführe, warum nichts passiert ist.
+      final left = until.difference(now).inSeconds;
+      _syncState.setError('rate_limited:$left');
+      return Future.value(
+        SyncResult(
+          success: false,
+          offline: false,
+          duration: Duration.zero,
+          stats: SyncStats(),
+          errorMessage: 'rate_limited:$left',
+        ),
+      );
+    }
+    if (until != null) _rateLimitedUntil = null;
+
+    // Automatische Pulls: Mindestabstand einhalten (siehe _autoPullCooldown).
+    final last = _lastPullStartedAt;
+    if (!userInitiated &&
+        last != null &&
+        now.difference(last) < _autoPullCooldown) {
+      return Future.value(
+        SyncResult(
+          success: true,
+          offline: false,
+          duration: Duration.zero,
+          stats: SyncStats(),
+        ),
+      );
+    }
+
+    return _pullInFlight = _pullAll(userInitiated: userInitiated).whenComplete(
+      () {
+        _pullInFlight = null;
+      },
+    );
   }
 
   Future<SyncResult> _pullAll({bool userInitiated = false}) async {
     final stopwatch = Stopwatch()..start();
     final stats = SyncStats();
     final now = DateTime.now();
+    _lastPullStartedAt = now;
     _syncState.setSyncing(userInitiated: userInitiated);
 
     try {
@@ -218,7 +290,12 @@ class SyncService {
       );
 
       // 4. Pro Projekt: Tasks (Liste-View) + Buckets (Kanban-View).
-      for (final project in projects) {
+      // Pseudo-Projekte (Favoriten id == -1, gespeicherte Filter id < -1)
+      // liefern Aufgaben FREMDER Projekte; ihre Inhalte kommen über die
+      // echten Projekte. Würden sie hier mitlaufen, schriebe der Sync
+      // Aufgaben kurzzeitig der falschen Liste zu (sichtbares Flackern)
+      // und der Löschscope wäre unvollständig.
+      for (final project in projects.where((p) => p.id > 0)) {
         await _syncProjectContent(project, now, stats);
       }
 
@@ -242,6 +319,18 @@ class SyncService {
         offline: true,
         duration: stopwatch.elapsed,
         stats: stats,
+      );
+    } on _RateLimited catch (e) {
+      // Drosselung ist kein Datenfehler: Cooldown merken, teilweise gemergte
+      // Daten behalten, freundlich melden statt roher HTTP-Meldung.
+      _rateLimitedUntil = DateTime.now().add(e.retryAfter);
+      _syncState.setError('rate_limited:${e.retryAfter.inSeconds}');
+      return SyncResult(
+        success: false,
+        offline: false,
+        duration: stopwatch.elapsed,
+        stats: stats,
+        errorMessage: 'rate_limited:${e.retryAfter.inSeconds}',
       );
     } on _ServerAbort catch (e) {
       _syncState.setError(e.message);
@@ -289,9 +378,15 @@ class SyncService {
     for (final task in tasks) {
       await _upsertTaskWithJunctions(task, project.id, now, stats);
     }
+    // Löschscope: nur Aufgaben, die laut Server wirklich zu diesem Projekt
+    // gehören. Gefilterte Views können fremde Aufgaben mitliefern — die
+    // dürfen den Scope nicht aufblähen, sonst überleben lokal gelöschte
+    // Aufgaben oder es wird zu viel entfernt.
     stats.tasksDeleted += await _tasksDao.deleteMissingCleanForProject(
       project.id,
-      tasks.map((t) => t.id),
+      tasks
+          .where((t) => t.projectId == null || t.projectId == project.id)
+          .map((t) => t.id),
     );
 
     // Buckets: nur bei vorhandener Kanban-View (einmaliger Abruf; die
@@ -356,12 +451,7 @@ class SyncService {
     final taskResp = await _taskDataSource.getTask(remoteTaskId);
     if (!taskResp.isSuccessful) return;
     final dto = taskResp.toSuccess().body;
-    await _upsertTaskWithJunctions(
-      dto,
-      dto.projectId ?? 0,
-      now,
-      SyncStats(),
-    );
+    await _upsertTaskWithJunctions(dto, dto.projectId ?? 0, now, SyncStats());
 
     final commentsResp = await _taskCommentDataSource.getAll(remoteTaskId);
     if (!commentsResp.isSuccessful) return;
@@ -444,9 +534,15 @@ class SyncService {
       case ExceptionResponse<T>():
         throw _OfflineAbort();
       case ErrorResponse<T>():
-        throw _ServerAbort(
-          'HTTP ${response.statusCode}: ${response.error}',
-        );
+        if (response.statusCode == 429) {
+          // Retry-After (Sekunden oder HTTP-Datum); sonst 60 s Standard.
+          final header =
+              response.headers['retry-after'] ??
+              response.headers['Retry-After'];
+          final seconds = int.tryParse(header?.trim() ?? '');
+          throw _RateLimited(Duration(seconds: seconds ?? 60));
+        }
+        throw _ServerAbort('HTTP ${response.statusCode}: ${response.error}');
     }
   }
 }

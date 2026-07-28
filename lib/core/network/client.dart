@@ -179,6 +179,10 @@ class Client {
     required String url,
     required List<String> filePaths,
     T Function(dynamic body)? mapper,
+
+    /// Multipart-Feldname; Vikunja erwartet je nach Endpunkt `files`
+    /// (Anhänge) bzw. `avatar` (Profilbild).
+    String fieldName = 'files',
   }) async {
     try {
       return _handleResponseWithRefresh(mapper, () async {
@@ -188,7 +192,7 @@ class Client {
         headers.remove('Content-Type');
         request.headers.addAll(headers);
         for (final path in filePaths) {
-          request.files.add(await http.MultipartFile.fromPath('files', path));
+          request.files.add(await http.MultipartFile.fromPath(fieldName, path));
         }
         final streamed = await _httpClient.send(request);
         return http.Response.fromStream(streamed);
@@ -235,7 +239,12 @@ class Client {
           globalNavigatorKey.currentState?.pushNamed("/login");
         }
 
-        return ErrorResponse<T>(response.statusCode, await getHeaders(), error);
+        // Antwort-Header mitgeben (z. B. Retry-After bei HTTP 429); die
+        // Request-Header bleiben als Fallback erhalten.
+        return ErrorResponse<T>(response.statusCode, {
+          ...await getHeaders(),
+          ...response.headers,
+        }, error);
       } on FormatException catch (e, s) {
         return ExceptionResponse(e, s);
       }

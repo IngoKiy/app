@@ -8,8 +8,7 @@ import 'package:path_provider/path_provider.dart';
 /// (Logout) noch Cache/Writer den Pfadaufbau kennen müssen.
 class LocalFileStorage {
   LocalFileStorage({Future<Directory> Function()? supportDirectory})
-    : _supportDirectory =
-          supportDirectory ?? getApplicationSupportDirectory;
+    : _supportDirectory = supportDirectory ?? getApplicationSupportDirectory;
 
   final Future<Directory> Function() _supportDirectory;
 

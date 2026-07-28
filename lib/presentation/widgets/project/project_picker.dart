@@ -89,7 +89,8 @@ class ProjectPickerField extends ConsumerWidget {
       onTap: () async {
         final result = await showDialog<int>(
           context: context,
-          builder: (_) => ProjectPickerDialog(selectedProjectId: selectedProjectId),
+          builder: (_) =>
+              ProjectPickerDialog(selectedProjectId: selectedProjectId),
         );
         if (result != null) onChanged(result);
       },

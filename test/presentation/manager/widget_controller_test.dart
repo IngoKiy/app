@@ -35,47 +35,56 @@ void main() {
         .setMockMethodCallHandler(homeWidgetChannel, null);
   });
 
-  test(
-    'updateWidget speist das Home-Widget nur mit offenen, fälligen/'
-    'überfälligen Tasks aus der DB',
-    () async {
-      final now = DateTime.now();
-      final overdue = now.subtract(const Duration(days: 2));
-      final dueSoon = now; // vor "morgen 00:00" -> gehört ins Widget
-      final farFuture = now.add(const Duration(days: 5));
+  test('updateWidget speist das Home-Widget nur mit offenen, fälligen/'
+      'überfälligen Tasks aus der DB', () async {
+    final now = DateTime.now();
+    final overdue = now.subtract(const Duration(days: 2));
+    final dueSoon = now; // vor "morgen 00:00" -> gehört ins Widget
+    final farFuture = now.add(const Duration(days: 5));
 
-      await seedProject(db, id: 1, title: 'Projekt A');
-      await seedTask(db, id: 10, projectId: 1, title: 'Überfällig', dueDate: overdue);
-      await seedTask(db, id: 11, projectId: 1, title: 'Heute fällig', dueDate: dueSoon);
-      await seedTask(
-        db,
-        id: 12,
-        projectId: 1,
-        title: 'Weit in der Zukunft',
-        dueDate: farFuture,
-      );
-      await seedTask(db, id: 13, projectId: 1, title: 'Ohne Fälligkeit');
-      await seedTask(
-        db,
-        id: 14,
-        projectId: 1,
-        title: 'Erledigt, aber fällig',
-        dueDate: overdue,
-        done: true,
-      );
+    await seedProject(db, id: 1, title: 'Projekt A');
+    await seedTask(
+      db,
+      id: 10,
+      projectId: 1,
+      title: 'Überfällig',
+      dueDate: overdue,
+    );
+    await seedTask(
+      db,
+      id: 11,
+      projectId: 1,
+      title: 'Heute fällig',
+      dueDate: dueSoon,
+    );
+    await seedTask(
+      db,
+      id: 12,
+      projectId: 1,
+      title: 'Weit in der Zukunft',
+      dueDate: farFuture,
+    );
+    await seedTask(db, id: 13, projectId: 1, title: 'Ohne Fälligkeit');
+    await seedTask(
+      db,
+      id: 14,
+      projectId: 1,
+      title: 'Erledigt, aber fällig',
+      dueDate: overdue,
+      done: true,
+    );
 
-      await updateWidget(tasksDao: db.tasksDao);
+    await updateWidget(tasksDao: db.tasksDao);
 
-      final saveCall = calls.singleWhere((c) => c.method == 'saveWidgetData');
-      final arguments = saveCall.arguments as Map<dynamic, dynamic>;
-      expect(arguments['id'], 'WidgetTasks');
+    final saveCall = calls.singleWhere((c) => c.method == 'saveWidgetData');
+    final arguments = saveCall.arguments as Map<dynamic, dynamic>;
+    expect(arguments['id'], 'WidgetTasks');
 
-      final data = jsonDecode(arguments['data'] as String) as List<dynamic>;
-      final ids = data.map((t) => (t as Map)['id']).toSet();
+    final data = jsonDecode(arguments['data'] as String) as List<dynamic>;
+    final ids = data.map((t) => (t as Map)['id']).toSet();
 
-      expect(ids, {'10', '11'});
-    },
-  );
+    expect(ids, {'10', '11'});
+  });
 
   test('filterForDueTasks behält nur Tasks mit heutigem Fälligkeitsdatum', () {
     final now = DateTime.now();
@@ -84,9 +93,27 @@ void main() {
     final tomorrow = today.add(const Duration(days: 1));
 
     final tasks = [
-      Task(id: 1, title: 'Heute', dueDate: today, createdBy: null, projectId: 1),
-      Task(id: 2, title: 'Gestern', dueDate: yesterday, createdBy: null, projectId: 1),
-      Task(id: 3, title: 'Morgen', dueDate: tomorrow, createdBy: null, projectId: 1),
+      Task(
+        id: 1,
+        title: 'Heute',
+        dueDate: today,
+        createdBy: null,
+        projectId: 1,
+      ),
+      Task(
+        id: 2,
+        title: 'Gestern',
+        dueDate: yesterday,
+        createdBy: null,
+        projectId: 1,
+      ),
+      Task(
+        id: 3,
+        title: 'Morgen',
+        dueDate: tomorrow,
+        createdBy: null,
+        projectId: 1,
+      ),
     ];
 
     final result = filterForDueTasks(tasks);

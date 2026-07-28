@@ -9,9 +9,11 @@ import 'package:vikunja_app/data/local/dao/pending_ops_dao.dart';
 /// [SyncStateNotifier] erfolgt über die watchCount-Verkabelung im
 /// `offlineProvider` — nicht hier, damit die Outbox seiteneffektfrei bleibt.
 class Outbox {
-  Outbox({required PendingOpsDao pendingOpsDao, required TempIdAllocator tempIds})
-    : _dao = pendingOpsDao,
-      _tempIds = tempIds;
+  Outbox({
+    required PendingOpsDao pendingOpsDao,
+    required TempIdAllocator tempIds,
+  }) : _dao = pendingOpsDao,
+       _tempIds = tempIds;
 
   final PendingOpsDao _dao;
   final TempIdAllocator _tempIds;
@@ -32,10 +34,7 @@ class Outbox {
   /// neuen Op — der neue Stand geht nie verloren.
   Future<int> enqueueCoalesced(PendingOp op) {
     return _dao.transaction(() async {
-      final latest = await _dao.latestForEntity(
-        op.type.entityType,
-        op.localId,
-      );
+      final latest = await _dao.latestForEntity(op.type.entityType, op.localId);
       if (latest != null && latest.opType == op.type.name) {
         await _dao.deleteOp(latest.opId);
       }

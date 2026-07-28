@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vikunja_app/core/theming/color_utils.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/presentation/manager/project_controller.dart';
+import 'package:vikunja_app/presentation/widgets/task/color_picker_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/ui/app_button.dart';
 import 'package:vikunja_app/presentation/widgets/ui/constrained_page.dart';
 
@@ -26,10 +29,12 @@ class ProjectEditPageState extends ConsumerState<ProjectEditPage> {
   String? title;
   String? description;
   bool? displayDoneTask;
+  Color? _color;
 
   @override
   void initState() {
     displayDoneTask = widget.displayDoneTask;
+    _color = widget.project.color;
 
     super.initState();
   }
@@ -95,6 +100,10 @@ class ProjectEditPageState extends ConsumerState<ProjectEditPage> {
                   ),
                 ),
                 Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10.0),
+                  child: _buildColor(context, l10n),
+                ),
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 10.0),
                   child: CheckboxListTile(
                     value: displayDoneTask,
@@ -131,6 +140,60 @@ class ProjectEditPageState extends ConsumerState<ProjectEditPage> {
     );
   }
 
+  Widget _buildColor(BuildContext context, AppLocalizations l10n) {
+    final color = _color;
+    return Row(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(right: 15, left: 2),
+          child: Icon(
+            Icons.palette,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        ElevatedButton(
+          style: color == null
+              ? null
+              : ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (_) => color,
+                  ),
+                ),
+          onPressed: _onColorEdit,
+          child: Text(
+            l10n.listColor,
+            style: color == null
+                ? null
+                : TextStyle(color: contrastingTextColor(color)),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 15),
+          child: Text(
+            color != null ? "#${color.toHexString()}" : l10n.none,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _onColorEdit() {
+    final pickerColor = _color ?? Colors.black;
+    showDialog(
+      context: context,
+      builder: (context) => ColorPickerDialog(pickerColor, (color) {
+        setState(() {
+          _color = color == Colors.black ? null : color;
+        });
+        Navigator.of(context).pop();
+      }, () => Navigator.of(context).pop()),
+    );
+  }
+
   Future<void> _saveProject(WidgetRef ref, Project project) async {
     if (_formKey.currentState?.validate() == true) {
       var context = ref.context;
@@ -140,6 +203,7 @@ class ProjectEditPageState extends ConsumerState<ProjectEditPage> {
 
       project.title = title!;
       project.description = description!;
+      project.color = _color;
 
       var success = await ref
           .read(projectControllerProvider(project).notifier)

@@ -14,23 +14,21 @@ const testMapper = DtoCompanionMapper();
 AppDatabase createTestDatabase() =>
     AppDatabase.forTesting(NativeDatabase.memory());
 
-ProjectViewDto listViewDto({
-  required int id,
-  required int projectId,
-}) => ProjectViewDto(
-  testTime,
-  0,
-  0,
-  id,
-  0,
-  projectId,
-  'List View',
-  testTime,
-  null,
-  null,
-  'manual',
-  'list',
-);
+ProjectViewDto listViewDto({required int id, required int projectId}) =>
+    ProjectViewDto(
+      testTime,
+      0,
+      0,
+      id,
+      0,
+      projectId,
+      'List View',
+      testTime,
+      null,
+      null,
+      'manual',
+      'list',
+    );
 
 Future<void> seedProject(
   AppDatabase db, {

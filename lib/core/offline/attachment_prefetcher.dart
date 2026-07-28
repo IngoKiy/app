@@ -104,7 +104,9 @@ class AttachmentPrefetcher {
       final resp = await _client.get(Uri.parse(url), headers: headers);
       if (resp.statusCode < 200 || resp.statusCode >= 300) return null;
       await dir.create(recursive: true);
-      final dest = File('${dir.path}/${attachment.id}_${_sanitize(attachment.file.name)}');
+      final dest = File(
+        '${dir.path}/${attachment.id}_${_sanitize(attachment.file.name)}',
+      );
       await dest.writeAsBytes(resp.bodyBytes, flush: true);
       return dest.path;
     } catch (_) {
@@ -117,10 +119,7 @@ class AttachmentPrefetcher {
   Future<void> _cleanupOrphanFiles(Directory dir) async {
     if (!await dir.exists()) return;
     final rows = await _db.select(_db.taskAttachments).get();
-    final keep = rows
-        .map((r) => r.localFilePath)
-        .whereType<String>()
-        .toSet();
+    final keep = rows.map((r) => r.localFilePath).whereType<String>().toSet();
     await for (final entity in dir.list()) {
       if (entity is File && !keep.contains(entity.path)) {
         try {

@@ -9,11 +9,9 @@ class TaskAttachmentsDao extends DatabaseAccessor<AppDatabase>
     with _$TaskAttachmentsDaoMixin {
   TaskAttachmentsDao(super.db);
 
-  Stream<List<TaskAttachmentRow>> watchAttachmentsByTask(int taskId) =>
-      (select(taskAttachments)..where(
-            (a) => a.taskId.equals(taskId) & a.isDeleted.equals(false),
-          ))
-          .watch();
+  Stream<List<TaskAttachmentRow>> watchAttachmentsByTask(int taskId) => (select(
+    taskAttachments,
+  )..where((a) => a.taskId.equals(taskId) & a.isDeleted.equals(false))).watch();
 
   /// Merge vom Server, siehe [ProjectsDao.upsertFromServer].
   Future<void> upsertFromServer(TaskAttachmentsCompanion data) async {

@@ -12,7 +12,7 @@ import 'package:vikunja_app/presentation/widgets/project/kanban/bucket_header.da
 import 'package:vikunja_app/presentation/widgets/project/kanban/change_title_dialog.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_task_list.dart';
 import 'package:vikunja_app/presentation/widgets/project/kanban/kanban_widget.dart';
-import 'package:vikunja_app/presentation/widgets/task/add_task_dialog.dart';
+import 'package:vikunja_app/presentation/widgets/task/add_task_sheet.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 
 class BucketColumn extends ConsumerStatefulWidget {
@@ -328,12 +328,12 @@ class _BucketColumnState extends ConsumerState<BucketColumn> {
   }
 
   Future<void> _addItemDialog(BuildContext context) {
-    return showDialog(
-      context: context,
-      builder: (_) => AddTaskDialog(
-        onAddTask: (title, dueDate, _) => _addItem(title, context),
-        defaultProjectId: widget.project.id,
-      ),
+    return showAddTaskSheet(
+      context,
+      onAddTask:
+          (title, dueDate, _, {reminder, description, addToMyDay = false}) =>
+              _addItem(title, context),
+      defaultProjectId: widget.project.id,
     );
   }
 
