@@ -38,10 +38,14 @@ class ProjectDto extends Dto<Project> {
     : title = json['title'],
       description = json['description'],
       id = json['id'],
+      // Jeweils die robustere Variante aus beiden Zweigen: unsere
+      // Null-Absicherung für position/is_archived, dazu upstreams Fallback
+      // für parent_project_id (fehlt seit Server v2.4.0 bei Favoriten und
+      // gespeicherten Filtern und ließ sonst das Einlesen scheitern).
       position = (json['position'] ?? 0).toDouble(),
       isArchived = json['is_archived'] ?? false,
       isFavourite = json['is_favorite'] ?? false,
-      parentProjectId = json['parent_project_id'],
+      parentProjectId = json['parent_project_id'] ?? 0,
       views = (json['views'] is List)
           ? (json['views'] as List)
                 .map<ProjectViewDto>((view) => ProjectViewDto.fromJson(view))
