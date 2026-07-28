@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vikunja_app/core/theming/dimensions.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
 
@@ -72,7 +73,7 @@ class ProjectCard extends StatelessWidget {
               const SizedBox(width: AppDimensions.md),
               Expanded(
                 child: Text(
-                  project.title,
+                  projectDisplayTitle(l10n, project),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyLarge?.copyWith(

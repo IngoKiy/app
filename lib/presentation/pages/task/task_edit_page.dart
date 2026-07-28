@@ -20,6 +20,7 @@ import 'package:vikunja_app/core/utils/repeat_after_unit.dart';
 import 'package:vikunja_app/core/utils/task_steps.dart';
 import 'package:vikunja_app/domain/entities/label.dart';
 import 'package:vikunja_app/domain/entities/smart_list.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_reminder.dart';
 import 'package:vikunja_app/l10n/gen/app_localizations.dart';
@@ -203,8 +204,11 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
   // in Akzentfarbe auf der weißen Seite.
   AppBar _buildAppBar() {
     final theme = Theme.of(context);
-    final backLabel =
-        widget.task.project?.title ?? AppLocalizations.of(context).listsTitle;
+    final l10n = AppLocalizations.of(context);
+    final project = widget.task.project;
+    final backLabel = project == null
+        ? l10n.listsTitle
+        : projectDisplayTitle(l10n, project);
     return AppBar(
       backgroundColor: theme.colorScheme.surface,
       foregroundColor: theme.colorScheme.primary,
@@ -938,7 +942,9 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
     final current = projects.where((p) => p.id == _projectId).toList();
     return _actionRow(
       icon: Icons.format_list_bulleted,
-      label: current.isNotEmpty ? current.first.title : l10n.project,
+      label: current.isNotEmpty
+          ? projectDisplayTitle(l10n, current.first)
+          : l10n.project,
       isSet: current.isNotEmpty,
       onTap: () async {
         final candidates = projects
@@ -953,7 +959,7 @@ class TaskEditPageState extends ConsumerState<TaskEditPage> {
                 icon: p.id == _projectId
                     ? Icons.radio_button_checked
                     : Icons.format_list_bulleted,
-                label: p.title,
+                label: projectDisplayTitle(l10n, p),
                 value: p.id,
               ),
           ],

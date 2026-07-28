@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/utils/due_date_format.dart';
@@ -116,7 +117,10 @@ class _SuggestionsSheetState extends ConsumerState<_SuggestionsSheet> {
           if (task.project != null)
             Flexible(
               child: Text(
-                task.project!.title,
+                projectDisplayTitle(
+                  AppLocalizations.of(context),
+                  task.project!,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(

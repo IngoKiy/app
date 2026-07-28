@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:vikunja_app/core/utils/title_date_detection.dart';
 import 'package:vikunja_app/presentation/manager/todo_prefs.dart';
 import 'package:intl/intl.dart';
@@ -86,7 +87,6 @@ class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   bool _addToMyDay = false;
   bool _showNote = false;
   int _projectId = 0;
-  String? _projectTitle;
   bool _hasText = false;
 
   @override
@@ -295,7 +295,7 @@ class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                         )
                       : InputChip(
                           avatar: const Icon(Icons.list_alt_outlined, size: 16),
-                          label: Text(_projectTitle ?? l10n.project),
+                          label: Text(_selectedProjectLabel(l10n)),
                           onPressed: _pickProject,
                         ),
               ],
@@ -459,6 +459,20 @@ class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     _focusNode.requestFocus();
   }
 
+  /// Name der gewählten Zielliste für den Chip — wie in Microsoft To Do, wo
+  /// dort die Liste steht, in die die Aufgabe fällt. Der Picker liefert nur
+  /// die ID, deshalb wird der Titel aus dem bereits geladenen Projektstrom
+  /// nachgeschlagen; solange der noch lädt, bleibt es beim generischen Wort.
+  String _selectedProjectLabel(AppLocalizations l10n) {
+    if (_projectId == 0) return l10n.project;
+    final items = ref.watch(projectPickerItemsProvider).value;
+    final match = items
+        ?.map((i) => i.project)
+        .where((p) => p.id == _projectId)
+        .firstOrNull;
+    return match == null ? l10n.project : projectDisplayTitle(l10n, match);
+  }
+
   Future<void> _pickProject() async {
     final projectId = await showDialog<int>(
       context: context,
@@ -468,10 +482,6 @@ class AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     );
     if (projectId != null && mounted) {
       setState(() => _projectId = projectId);
-      // Titel des gewählten Projekts für den Chip nachschlagen entfällt —
-      // der Dialog liefert nur die ID; der Chip zeigt bis zum nächsten
-      // Aufbau den generischen Text. Einfachheit vor Perfektion.
-      _projectTitle = null;
     }
     _focusNode.requestFocus();
   }

@@ -446,6 +446,8 @@
   "changeView": "Switch view",
   "sortManual": "Manual order",
   "untitledList": "Untitled list",
+  "inboxListTitle": "Tasks",
+  "favoritesListTitle": "Favorites",
   "suggestionsTitle": "Suggestions",
   "suggestionsLater": "Later",
   "suggestionsEarlier": "Earlier",

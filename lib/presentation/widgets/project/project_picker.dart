@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/data/local/row_mappers.dart';
@@ -131,7 +132,9 @@ class ProjectPickerField extends ConsumerWidget {
                       ],
                       Flexible(
                         child: Text(
-                          selected?.title ?? l10n.selectProject,
+                          selected == null
+                              ? l10n.selectProject
+                              : projectDisplayTitle(l10n, selected),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyLarge,
@@ -180,7 +183,12 @@ class _ProjectPickerDialogState extends ConsumerState<ProjectPickerDialog> {
     final items = query.isEmpty
         ? allItems
         : allItems
-              .where((i) => i.project.title.toLowerCase().contains(query))
+              .where(
+                (i) => projectDisplayTitle(
+                  l10n,
+                  i.project,
+                ).toLowerCase().contains(query),
+              )
               .map((i) => ProjectPickerItem(i.project, 0))
               .toList();
 
@@ -224,7 +232,7 @@ class _ProjectPickerDialogState extends ConsumerState<ProjectPickerDialog> {
                             ),
                           ),
                           title: Text(
-                            project.title,
+                            projectDisplayTitle(l10n, project),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

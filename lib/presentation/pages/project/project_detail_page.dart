@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:vikunja_app/core/di/network_provider.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
 import 'package:vikunja_app/core/di/offline_provider.dart';
@@ -258,12 +259,15 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
         accentColor: accentColor,
         barColor: transparentBar ? Colors.transparent : null,
         actions: actions,
-        title: project.title,
+        title: projectDisplayTitle(AppLocalizations.of(context), project),
         showTitle: _titleInBar,
       );
     }
 
-    return AppBar(title: Text(project.title), actions: actions);
+    return AppBar(
+      title: Text(projectDisplayTitle(AppLocalizations.of(context), project)),
+      actions: actions,
+    );
   }
 
   Builder? _buildFab(Project project) {
@@ -470,7 +474,9 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        content: Text(l10n.deleteListMessage(project.title)),
+        content: Text(
+          l10n.deleteListMessage(projectDisplayTitle(l10n, project)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -559,7 +565,7 @@ class ProjectPageState extends ConsumerState<ProjectDetailPage> {
         for (final p in candidates)
           PresetOption(
             icon: Icons.folder_outlined,
-            label: p.title,
+            label: projectDisplayTitle(l10n, p),
             value: p.id,
           ),
       ],

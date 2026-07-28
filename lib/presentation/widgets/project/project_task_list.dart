@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:vikunja_app/core/utils/calculate_item_position.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:vikunja_app/domain/entities/project.dart';
 import 'package:vikunja_app/domain/entities/task.dart';
 import 'package:vikunja_app/domain/entities/task_sort.dart';
@@ -62,7 +63,7 @@ class _ProjectTaskListState extends ConsumerState<ProjectTaskList> {
           SliverToBoxAdapter(
             child: accentListTitle(
               context,
-              project.title,
+              projectDisplayTitle(AppLocalizations.of(context), project),
               accentColor,
               foregroundColor: widget.overPhoto ? Colors.white : null,
             ),
@@ -206,7 +207,7 @@ class _ProjectTaskListState extends ConsumerState<ProjectTaskList> {
             leading: Icon(Icons.list),
             onTap: () => _navigateToDetail(context, subproject),
             title: Text(
-              subproject.title,
+              projectDisplayTitle(AppLocalizations.of(context), subproject),
               overflow: TextOverflow.ellipsis,
               softWrap: false,
             ),

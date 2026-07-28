@@ -342,6 +342,8 @@
   "changeView": "Ansicht wechseln",
   "sortManual": "Manuelle Reihenfolge",
   "untitledList": "Unbenannte Liste",
+  "inboxListTitle": "Aufgaben",
+  "favoritesListTitle": "Favoriten",
   "suggestionsTitle": "Vorschläge",
   "suggestionsLater": "Später",
   "suggestionsEarlier": "Früher",

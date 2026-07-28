@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:vikunja_app/core/di/database_provider.dart';
@@ -190,7 +191,9 @@ class TaskListItemState extends ConsumerState<TaskListItem> {
                     color:
                         p.color ?? Theme.of(sheetContext).colorScheme.primary,
                   ),
-                  title: Text(p.title),
+                  title: Text(
+                    projectDisplayTitle(AppLocalizations.of(sheetContext), p),
+                  ),
                   trailing: p.id == widget.task.projectId
                       ? const Icon(Icons.check)
                       : null,
@@ -449,7 +452,7 @@ class _ProjectChip extends StatelessWidget {
         const SizedBox(width: AppDimensions.xxs),
         Flexible(
           child: Text(
-            project.title,
+            projectDisplayTitle(AppLocalizations.of(context), project),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(

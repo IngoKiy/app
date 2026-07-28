@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:vikunja_app/core/utils/project_display_title.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -471,7 +472,12 @@ class SettingsPageState extends ConsumerState<SettingsPage> {
                 child: Text(AppLocalizations.of(context).none),
               ),
               ...projects.map(
-                (e) => DropdownMenuItem(value: e.id, child: Text(e.title)),
+                (e) => DropdownMenuItem(
+                  value: e.id,
+                  child: Text(
+                    projectDisplayTitle(AppLocalizations.of(context), e),
+                  ),
+                ),
               ),
             ],
             value:
